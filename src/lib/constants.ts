@@ -5,6 +5,7 @@ export const PUBLIC_NAV = [
   { label: "Naujienos", href: "/naujienos" },
   { label: "Dokumentai", href: "/dokumentai" },
   { label: "Apie mus", href: "/kontaktai" },
+  { label: "Skaidrumas", href: "/skaidrumas" },
 ];
 
 export const ADMIN_NAV = [
