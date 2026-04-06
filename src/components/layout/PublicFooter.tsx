@@ -25,9 +25,10 @@ export function PublicFooter() {
           <div>
             <h4 className="text-white font-semibold mb-3">Kontaktai</h4>
             <ul className="space-y-2 text-sm">
-              <li>Krūminių k., Lietuvos Respublika</li>
+              <li>Beržų g. 8, Krūminių k., LT-65474 Varėnos r.</li>
+              <li>Įmonės kodas: 302795244</li>
               <li>El. paštas: info@kruminiai.lt</li>
-              <li>Tel.: +370 600 00000</li>
+              <li>Tel.: +370 658 49514</li>
             </ul>
           </div>
         </div>

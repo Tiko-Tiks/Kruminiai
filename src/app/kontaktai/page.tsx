@@ -1,7 +1,7 @@
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { SITE_NAME } from "@/lib/constants";
-import { MapPin, Mail, Clock, Target, Heart, Lightbulb } from "lucide-react";
+import { MapPin, Mail, Phone, Building2, Target, Heart, Lightbulb } from "lucide-react";
 
 export const metadata = {
   title: "Kontaktai | Krūminių kaimo bendruomenė",
@@ -60,13 +60,33 @@ export default function ContactsPage() {
 
               <div className="space-y-4">
                 <div className="flex items-start gap-3">
+                  <Building2 className="h-5 w-5 text-green-700 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-gray-900">Rekvizitai</p>
+                    <p className="text-sm text-gray-600">
+                      Asociacija<br />
+                      Įmonės kodas: 302795244<br />
+                      Įkurta: 2012-06-04
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
                   <MapPin className="h-5 w-5 text-green-700 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium text-gray-900">Adresas</p>
                     <p className="text-sm text-gray-600">
-                      Krūminių k.<br />
-                      Lietuvos Respublika
+                      Beržų g. 8, Krūminių k.<br />
+                      LT-65474 Varėnos r.
                     </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <Phone className="h-5 w-5 text-green-700 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-gray-900">Telefonas</p>
+                    <p className="text-sm text-gray-600">+370 658 49514</p>
                   </div>
                 </div>
 
@@ -75,16 +95,6 @@ export default function ContactsPage() {
                   <div>
                     <p className="font-medium text-gray-900">El. paštas</p>
                     <p className="text-sm text-gray-600">info@kruminiai.lt</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <Clock className="h-5 w-5 text-green-700 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-gray-900">Darbo laikas</p>
-                    <p className="text-sm text-gray-600">
-                      Pagal susitarimą
-                    </p>
                   </div>
                 </div>
               </div>
