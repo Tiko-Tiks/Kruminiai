@@ -81,7 +81,7 @@ function DocumentTable({ documents, categoryLabel }: { documents: DocumentRow[];
               <td className="py-3 px-4 text-gray-900">{doc.title}</td>
               <td className="py-3 px-4 text-right">
                 <a
-                  href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/${doc.file_path}`}
+                  href={doc.file_path.startsWith('__public__/') ? `/${doc.file_path.replace('__public__/', '')}` : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/${doc.file_path}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-green-700 hover:text-green-800 font-medium text-xs"
@@ -166,7 +166,7 @@ export function SkaidrumasTabs({ ataskaitos, protokolai, istatai, news }: Props)
                       <td className="py-3 px-4 text-gray-900">{doc.title}</td>
                       <td className="py-3 px-4 text-right">
                         <a
-                          href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/${doc.file_path}`}
+                          href={doc.file_path.startsWith('__public__/') ? `/${doc.file_path.replace('__public__/', '')}` : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/${doc.file_path}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-green-700 hover:text-green-800 font-medium text-xs"

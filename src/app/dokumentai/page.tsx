@@ -53,7 +53,14 @@ export default async function DocumentsPage() {
                             <p className="text-xs text-gray-400">{formatDate(doc.created_at)}</p>
                           </div>
                         </div>
-                        <Badge variant="info">PDF</Badge>
+                        <a
+                          href={doc.file_path.startsWith('__public__/') ? `/${doc.file_path.replace('__public__/', '')}` : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/${doc.file_path}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-green-700 hover:text-green-800 font-medium text-xs flex-shrink-0"
+                        >
+                          Atsisiųsti
+                        </a>
                       </div>
                     ))}
                   </div>
