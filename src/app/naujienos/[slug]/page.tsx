@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { MarkdownContent } from "./MarkdownContent";
 
 interface Props {
   params: { slug: string };
@@ -45,11 +46,7 @@ export default async function NewsArticlePage({ params }: Props) {
           </header>
 
           <div className="bg-white rounded-xl border border-gray-200 p-8">
-            <div
-              className="prose prose-gray max-w-none text-gray-700 leading-relaxed whitespace-pre-wrap"
-            >
-              {article.content}
-            </div>
+            <MarkdownContent content={article.content} />
           </div>
         </article>
       </main>
