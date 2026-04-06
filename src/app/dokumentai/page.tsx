@@ -4,7 +4,6 @@ import { getDocuments } from "@/actions/documents";
 import { DOCUMENT_CATEGORY_LABELS } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
 import { FileText } from "lucide-react";
-import { Badge } from "@/components/ui/Badge";
 
 export const metadata = {
   title: "Dokumentai | Krūminių kaimo bendruomenė",

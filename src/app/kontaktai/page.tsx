@@ -77,7 +77,7 @@ export default function AboutPage() {
               <div className="border-l-2 border-green-700 pl-4">
                 <p className="font-semibold text-gray-900 text-sm mb-1">Sveikatinimo paslaugos</p>
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  Planuojamas „Krūminių viešosios pirties SPA" centras – malkinė pirtis,
+                  Planuojamas &bdquo;Krūminių viešosios pirties SPA&ldquo; centras – malkinė pirtis,
                   haloterapija, joga ir kvėpavimo užsiėmimai, relaksacijos zonos, vantų
                   edukacijos ir pirties ritualai.
                 </p>
