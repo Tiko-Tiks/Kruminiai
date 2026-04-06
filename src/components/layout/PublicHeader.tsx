@@ -38,9 +38,15 @@ export function PublicHeader() {
             ))}
             <Link
               href="/prisijungimas"
-              className="ml-4 px-4 py-2 rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 transition-colors"
+              className="ml-4 px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
             >
               Prisijungti
+            </Link>
+            <Link
+              href="/registracija"
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-green-700 text-white hover:bg-green-600 transition-colors"
+            >
+              Tapti nariu
             </Link>
           </nav>
 
@@ -70,9 +76,16 @@ export function PublicHeader() {
             <Link
               href="/prisijungimas"
               onClick={() => setMenuOpen(false)}
-              className="block px-3 py-2 rounded-lg text-sm font-medium text-blue-600"
+              className="block px-3 py-2 rounded-lg text-sm font-medium text-gray-600"
             >
               Prisijungti
+            </Link>
+            <Link
+              href="/registracija"
+              onClick={() => setMenuOpen(false)}
+              className="block px-3 py-2 rounded-lg text-sm font-medium text-green-700"
+            >
+              Tapti nariu
             </Link>
           </div>
         )}
