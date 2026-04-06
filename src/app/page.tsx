@@ -167,9 +167,9 @@ export default async function HomePage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             {[
-              { icon: Handshake, title: "Bendruomeniškumas", desc: "Kuriame darnią aplinką, kurioje visi gali rasti veiklų ir prisidėti prie bendruomenės gyvenimo" },
+              { icon: Handshake, title: "Bendruomeniškumas", desc: "Telkiame Krūminių ir aplinkinių kaimų gyventojus bendriems projektams ir iniciatyvoms" },
               { icon: Eye, title: "Skaidrumas", desc: "Visi finansiniai srautai yra skaidrūs ir prieinami bendruomenės nariams" },
-              { icon: TrendingUp, title: "Socialinis verslas", desc: "Veikiame pagal socialinio verslo principus, kurie leidžia būti finansiškai nepriklausomiems" },
+              { icon: TrendingUp, title: "Socialinis verslas", desc: "Visos pajamos reinvestuojamos į bendruomenės gerovę – nuo SPA centro iki pavežimo paslaugų" },
             ].map((item) => (
               <div key={item.title} className="text-center">
                 <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-green-100 text-green-700 mb-3">

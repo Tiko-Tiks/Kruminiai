@@ -1,6 +1,6 @@
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
-import { Eye, MapPin, Briefcase, Heart } from "lucide-react";
+import { Eye, MapPin, Briefcase, Heart, Sparkles, Bus, Home, Users } from "lucide-react";
 
 export const metadata = {
   title: "Apie mus | Krūminių kaimo bendruomenė",
@@ -27,7 +27,7 @@ export default function AboutPage() {
               Krūminių bendruomenė siekia tapti pavyzdžiu kaimo bendruomenės modeliui
               Lietuvoje – aktyvi, moderni ir socialiai atsakinga bendruomenė, kurioje
               kiekvienas narys jaučiasi vertinamas ir turi galimybę prisidėti prie bendro
-              gėrio kūrimo. Mes tikime, kad kaimų gyvensena gali būti patraukli ir moderni,
+              gėrio kūrimo. Mes tikime, kad kaimo gyvensena gali būti patraukli ir moderni,
               derinant tradicinės kaimo kultūros privalumus su šiuolaikinėmis galimybėmis.
             </p>
           </div>
@@ -41,14 +41,15 @@ export default function AboutPage() {
               <h2 className="text-lg font-bold text-gray-900">Mūsų misija</h2>
             </div>
             <p className="text-sm text-gray-600 leading-relaxed mb-3">
-              Telkiame bendruomenės narius bendriems projektams ir iniciatyvoms, kurios
-              pagerina gyvenimo kokybę Krūminiuose. Skatiname kaimynystę, savanoriškumą
-              ir tarpusavio pagarbą. Aktyviai bendradarbiaujame su vietiniais verslais,
-              savivaldybe ir kitomis organizacijomis.
+              Telkiame Krūminių ir aplinkinių kaimų – Valkininkų, Užuperkasio, Bucivonių,
+              Urkionių, Jakėnų, Paversekio – gyventojus bendriems projektams ir iniciatyvoms,
+              kurios pagerina gyvenimo kokybę regione. Skatiname kaimynystę, savanoriškumą
+              ir tarpusavio pagarbą.
             </p>
             <p className="text-sm text-gray-600 leading-relaxed">
-              Kuriame darnią aplinką, kurioje visi – nuo jauniausiųjų iki vyriausiųjų –
-              gali rasti veiklų ir prisidėti prie bendruomenės gyvenimo.
+              Aktyviai bendradarbiaujame su vietos verslais, savivaldybe ir kitomis
+              organizacijomis kuriant darnią aplinką, kurioje visi – nuo jauniausiųjų
+              iki vyriausiųjų – gali rasti veiklų ir prisidėti prie bendruomenės gyvenimo.
             </p>
           </div>
 
@@ -61,8 +62,8 @@ export default function AboutPage() {
               <h2 className="text-lg font-bold text-gray-900">Socialinio verslo modelis</h2>
             </div>
             <p className="text-sm text-gray-600 leading-relaxed mb-5">
-              Krūminių bendruomenė veikia pagal socialinio verslo principus, kurie leidžia
-              mums būti finansiškai nepriklausomiems. Tai reiškia, kad:
+              Krūminių bendruomenė veikia pagal socialinio verslo principus – visos gautos
+              pajamos reinvestuojamos į bendruomenės gerovę ir socialinę misiją.
             </p>
 
             <div className="space-y-4 ml-1">
@@ -70,28 +71,90 @@ export default function AboutPage() {
                 <p className="font-semibold text-gray-900 text-sm mb-1">Narių įnašai</p>
                 <p className="text-xs text-gray-500 leading-relaxed">
                   Stojamasis mokestis (20&euro;) ir metinis nario mokestis (12&euro;) sudaro
-                  bazinį finansavimą bendruomenės administraciniam ir renginių organizavimui.
+                  bazinį finansavimą bendruomenės administraciniam darbui ir renginių organizavimui.
                 </p>
               </div>
               <div className="border-l-2 border-green-700 pl-4">
-                <p className="font-semibold text-gray-900 text-sm mb-1">Pajamos iš paslaugų</p>
+                <p className="font-semibold text-gray-900 text-sm mb-1">Sveikatinimo paslaugos</p>
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  Miško ruošos paslaugos, smulkių nuomoti ūkio paslaugų generuoja pajamas,
-                  kurios reinvestuojamos į bendruomenės projektus ir infrastruktūros tobulinimą.
+                  Planuojamas „Krūminių viešosios pirties SPA" centras – malkinė pirtis,
+                  haloterapija, joga ir kvėpavimo užsiėmimai, relaksacijos zonos, vantų
+                  edukacijos ir pirties ritualai.
                 </p>
               </div>
               <div className="border-l-2 border-green-700 pl-4">
-                <p className="font-semibold text-gray-900 text-sm mb-1">Partnerystė ir projektai</p>
+                <p className="font-semibold text-gray-900 text-sm mb-1">Turizmo paketai</p>
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  Bendradarbiaujame su vietiniais verslais, savivaldybe ir ES projektų
-                  dalyvavimas leidžia pritraukti papildomų lėšų didesnių iniciatyvų finansavimui.
+                  Bendradarbiaujame su vietos partneriais kuriant integruotus turizmo
+                  paketus – plytų gamybos ir keramikos edukacijos, šaudymo turnyrai,
+                  slidinėjimo trasos, apgyvendinimas.
+                </p>
+              </div>
+              <div className="border-l-2 border-green-700 pl-4">
+                <p className="font-semibold text-gray-900 text-sm mb-1">Pavežimo paslaugos</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Planuojamos pavežimo paslaugos tikslinėms grupėms – senjoramas, vaikų
+                  grupėms, asmenims su negalia – gerinant paslaugų prieinamumą kaimo vietovėje.
                 </p>
               </div>
               <div className="border-l-2 border-green-700 pl-4">
                 <p className="font-semibold text-gray-900 text-sm mb-1">Skaidrumas</p>
                 <p className="text-xs text-gray-500 leading-relaxed">
                   Visi finansiniai srautai yra skaidrūs ir prieinami bendruomenės nariams.
-                  Reguliariai teikiame finansines ataskaitas ir metines ataskaitas.
+                  Reguliariai teikiame finansines ir metines ataskaitas.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Socialinis poveikis */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-green-800 flex items-center justify-center flex-shrink-0">
+                <Users className="h-5 w-5 text-white" />
+              </div>
+              <h2 className="text-lg font-bold text-gray-900">Socialinis poveikis</h2>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-green-50 rounded-xl p-4">
+                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mb-2">
+                  <Sparkles className="h-4 w-4 text-green-700" />
+                </div>
+                <p className="font-semibold text-gray-900 text-sm mb-1">Sveikata ir gerovė</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Prieinamos sveikatinimo paslaugos kaimo gyventojams, gerinančios fizinę
+                  ir emocinę sveikatą.
+                </p>
+              </div>
+              <div className="bg-green-50 rounded-xl p-4">
+                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mb-2">
+                  <Users className="h-4 w-4 text-green-700" />
+                </div>
+                <p className="font-semibold text-gray-900 text-sm mb-1">Socialinė integracija</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Mažiname socialinę atskirtį suteikdami lengvatines paslaugas
+                  pažeidžiamiausiems visuomenės nariams.
+                </p>
+              </div>
+              <div className="bg-green-50 rounded-xl p-4">
+                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mb-2">
+                  <Home className="h-4 w-4 text-green-700" />
+                </div>
+                <p className="font-semibold text-gray-900 text-sm mb-1">Turizmas ir ekonomika</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Skatiname vietos turizmą ir kuriame naujas pajamas regiono verslams,
+                  stipriname Krūminių kaimo patrauklumą.
+                </p>
+              </div>
+              <div className="bg-green-50 rounded-xl p-4">
+                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mb-2">
+                  <Bus className="h-4 w-4 text-green-700" />
+                </div>
+                <p className="font-semibold text-gray-900 text-sm mb-1">Prieinamumas</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Pavežimo paslaugos užtikrina fizinį prieinamumą paslaugoms
+                  kaimo vietovėje gyvenantiems žmonėms.
                 </p>
               </div>
             </div>
@@ -109,9 +172,9 @@ export default function AboutPage() {
               {[
                 "Bendruomeniškumas ir solidarumas",
                 "Atsakingumas ir skaidrumas",
-                "Inovatyvus ir tvarus tobulėjimas",
+                "Socialinė atsakomybė ir įtraukimas",
                 "Pagarba aplinkai ir tradicijoms",
-                "Įtraukimas ir lygios galimybės visiems",
+                "Lygios galimybės visiems",
               ].map((value) => (
                 <li key={value} className="flex items-center gap-2 text-sm text-green-100">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
