@@ -3,7 +3,7 @@ import { PublicFooter } from "@/components/layout/PublicFooter";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { formatDateLong } from "@/lib/utils";
 import { SITE_NAME } from "@/lib/constants";
-import { ArrowRight, FileText, Users, Newspaper, Phone, Handshake, Eye, TrendingUp } from "lucide-react";
+import { ArrowRight, FileText, Users, Newspaper, Phone, Handshake, Eye, TrendingUp, Pin, CalendarDays } from "lucide-react";
 import Link from "next/link";
 
 async function getLatestNews() {
@@ -52,6 +52,46 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Pinned announcement */}
+      {news.filter(n => n.is_pinned).length > 0 && (
+        <section className="bg-white border-b border-gray-200">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+            {news.filter(n => n.is_pinned).map((article) => (
+              <Link
+                key={article.id}
+                href={`/naujienos/${article.slug}`}
+                className="block bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border-2 border-amber-300 p-6 sm:p-8 hover:border-amber-400 hover:shadow-lg transition-all group"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 w-12 h-12 rounded-full bg-amber-400 flex items-center justify-center">
+                    <CalendarDays className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-400 text-white">
+                        <Pin className="h-3 w-3" /> Svarbu
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {article.published_at ? formatDateLong(article.published_at) : ""}
+                      </span>
+                    </div>
+                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 group-hover:text-amber-700 transition-colors">
+                      {article.title}
+                    </h3>
+                    {article.excerpt && (
+                      <p className="text-sm sm:text-base text-gray-600 line-clamp-2">{article.excerpt}</p>
+                    )}
+                    <span className="inline-flex items-center gap-1 mt-3 text-sm font-medium text-amber-700 group-hover:text-amber-800">
+                      Skaityti daugiau <ArrowRight className="h-4 w-4" />
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Quick links */}
       <section className="py-16 bg-white">
