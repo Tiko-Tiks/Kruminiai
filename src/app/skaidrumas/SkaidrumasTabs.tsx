@@ -45,6 +45,12 @@ function formatDate(dateStr: string | null) {
   });
 }
 
+function getDocumentUrl(filePath: string) {
+  if (filePath.startsWith('__api__/')) return `/api/dokumentai/${filePath.replace('__api__/', '')}`;
+  if (filePath.startsWith('__public__/')) return `/${filePath.replace('__public__/', '')}`;
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/${filePath}`;
+}
+
 function EmptyState() {
   return (
     <p className="text-center text-gray-400 py-8">
@@ -81,7 +87,7 @@ function DocumentTable({ documents, categoryLabel }: { documents: DocumentRow[];
               <td className="py-3 px-4 text-gray-900">{doc.title}</td>
               <td className="py-3 px-4 text-right">
                 <a
-                  href={doc.file_path.startsWith('__public__/') ? `/${doc.file_path.replace('__public__/', '')}` : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/${doc.file_path}`}
+                  href={getDocumentUrl(doc.file_path)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-green-700 hover:text-green-800 font-medium text-xs"
@@ -166,7 +172,7 @@ export function SkaidrumasTabs({ ataskaitos, protokolai, istatai, news }: Props)
                       <td className="py-3 px-4 text-gray-900">{doc.title}</td>
                       <td className="py-3 px-4 text-right">
                         <a
-                          href={doc.file_path.startsWith('__public__/') ? `/${doc.file_path.replace('__public__/', '')}` : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/${doc.file_path}`}
+                          href={getDocumentUrl(doc.file_path)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-green-700 hover:text-green-800 font-medium text-xs"

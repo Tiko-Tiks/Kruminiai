@@ -53,7 +53,7 @@ export default async function DocumentsPage() {
                           </div>
                         </div>
                         <a
-                          href={doc.file_path.startsWith('__public__/') ? `/${doc.file_path.replace('__public__/', '')}` : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/${doc.file_path}`}
+                          href={doc.file_path.startsWith('__api__/') ? `/api/dokumentai/${doc.file_path.replace('__api__/', '')}` : doc.file_path.startsWith('__public__/') ? `/${doc.file_path.replace('__public__/', '')}` : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/${doc.file_path}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-green-700 hover:text-green-800 font-medium text-xs flex-shrink-0"

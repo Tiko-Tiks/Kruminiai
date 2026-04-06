@@ -29,7 +29,9 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (request.nextUrl.pathname.startsWith("/admin") && !user) {
+  const isProtected = request.nextUrl.pathname.startsWith("/admin") || request.nextUrl.pathname.startsWith("/dokumentai");
+
+  if (isProtected && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/prisijungimas";
     return NextResponse.redirect(url);
@@ -39,5 +41,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/admin/:path*", "/dokumentai/:path*"],
 };
