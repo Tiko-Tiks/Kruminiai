@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -50,9 +51,7 @@ export function AdminSidebar() {
   return (
     <aside className="fixed left-0 top-0 z-30 flex h-screen w-64 flex-col bg-slate-900 text-slate-300">
       <div className="flex items-center gap-3 px-5 py-5 border-b border-slate-700/50">
-        <div className="h-8 w-8 rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-xs">
-          KB
-        </div>
+        <Image src="/images/logo-sm.png" alt="Logo" width={32} height={48} className="h-8 w-auto" />
         <div className="min-w-0">
           <p className="text-sm font-semibold text-white truncate">{SITE_NAME}</p>
           <p className="text-xs text-slate-400">Administravimas</p>

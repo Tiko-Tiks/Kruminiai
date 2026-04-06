@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { SITE_NAME } from "@/lib/constants";
+import Image from "next/image";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -36,9 +37,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="h-14 w-14 rounded-full bg-green-700 flex items-center justify-center text-white font-bold text-xl mx-auto mb-4">
-            KB
-          </div>
+          <Image src="/images/logo-sm.png" alt={SITE_NAME} width={56} height={84} className="h-14 w-auto mx-auto mb-4" />
           <h1 className="text-xl font-semibold text-gray-900">{SITE_NAME}</h1>
           <p className="text-sm text-gray-500 mt-1">Administravimo sistema</p>
         </div>

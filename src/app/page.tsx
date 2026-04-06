@@ -5,6 +5,7 @@ import { formatDateLong } from "@/lib/utils";
 import { SITE_NAME } from "@/lib/constants";
 import { ArrowRight, FileText, Users, Newspaper, Phone, Handshake, Eye, TrendingUp } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 async function getLatestNews() {
   const supabase = createServerSupabaseClient();
@@ -28,6 +29,15 @@ export default async function HomePage() {
       {/* Hero */}
       <section className="bg-gradient-to-br from-green-800 via-green-700 to-green-900 text-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-20 md:py-28">
+          <div className="flex flex-col md:flex-row items-center gap-10">
+          <Image
+            src="/images/logo-md.png"
+            alt={SITE_NAME}
+            width={180}
+            height={270}
+            className="hidden md:block drop-shadow-xl"
+            priority
+          />
           <div className="max-w-2xl">
             <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-4">
               {SITE_NAME}
@@ -50,6 +60,7 @@ export default async function HomePage() {
                 Susisiekite
               </Link>
             </div>
+          </div>
           </div>
         </div>
       </section>
