@@ -20,10 +20,24 @@ export default function LoginPage() {
     setError("");
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       setError("Neteisingas el. paštas arba slaptažodis");
+      setLoading(false);
+      return;
+    }
+
+    // Check if user is approved
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_approved")
+      .eq("id", data.user.id)
+      .single();
+
+    if (!profile?.is_approved) {
+      await supabase.auth.signOut();
+      setError("Jūsų paskyra dar nepatvirtinta. Laukite administratoriaus patvirtinimo.");
       setLoading(false);
       return;
     }

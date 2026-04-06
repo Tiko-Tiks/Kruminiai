@@ -9,6 +9,7 @@ import {
   Banknote,
   FileText,
   Newspaper,
+  UserCheck,
   LogOut,
   ExternalLink,
 } from "lucide-react";
@@ -23,6 +24,7 @@ const icons = {
   Banknote,
   FileText,
   Newspaper,
+  UserCheck,
 };
 
 const navItems = [
@@ -31,6 +33,7 @@ const navItems = [
   { label: "Mokesčiai", href: "/admin/mokesciai", icon: "Banknote" },
   { label: "Dokumentai", href: "/admin/dokumentai", icon: "FileText" },
   { label: "Naujienos", href: "/admin/naujienos", icon: "Newspaper" },
+  { label: "Vartotojai", href: "/admin/vartotojai", icon: "UserCheck" },
 ] as const;
 
 export function AdminSidebar() {
