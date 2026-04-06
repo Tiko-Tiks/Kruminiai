@@ -1,7 +1,6 @@
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
-import { formatCurrency, formatDateLong } from "@/lib/utils";
 import { SkaidrumasTabs } from "./SkaidrumasTabs";
 
 async function getFinansaiData() {
@@ -37,8 +36,6 @@ export default async function SkaidrumasPage() {
   const ataskaitos = documents.filter((d) => d.category === "ataskaitos");
   const protokolai = documents.filter((d) => d.category === "protokolai");
   const istatai = documents.filter((d) => d.category === "istatai" || d.category === "sutartys");
-  const kiti = documents.filter((d) => d.category === "kita");
-
   return (
     <div className="min-h-screen flex flex-col bg-amber-50/50">
       <PublicHeader />
@@ -59,7 +56,6 @@ export default async function SkaidrumasPage() {
             ataskaitos={ataskaitos}
             protokolai={protokolai}
             istatai={istatai}
-            kiti={kiti}
             news={news}
           />
         </div>

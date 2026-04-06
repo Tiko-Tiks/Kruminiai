@@ -26,7 +26,6 @@ interface Props {
   ataskaitos: DocumentRow[];
   protokolai: DocumentRow[];
   istatai: DocumentRow[];
-  kiti: DocumentRow[];
   news: NewsRow[];
 }
 
@@ -98,7 +97,7 @@ function DocumentTable({ documents, categoryLabel }: { documents: DocumentRow[];
   );
 }
 
-export function SkaidrumasTabs({ ataskaitos, protokolai, istatai, kiti, news }: Props) {
+export function SkaidrumasTabs({ ataskaitos, protokolai, istatai, news }: Props) {
   const [activeTab, setActiveTab] = useState<string>("finansai");
 
   return (

@@ -1,6 +1,6 @@
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
-import { Eye, MapPin, Lightbulb, Briefcase, Heart } from "lucide-react";
+import { Eye, MapPin, Briefcase, Heart } from "lucide-react";
 
 export const metadata = {
   title: "Apie mus | Krūminių kaimo bendruomenė",
