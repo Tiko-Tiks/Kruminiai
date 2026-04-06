@@ -10,8 +10,8 @@ export function PublicFooter() {
           <div>
             <h3 className="text-white font-semibold mb-3">{SITE_NAME}</h3>
             <p className="text-sm leading-relaxed">
-              Bendruomenė, vienijanti Krūminių kaimo gyventojus bendriems tikslams
-              ir geresnei gyvenimo kokybei.
+              Elektroninė demokratija ir socialinis verslas.
+              Kartu kuriame geresnę ateitį mūsų kaimui ir žmonėms.
             </p>
           </div>
           <div>

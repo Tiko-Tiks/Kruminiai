@@ -3,7 +3,7 @@ import { PublicFooter } from "@/components/layout/PublicFooter";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { formatDateLong } from "@/lib/utils";
 import { SITE_NAME } from "@/lib/constants";
-import { ArrowRight, FileText, Users, Newspaper, Phone } from "lucide-react";
+import { ArrowRight, FileText, Users, Newspaper, Phone, Handshake, Eye, TrendingUp } from "lucide-react";
 import Link from "next/link";
 
 async function getLatestNews() {
@@ -33,8 +33,8 @@ export default async function HomePage() {
               {SITE_NAME}
             </h1>
             <p className="text-lg text-green-100 leading-relaxed mb-8">
-              Bendruomenė, vienijanti Krūminių kaimo gyventojus bendriems tikslams,
-              geresnei aplinkos kokybei ir glaudesniam bendradarbiavimui.
+              Elektroninė demokratija ir socialinis verslas. Kartu kuriame
+              geresnę ateitį mūsų kaimui ir žmonėms.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link
@@ -59,9 +59,9 @@ export default async function HomePage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { icon: Newspaper, title: "Naujienos", desc: "Sužinokite naujausias bendruomenės žinias", href: "/naujienos" },
-              { icon: FileText, title: "Dokumentai", desc: "Protokolai, ataskaitos ir kiti svarbūs dokumentai", href: "/dokumentai" },
-              { icon: Users, title: "Apie mus", desc: "Kas mes esame ir kuo rūpinamės", href: "/kontaktai" },
+              { icon: Newspaper, title: "Naujienos", desc: "Pranešimai apie susirinkimus, renginius ir svarbius sprendimus", href: "/naujienos" },
+              { icon: FileText, title: "Dokumentai", desc: "Įstatai, protokolai, ataskaitos ir kiti svarbūs dokumentai", href: "/dokumentai" },
+              { icon: Users, title: "Apie mus", desc: "Vizija, misija ir socialinio verslo modelis", href: "/kontaktai" },
               { icon: Phone, title: "Kontaktai", desc: "Susisiekite su bendruomenės valdyba", href: "/kontaktai" },
             ].map((item) => (
               <Link
@@ -117,14 +117,53 @@ export default async function HomePage() {
       {/* About section */}
       <section className="py-16 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="max-w-3xl mx-auto text-center">
+          <div className="max-w-3xl mx-auto text-center mb-12">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Apie bendruomenę</h2>
             <p className="text-gray-600 leading-relaxed">
-              Krūminių kaimo bendruomenė vienija kaimo gyventojus, siekiančius puoselėti
-              savo kraštą, rūpintis aplinka ir kurti geresnę aplinką visiems. Bendruomenė
-              organizuoja susirinkimus, talkas, renginius ir bendrai sprendžia kaimo
-              reikalus. Kviečiame visus prisidėti ir būti aktyviais nariais!
+              Telkiame bendruomenės narius bendriems projektams ir iniciatyvoms, kurios
+              pagerina gyvenimo kokybę Krūminiuose. Skatinama kaimynystė, savanoriškumas
+              ir tarpusavio pagarba. Aktyviai bendradarbiaujame su vietiniais verslais,
+              savivaldybe ir kitomis organizacijomis.
             </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            {[
+              { icon: Handshake, title: "Bendruomeniškumas", desc: "Kuriame darnią aplinką, kurioje visi gali rasti veiklų ir prisidėti prie bendruomenės gyvenimo" },
+              { icon: Eye, title: "Skaidrumas", desc: "Visi finansiniai srautai yra skaidrūs ir prieinami bendruomenės nariams" },
+              { icon: TrendingUp, title: "Socialinis verslas", desc: "Veikiame pagal socialinio verslo principus, kurie leidžia būti finansiškai nepriklausomiems" },
+            ].map((item) => (
+              <div key={item.title} className="text-center">
+                <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-green-100 text-green-700 mb-3">
+                  <item.icon className="h-6 w-6" />
+                </div>
+                <h3 className="font-semibold text-gray-900 mb-2">{item.title}</h3>
+                <p className="text-sm text-gray-500">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Membership info */}
+      <section className="py-16 bg-gray-50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="max-w-3xl mx-auto text-center">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Tapkite nariu</h2>
+            <p className="text-gray-600 leading-relaxed mb-6">
+              Bendruomenės nariais gali būti 18 metų sulaukę veiksnūs fiziniai asmenys,
+              gyvenantys, dirbantys ar turintys nuosavybės Krūminių kaime ir pritariantys
+              bendruomenės tikslams.
+            </p>
+            <div className="flex flex-wrap justify-center gap-6">
+              <div className="bg-white rounded-xl border border-gray-200 px-6 py-4 text-center">
+                <p className="text-2xl font-bold text-green-700">20 &euro;</p>
+                <p className="text-sm text-gray-500">Stojamasis mokestis</p>
+              </div>
+              <div className="bg-white rounded-xl border border-gray-200 px-6 py-4 text-center">
+                <p className="text-2xl font-bold text-green-700">12 &euro;</p>
+                <p className="text-sm text-gray-500">Metinis nario mokestis</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>

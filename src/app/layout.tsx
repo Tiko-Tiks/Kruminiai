@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ["latin", "latin-ext"] });
 export const metadata: Metadata = {
   title: "Krūminių kaimo bendruomenė",
   description:
-    "Krūminių kaimo bendruomenės oficiali svetainė – naujienos, dokumentai, renginiai ir bendruomenės informacija.",
+    "Krūminių kaimo bendruomenė – elektroninė demokratija ir socialinis verslas. Moderni bendruomenė, kurianti ateitį kartu.",
 };
 
 export default function RootLayout({
