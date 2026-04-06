@@ -33,8 +33,7 @@ export default async function HomePage() {
               {SITE_NAME}
             </h1>
             <p className="text-lg text-green-100 leading-relaxed mb-8">
-              Elektroninė demokratija ir socialinis verslas. Kartu kuriame
-              geresnę ateitį mūsų kaimui ir žmonėms.
+              Kartu kuriame geresnę ateitį mūsų kaimui ir žmonėms.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link

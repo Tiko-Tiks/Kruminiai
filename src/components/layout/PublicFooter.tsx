@@ -10,8 +10,8 @@ export function PublicFooter() {
           <div>
             <h3 className="text-white font-semibold mb-3">{SITE_NAME}</h3>
             <p className="text-sm leading-relaxed">
-              Elektroninė demokratija ir socialinis verslas.
-              Kartu kuriame geresnę ateitį mūsų kaimui ir žmonėms.
+              Kartu kuriame savo kaimą. Geresnę ateitį mūsų
+              bendruomenei ir žmonėms.
             </p>
           </div>
           <div>

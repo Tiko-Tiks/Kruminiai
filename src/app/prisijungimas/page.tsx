@@ -70,9 +70,9 @@ export default function LoginPage() {
                   <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                     Slaptažodis
                   </label>
-                  <button type="button" className="text-xs text-gray-500 hover:text-gray-700">
+                  <Link href="/slaptazodis" className="text-xs text-gray-500 hover:text-gray-700">
                     Pamiršote slaptažodį?
-                  </button>
+                  </Link>
                 </div>
                 <input
                   id="password"

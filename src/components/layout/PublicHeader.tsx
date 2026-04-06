@@ -17,7 +17,7 @@ export function PublicHeader() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
           <Link href="/" className="flex items-center gap-3">
-            <Image src="/images/logo-sm.png" alt={SITE_NAME} width={48} height={72} className="h-12 w-auto" />
+            <Image src="/images/logo-sm.png" alt={SITE_NAME} width={64} height={96} className="h-14 w-auto" />
             <span className="font-semibold text-gray-900 hidden sm:block">{SITE_NAME}</span>
           </Link>
 
