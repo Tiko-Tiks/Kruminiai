@@ -1,154 +1,124 @@
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
-import { SITE_NAME } from "@/lib/constants";
-import { MapPin, Mail, Phone, Building2, Target, Heart, Lightbulb } from "lucide-react";
+import { Eye, MapPin, Lightbulb, Briefcase, Heart } from "lucide-react";
 
 export const metadata = {
-  title: "Kontaktai | Krūminių kaimo bendruomenė",
+  title: "Apie mus | Krūminių kaimo bendruomenė",
 };
 
-export default function ContactsPage() {
+export default function AboutPage() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-amber-50/50">
       <PublicHeader />
 
-      <main className="flex-1 bg-gray-50">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Apie mus ir kontaktai</h1>
-          <p className="text-gray-500 mb-8">
-            Sužinokite apie Krūminių bendruomenės viziją, misiją ir socialinio verslo modelį
-          </p>
+      <main className="flex-1">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-12">
+          <h1 className="text-3xl font-bold text-gray-900 text-center mb-8">Apie mus</h1>
 
-          {/* Mission */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Mūsų vizija ir misija</h2>
-            <p className="text-gray-600 leading-relaxed mb-4">
-              Krūminių kaimo bendruomenė yra ribotos civilinės atsakomybės viešasis juridinis
-              asmuo, kurio teisinė forma — asociacija. Bendruomenė veikia Krūminių kaimo ir
-              aplinkinių teritorijų ribose.
+          {/* Mūsų vizija */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center flex-shrink-0">
+                <Eye className="h-5 w-5 text-white" />
+              </div>
+              <h2 className="text-lg font-bold text-gray-900">Mūsų vizija</h2>
+            </div>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Krūminių bendruomenė siekia tapti pavyzdžiu kaimo bendruomenės modeliui
+              Lietuvoje – aktyvi, moderni ir socialiai atsakinga bendruomenė, kurioje
+              kiekvienas narys jaučiasi vertinamas ir turi galimybę prisidėti prie bendro
+              gėrio kūrimo. Mes tikime, kad kaimų gyvensena gali būti patraukli ir moderni,
+              derinant tradicinės kaimo kultūros privalumus su šiuolaikinėmis galimybėmis.
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 bg-green-50 rounded-lg">
-                <Target className="h-5 w-5 text-green-700 mb-2" />
-                <p className="font-medium text-gray-900 text-sm mb-1">Tikslas</p>
-                <p className="text-xs text-gray-600">
-                  Atstovauti ir ginti bendruomenės narių interesus, skatinti pilietinį aktyvumą,
-                  puoselėti kaimo tradicijas ir gerinti gyvenimo kokybę.
+          </div>
+
+          {/* Mūsų misija */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center flex-shrink-0">
+                <MapPin className="h-5 w-5 text-white" />
+              </div>
+              <h2 className="text-lg font-bold text-gray-900">Mūsų misija</h2>
+            </div>
+            <p className="text-sm text-gray-600 leading-relaxed mb-3">
+              Telkiame bendruomenės narius bendriems projektams ir iniciatyvoms, kurios
+              pagerina gyvenimo kokybę Krūminiuose. Skatiname kaimynystę, savanoriškumą
+              ir tarpusavio pagarbą. Aktyviai bendradarbiaujame su vietiniais verslais,
+              savivaldybe ir kitomis organizacijomis.
+            </p>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Kuriame darnią aplinką, kurioje visi – nuo jauniausiųjų iki vyriausiųjų –
+              gali rasti veiklų ir prisidėti prie bendruomenės gyvenimo.
+            </p>
+          </div>
+
+          {/* Socialinio verslo modelis */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-green-800 flex items-center justify-center flex-shrink-0">
+                <Briefcase className="h-5 w-5 text-white" />
+              </div>
+              <h2 className="text-lg font-bold text-gray-900">Socialinio verslo modelis</h2>
+            </div>
+            <p className="text-sm text-gray-600 leading-relaxed mb-5">
+              Krūminių bendruomenė veikia pagal socialinio verslo principus, kurie leidžia
+              mums būti finansiškai nepriklausomiems. Tai reiškia, kad:
+            </p>
+
+            <div className="space-y-4 ml-1">
+              <div className="border-l-2 border-green-700 pl-4">
+                <p className="font-semibold text-gray-900 text-sm mb-1">Narių įnašai</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Stojamasis mokestis (20&euro;) ir metinis nario mokestis (12&euro;) sudaro
+                  bazinį finansavimą bendruomenės administraciniam ir renginių organizavimui.
                 </p>
               </div>
-              <div className="p-4 bg-green-50 rounded-lg">
-                <Heart className="h-5 w-5 text-green-700 mb-2" />
-                <p className="font-medium text-gray-900 text-sm mb-1">Vertybės</p>
-                <p className="text-xs text-gray-600">
-                  Bendruomeniškumas, solidarumas, kaimynystė, savanoriškumas ir tarpusavio pagarba.
+              <div className="border-l-2 border-green-700 pl-4">
+                <p className="font-semibold text-gray-900 text-sm mb-1">Pajamos iš paslaugų</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Miško ruošos paslaugos, smulkių nuomoti ūkio paslaugų generuoja pajamas,
+                  kurios reinvestuojamos į bendruomenės projektus ir infrastruktūros tobulinimą.
                 </p>
               </div>
-              <div className="p-4 bg-green-50 rounded-lg">
-                <Lightbulb className="h-5 w-5 text-green-700 mb-2" />
-                <p className="font-medium text-gray-900 text-sm mb-1">Socialinis verslas</p>
-                <p className="text-xs text-gray-600">
-                  Veikiame pagal socialinio verslo principus, kurie leidžia būti finansiškai
-                  nepriklausomiems ir tvariai augti.
+              <div className="border-l-2 border-green-700 pl-4">
+                <p className="font-semibold text-gray-900 text-sm mb-1">Partnerystė ir projektai</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Bendradarbiaujame su vietiniais verslais, savivaldybe ir ES projektų
+                  dalyvavimas leidžia pritraukti papildomų lėšų didesnių iniciatyvų finansavimui.
+                </p>
+              </div>
+              <div className="border-l-2 border-green-700 pl-4">
+                <p className="font-semibold text-gray-900 text-sm mb-1">Skaidrumas</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Visi finansiniai srautai yra skaidrūs ir prieinami bendruomenės nariams.
+                  Reguliariai teikiame finansines ataskaitas ir metines ataskaitas.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
-              <h2 className="text-lg font-semibold text-gray-900">{SITE_NAME}</h2>
-
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <Building2 className="h-5 w-5 text-green-700 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-gray-900">Rekvizitai</p>
-                    <p className="text-sm text-gray-600">
-                      Asociacija<br />
-                      Įmonės kodas: 302795244<br />
-                      Įkurta: 2012-06-04
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-green-700 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-gray-900">Adresas</p>
-                    <p className="text-sm text-gray-600">
-                      Beržų g. 8, Krūminių k.<br />
-                      LT-65474 Varėnos r.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <Phone className="h-5 w-5 text-green-700 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-gray-900">Telefonas</p>
-                    <p className="text-sm text-gray-600">+370 658 49514</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <Mail className="h-5 w-5 text-green-700 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-gray-900">El. paštas</p>
-                    <p className="text-sm text-gray-600">info@kruminiai.lt</p>
-                  </div>
-                </div>
+          {/* Mūsų vertybės */}
+          <div className="bg-green-800 rounded-2xl p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center flex-shrink-0">
+                <Heart className="h-5 w-5 text-white" />
               </div>
+              <h2 className="text-lg font-bold text-white">Mūsų vertybės</h2>
             </div>
-
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Valdyba</h2>
-              <p className="text-sm text-gray-500 mb-4">
-                Valdyba yra kolegialus valdymo organas, kurį sudaro 5 nariai,
-                renkami 3 metų kadencijai.
-              </p>
-              <div className="space-y-3">
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="font-medium text-gray-900">Pirmininkas</p>
-                  <p className="text-xs text-gray-400">Vienasmenis valdymo organas, renkamas 3 metų kadencijai</p>
-                </div>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="font-medium text-gray-900">Valdybos nariai</p>
-                  <p className="text-xs text-gray-400">4 nariai, renkami visuotiniame susirinkime</p>
-                </div>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="font-medium text-gray-900">Revizijos komisija</p>
-                  <p className="text-xs text-gray-400">Finansinės veiklos kontrolė, renkama 3 metams</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Membership */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mt-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">Narystė</h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Bendruomenės nariais gali būti 18 metų sulaukę veiksnūs fiziniai asmenys,
-              gyvenantys, dirbantys ar turintys nuosavybės Krūminių kaime ir pritariantys
-              bendruomenės tikslams. Norintis tapti nariu pateikia raštišką prašymą pirmininkui.
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="font-medium text-gray-900 mb-1">Nario teisės:</p>
-                <ul className="text-gray-600 space-y-1 list-disc list-inside">
-                  <li>Dalyvauti ir balsuoti visuotiniame susirinkime</li>
-                  <li>Naudotis bendruomenės paslaugomis</li>
-                  <li>Susipažinti su dokumentais</li>
-                  <li>Rinkti ir būti renkamam į valdymo organus</li>
-                </ul>
-              </div>
-              <div>
-                <p className="font-medium text-gray-900 mb-1">Nario mokesčiai:</p>
-                <ul className="text-gray-600 space-y-1 list-disc list-inside">
-                  <li>Stojamasis mokestis — 20 &euro;</li>
-                  <li>Metinis nario mokestis — 12 &euro;</li>
-                </ul>
-              </div>
-            </div>
+            <ul className="space-y-2">
+              {[
+                "Bendruomeniškumas ir solidarumas",
+                "Atsakingumas ir skaidrumas",
+                "Inovatyvus ir tvarus tobulėjimas",
+                "Pagarba aplinkai ir tradicijoms",
+                "Įtraukimas ir lygios galimybės visiems",
+              ].map((value) => (
+                <li key={value} className="flex items-center gap-2 text-sm text-green-100">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+                  {value}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </main>

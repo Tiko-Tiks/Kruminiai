@@ -4,7 +4,7 @@ export const PUBLIC_NAV = [
   { label: "Pradžia", href: "/" },
   { label: "Naujienos", href: "/naujienos" },
   { label: "Dokumentai", href: "/dokumentai" },
-  { label: "Kontaktai", href: "/kontaktai" },
+  { label: "Apie mus", href: "/kontaktai" },
 ];
 
 export const ADMIN_NAV = [
