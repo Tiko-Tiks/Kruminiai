@@ -12,6 +12,7 @@ import {
   UserCheck,
   LogOut,
   ExternalLink,
+  Vote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SITE_NAME } from "@/lib/constants";
@@ -25,6 +26,7 @@ const icons = {
   FileText,
   Newspaper,
   UserCheck,
+  Vote,
 };
 
 const navItems = [
@@ -33,6 +35,7 @@ const navItems = [
   { label: "Mokesčiai", href: "/admin/mokesciai", icon: "Banknote" },
   { label: "Dokumentai", href: "/admin/dokumentai", icon: "FileText" },
   { label: "Naujienos", href: "/admin/naujienos", icon: "Newspaper" },
+  { label: "Susirinkimai", href: "/admin/susirinkimai", icon: "Vote" },
   { label: "Vartotojai", href: "/admin/vartotojai", icon: "UserCheck" },
 ] as const;
 
@@ -84,6 +87,18 @@ export function AdminSidebar() {
       </nav>
 
       <div className="px-3 py-4 border-t border-slate-700/50 space-y-1">
+        <Link
+          href="/admin/balsavimas"
+          className={cn(
+            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+            isActive("/admin/balsavimas")
+              ? "bg-green-600/20 text-green-400"
+              : "text-slate-400 hover:bg-slate-800 hover:text-white"
+          )}
+        >
+          <Vote className="h-5 w-5" />
+          Mano balsavimai
+        </Link>
         <Link
           href="/"
           className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"

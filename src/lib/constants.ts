@@ -42,3 +42,52 @@ export const FEE_TYPE_LABELS: Record<string, string> = {
   vienkartinis: "Vienkartinis mokėjimas",
   kita: "Kita",
 };
+
+// Voting module constants
+
+export const MEETING_TYPE_LABELS: Record<string, string> = {
+  visuotinis: "Visuotinis narių susirinkimas",
+  neeilinis: "Neeilinis susirinkimas",
+  pakartotinis: "Pakartotinis susirinkimas",
+  valdybos: "Valdybos posėdis",
+};
+
+export const MEETING_STATUS_LABELS: Record<string, string> = {
+  planuojamas: "Planuojamas",
+  registracija: "Registracija",
+  vyksta: "Vyksta",
+  baigtas: "Baigtas",
+  atšauktas: "Atšauktas",
+};
+
+export const RESOLUTION_STATUS_LABELS: Record<string, string> = {
+  projektas: "Projektas",
+  svarstomas: "Svarstomas",
+  balsuojamas: "Balsuojamas",
+  patvirtintas: "Patvirtintas",
+  atmestas: "Atmestas",
+};
+
+export const VOTE_LABELS: Record<string, string> = {
+  uz: "Už",
+  pries: "Prieš",
+  susilaike: "Susilaikė",
+};
+
+export const VOTE_TYPE_LABELS: Record<string, string> = {
+  fizinis: "Gyvai",
+  isankstinis: "Išankstinis (online)",
+  rastu: "Raštu",
+};
+
+export const ATTENDANCE_TYPE_LABELS: Record<string, string> = {
+  fizinis: "Gyvai",
+  nuotolinis: "Nuotoliniu būdu",
+  rastu: "Balsavo raštu",
+};
+
+export const COMMUNITY_LEGAL = {
+  name: "Krūminių kaimo bendruomenė",
+  code: "302795244",
+  address: "Beržų g. 8, Krūminių k., Varėnos r.",
+};

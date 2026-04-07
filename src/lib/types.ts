@@ -104,3 +104,79 @@ export interface DashboardStats {
   documentsCount: number;
   newsCount: number;
 }
+
+// Voting module types
+
+export type MeetingType = "visuotinis" | "neeilinis" | "pakartotinis" | "valdybos";
+export type MeetingStatus = "planuojamas" | "registracija" | "vyksta" | "baigtas" | "atšauktas";
+
+export interface Meeting {
+  id: string;
+  title: string;
+  description: string | null;
+  meeting_date: string;
+  ended_at: string | null;
+  location: string;
+  meeting_type: MeetingType;
+  status: MeetingStatus;
+  protocol_number: string | null;
+  chairperson_name: string | null;
+  secretary_name: string | null;
+  agenda_approved: boolean;
+  total_members_at_time: number;
+  quorum_required: number;
+  is_repeat: boolean;
+  early_voting_start: string | null;
+  early_voting_end: string | null;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+}
+
+export type ResolutionStatus = "projektas" | "svarstomas" | "balsuojamas" | "patvirtintas" | "atmestas";
+
+export interface Resolution {
+  id: string;
+  meeting_id: string;
+  title: string;
+  description: string | null;
+  resolution_number: number;
+  status: ResolutionStatus;
+  is_procedural: boolean;
+  procedural_type: "pirmininkas_sekretorius" | "darbotvarke" | null;
+  requires_qualified_majority: boolean;
+  discussion_text: string | null;
+  decision_text: string | null;
+  early_voting_open: boolean;
+  result_for: number;
+  result_against: number;
+  result_abstain: number;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+}
+
+export type VoteChoice = "uz" | "pries" | "susilaike";
+export type VoteType = "fizinis" | "isankstinis" | "rastu";
+
+export interface VoteBallot {
+  id: string;
+  resolution_id: string;
+  member_id: string;
+  vote: VoteChoice;
+  vote_type: VoteType;
+  voted_at: string;
+  recorded_by: string | null;
+  member?: Member;
+}
+
+export type AttendanceType = "fizinis" | "nuotolinis" | "rastu";
+
+export interface MeetingAttendance {
+  id: string;
+  meeting_id: string;
+  member_id: string;
+  attendance_type: AttendanceType;
+  registered_at: string;
+  member?: Member;
+}
