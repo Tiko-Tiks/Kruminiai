@@ -180,3 +180,15 @@ export interface MeetingAttendance {
   registered_at: string;
   member?: Member;
 }
+
+export interface MeetingVotingToken {
+  id: string;
+  meeting_id: string;
+  member_id: string;
+  token: string;
+  sent_at: string | null;
+  voted_at: string | null;
+  expires_at: string;
+  created_at: string;
+  member?: Member;
+}

@@ -1,6 +1,7 @@
 import { getMeeting, getMeetingAttendance } from "@/actions/meetings";
 import { getResolutions } from "@/actions/voting";
 import { getMembers } from "@/actions/members";
+import { getVotingTokensStats } from "@/actions/tokens";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import { MEETING_STATUS_LABELS, MEETING_TYPE_LABELS } from "@/lib/constants";
@@ -11,6 +12,7 @@ import { MeetingControls } from "./MeetingControls";
 import { ResolutionsList } from "./ResolutionsList";
 import { AttendanceManager } from "./AttendanceManager";
 import { AddResolutionForm } from "./AddResolutionForm";
+import { RemoteVotingPanel } from "./RemoteVotingPanel";
 
 function statusVariant(status: string) {
   switch (status) {
@@ -31,6 +33,7 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
   const resolutions = await getResolutions(params.id);
   const attendance = await getMeetingAttendance(params.id);
   const allMembers = await getMembers(undefined, "aktyvus");
+  const tokenStats = await getVotingTokensStats(params.id);
 
   return (
     <div>
@@ -108,7 +111,8 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
         </div>
 
         {/* Attendance sidebar */}
-        <div>
+        <div className="space-y-6">
+          <RemoteVotingPanel meetingId={meeting.id} stats={tokenStats} />
           <AttendanceManager
             meetingId={meeting.id}
             attendance={attendance}
