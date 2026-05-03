@@ -1,4 +1,4 @@
-// Vienkartinis test SMS su balsavimo nuoroda Mindaugui
+// Test SMS Dovilei Mameniskienei
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -18,14 +18,13 @@ for (const line of envContent.split("\n")) {
 const BASE_URL = process.env.INFOBIP_BASE_URL?.replace(/^https?:\/\//, "").replace(/\/$/, "");
 const API_KEY = process.env.INFOBIP_API_KEY;
 const SENDER = process.env.INFOBIP_SMS_SENDER || "Kruminiai";
-const TO = "37065849514";
-const TOKEN = "9a5f3156390c02a80840c7560dc25dcb";
+const TO = "37065849515";
+const TOKEN = "1d1b44f0d3c20d2cccddf8277d3539c0";
 const URL = `https://kruminiai.lt/balsuoti/${TOKEN}`;
 const TEXT = `KKB visuotinis susirinkimas 2026-05-23 18:00. Balsuokite: ${URL}`;
 
-console.log("→ SMS tekstas:", TEXT);
+console.log("→ Į:", TO, "(Dovilė Mameniškienė)");
 console.log("→ Ilgis:", TEXT.length, "simb.");
-console.log("");
 
 const res = await fetch(`https://${BASE_URL}/sms/2/text/advanced`, {
   method: "POST",

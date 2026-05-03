@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { castVotesByToken, registerLiveIntentByToken } from "@/actions/tokens";
@@ -75,6 +75,13 @@ export function VotingFlow({ token, data }: Props) {
   const [votes, setVotes] = useState<Record<string, VoteChoice>>({});
   const [submitting, setSubmitting] = useState(false);
   const [registeringLive, setRegisteringLive] = useState(false);
+
+  // Slinkti į viršų atidarius puslapį ir pakeitus žingsnį
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+  }, [step]);
 
   const allVoted = data.resolutions.every((r) => votes[r.id]);
   const emailValid = EMAIL_RE.test(email.trim());
