@@ -13,9 +13,7 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
@@ -29,17 +27,61 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isProtected = request.nextUrl.pathname.startsWith("/admin") || request.nextUrl.pathname.startsWith("/dokumentai");
+  const path = request.nextUrl.pathname;
+  const isAdminPath = path.startsWith("/admin");
+  const isPortalPath = path.startsWith("/portalas");
+  const requiresAuth =
+    isAdminPath ||
+    isPortalPath ||
+    path.startsWith("/dokumentai") ||
+    path.startsWith("/skaidrumas");
 
-  if (isProtected && !user) {
+  // Neprisijungę į apsaugotus puslapius – į login
+  if (requiresAuth && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/prisijungimas";
+    url.searchParams.set("from", path);
     return NextResponse.redirect(url);
+  }
+
+  // Prisijungę – tikrinti rolę admin / portalas atskyrimui
+  if (user && (isAdminPath || isPortalPath)) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, is_approved")
+      .eq("id", user.id)
+      .single();
+
+    // Nepatvirtinta paskyra – atjungti
+    if (!profile?.is_approved) {
+      await supabase.auth.signOut();
+      const url = request.nextUrl.clone();
+      url.pathname = "/prisijungimas";
+      url.searchParams.set("error", "not_approved");
+      return NextResponse.redirect(url);
+    }
+
+    const isAdmin = profile.role === "admin" || profile.role === "super_admin";
+
+    // Narys bando į /admin – nukreipti į /portalas
+    if (isAdminPath && !isAdmin) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/portalas";
+      return NextResponse.redirect(url);
+    }
+
+    // Adminas atsidūrė /portalas – ne klaida, leidžiama (admin gali žiūrėti);
+    // bet paprastai admin'ai naudoja /admin.
   }
 
   return supabaseResponse;
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/dokumentai/:path*"],
+  matcher: [
+    "/admin/:path*",
+    "/portalas/:path*",
+    "/dokumentai/:path*",
+    "/skaidrumas/:path*",
+  ],
 };

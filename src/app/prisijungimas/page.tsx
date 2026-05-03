@@ -28,10 +28,10 @@ export default function LoginPage() {
       return;
     }
 
-    // Check if user is approved
+    // Check if user is approved + role
     const { data: profile } = await supabase
       .from("profiles")
-      .select("is_approved")
+      .select("is_approved, role")
       .eq("id", data.user.id)
       .single();
 
@@ -42,7 +42,9 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/admin");
+    // Admin'ai → /admin, paprasti nariai → /portalas
+    const isAdmin = profile.role === "admin" || profile.role === "super_admin";
+    router.push(isAdmin ? "/admin" : "/portalas");
     router.refresh();
   };
 
