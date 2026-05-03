@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { COMMUNITY_LEGAL } from "@/lib/constants";
 import { Meeting } from "@/lib/types";
 import { toast } from "sonner";
@@ -90,18 +91,20 @@ export function MeetingForm({ meeting }: Props) {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <Input
+            <DatePicker
               label="Data"
               name="meeting_date"
-              type="date"
               defaultValue={dateValue}
               error={errors.meeting_date?.[0]}
               required
             />
             <Input
-              label="Laikas"
+              label="Laikas (24h)"
               name="meeting_time"
-              type="time"
+              type="text"
+              inputMode="numeric"
+              pattern="([01]\d|2[0-3]):[0-5]\d"
+              placeholder="18:00"
               defaultValue={timeValue}
               error={errors.meeting_time?.[0]}
               required
@@ -144,9 +147,11 @@ export function MeetingForm({ meeting }: Props) {
             </p>
             <div className="grid grid-cols-2 gap-4">
               <Input
-                label="Pradžia"
+                label="Pradžia (YYYY-MM-DDTHH:MM)"
                 name="early_voting_start"
-                type="datetime-local"
+                type="text"
+                pattern="\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d"
+                placeholder="2026-05-03T18:00"
                 defaultValue={
                   meeting?.early_voting_start
                     ? new Date(meeting.early_voting_start).toISOString().slice(0, 16)
@@ -154,9 +159,11 @@ export function MeetingForm({ meeting }: Props) {
                 }
               />
               <Input
-                label="Pabaiga"
+                label="Pabaiga (YYYY-MM-DDTHH:MM)"
                 name="early_voting_end"
-                type="datetime-local"
+                type="text"
+                pattern="\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d"
+                placeholder="2026-05-23T17:00"
                 defaultValue={
                   meeting?.early_voting_end
                     ? new Date(meeting.early_voting_end).toISOString().slice(0, 16)
