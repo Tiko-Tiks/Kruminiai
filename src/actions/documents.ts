@@ -92,3 +92,31 @@ export async function getDocumentUrl(filePath: string) {
   const { data } = supabase.storage.from("documents").getPublicUrl(filePath);
   return data.publicUrl;
 }
+
+export async function toggleDocumentVisibility(id: string, isPublic: boolean) {
+  const supabase = createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const { error } = await supabase
+    .from("documents")
+    .update({
+      is_public: isPublic,
+      published_at: isPublic ? new Date().toISOString().split("T")[0] : null,
+    })
+    .eq("id", id);
+
+  if (error) return { error: error.message };
+
+  await logAudit(supabase, {
+    userId: user?.id ?? null,
+    action: "UPDATE",
+    tableName: "documents",
+    recordId: id,
+    newData: { is_public: isPublic } as Record<string, unknown>,
+  });
+
+  revalidatePath("/admin/dokumentai");
+  revalidatePath("/dokumentai");
+  revalidatePath("/portalas/dokumentai");
+  return { success: true };
+}

@@ -67,7 +67,7 @@ export default function NewDocumentPage() {
                 name="is_public"
                 label="Matomumas"
                 options={[
-                  { value: "true", label: "Viešas" },
+                  { value: "true", label: "Matomas nariams" },
                   { value: "false", label: "Tik administracijai" },
                 ]}
               />

@@ -7,6 +7,7 @@ import { formatDate } from "@/lib/utils";
 import { Plus, FileText } from "lucide-react";
 import Link from "next/link";
 import { DeleteDocumentButton } from "./DeleteDocumentButton";
+import { VisibilityToggle } from "./VisibilityToggle";
 
 export default async function AdminDocumentsPage() {
   const documents = await getDocuments();
@@ -33,7 +34,7 @@ export default async function AdminDocumentsPage() {
                 <th className="px-6 py-3 font-medium">Pavadinimas</th>
                 <th className="px-6 py-3 font-medium">Kategorija</th>
                 <th className="px-6 py-3 font-medium">Data</th>
-                <th className="px-6 py-3 font-medium">Viešas</th>
+                <th className="px-6 py-3 font-medium">Matomas nariams</th>
                 <th className="px-6 py-3 font-medium">Veiksmai</th>
               </tr>
             </thead>
@@ -61,9 +62,7 @@ export default async function AdminDocumentsPage() {
                     </td>
                     <td className="px-6 py-3 text-gray-600">{formatDate(doc.created_at)}</td>
                     <td className="px-6 py-3">
-                      <Badge variant={doc.is_public ? "success" : "default"}>
-                        {doc.is_public ? "Taip" : "Ne"}
-                      </Badge>
+                      <VisibilityToggle id={doc.id} isPublic={doc.is_public} />
                     </td>
                     <td className="px-6 py-3">
                       <DeleteDocumentButton id={doc.id} name={doc.title} />
