@@ -15,7 +15,8 @@ import {
   Users,
   Mail,
   FileText,
-  ExternalLink,
+  X,
+  Download,
 } from "lucide-react";
 import { formatDateLong, formatFileSize, getDocumentPublicUrl, vocative } from "@/lib/utils";
 import { toast } from "sonner";
@@ -75,6 +76,7 @@ export function VotingFlow({ token, data }: Props) {
   const [votes, setVotes] = useState<Record<string, VoteChoice>>({});
   const [submitting, setSubmitting] = useState(false);
   const [registeringLive, setRegisteringLive] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<ResolutionDocument | null>(null);
 
   // Slinkti į viršų atidarius puslapį ir pakeitus žingsnį
   useEffect(() => {
@@ -82,6 +84,16 @@ export function VotingFlow({ token, data }: Props) {
       window.scrollTo({ top: 0, behavior: "instant" });
     }
   }, [step]);
+
+  // Užrakinti body scroll kai modalas atviras
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.body.style.overflow = previewDoc ? "hidden" : "";
+    }
+    return () => {
+      if (typeof document !== "undefined") document.body.style.overflow = "";
+    };
+  }, [previewDoc]);
 
   const allVoted = data.resolutions.every((r) => votes[r.id]);
   const emailValid = EMAIL_RE.test(email.trim());
@@ -227,6 +239,7 @@ export function VotingFlow({ token, data }: Props) {
           onBack={() => setStep("contacts")}
           onNext={() => setStep("review")}
           allVoted={allVoted}
+          onPreviewDoc={setPreviewDoc}
         />
       )}
 
@@ -240,6 +253,57 @@ export function VotingFlow({ token, data }: Props) {
           submitting={submitting}
         />
       )}
+
+      {previewDoc && <DocPreviewModal doc={previewDoc} onClose={() => setPreviewDoc(null)} />}
+    </div>
+  );
+}
+
+function DocPreviewModal({
+  doc,
+  onClose,
+}: {
+  doc: ResolutionDocument;
+  onClose: () => void;
+}) {
+  const url = getDocumentPublicUrl(doc.file_path);
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-gray-900/85 flex flex-col"
+      onClick={onClose}
+    >
+      <div className="flex items-center justify-between gap-2 px-3 py-2 bg-white border-b border-gray-200 shadow-sm">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <FileText className="h-4 w-4 text-gray-500 flex-shrink-0" />
+          <span className="text-sm font-medium text-gray-900 truncate">{doc.title}</span>
+        </div>
+        <a
+          href={url}
+          download={doc.file_name}
+          onClick={(e) => e.stopPropagation()}
+          className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100"
+          title="Atsisiųsti"
+        >
+          <Download className="h-4 w-4" />
+          <span className="hidden sm:inline">Atsisiųsti</span>
+        </a>
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex items-center gap-1 text-sm font-medium text-gray-700 hover:text-gray-900 px-3 py-1.5 rounded hover:bg-gray-100"
+        >
+          <X className="h-4 w-4" />
+          Uždaryti
+        </button>
+      </div>
+      <div className="flex-1 bg-gray-100" onClick={(e) => e.stopPropagation()}>
+        <iframe
+          src={url}
+          title={doc.title}
+          className="w-full h-full border-0"
+          allow="fullscreen"
+        />
+      </div>
     </div>
   );
 }
@@ -447,6 +511,7 @@ function VotingStep({
   onBack,
   onNext,
   allVoted,
+  onPreviewDoc,
 }: {
   resolutions: Resolution[];
   votes: Record<string, VoteChoice>;
@@ -454,6 +519,7 @@ function VotingStep({
   onBack: () => void;
   onNext: () => void;
   allVoted: boolean;
+  onPreviewDoc: (doc: ResolutionDocument) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -485,19 +551,17 @@ function VotingStep({
               <ul className="space-y-1.5">
                 {r.documents.map((doc) => (
                   <li key={doc.id}>
-                    <a
-                      href={getDocumentPublicUrl(doc.file_path)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-green-700 hover:text-green-800 hover:underline"
+                    <button
+                      type="button"
+                      onClick={() => onPreviewDoc(doc)}
+                      className="w-full flex items-center gap-2 text-sm text-green-700 hover:text-green-800 hover:underline text-left"
                     >
                       <FileText className="h-4 w-4 flex-shrink-0" />
                       <span className="flex-1">{doc.title}</span>
                       {doc.file_size && (
                         <span className="text-xs text-gray-500">{formatFileSize(doc.file_size)}</span>
                       )}
-                      <ExternalLink className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
-                    </a>
+                    </button>
                   </li>
                 ))}
               </ul>
