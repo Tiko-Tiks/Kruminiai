@@ -1,7 +1,6 @@
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
-import { getMeeting, getMeetingAttendance } from "@/actions/meetings";
-import { getResolutions } from "@/actions/voting";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { MEETING_TYPE_LABELS, MEETING_STATUS_LABELS } from "@/lib/constants";
 import { formatDateLong, formatFileSize, getDocumentPublicUrl } from "@/lib/utils";
 import {
@@ -20,18 +19,16 @@ import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-interface ResolutionDocLink {
+interface MeetingArchiveDoc {
   id: string;
-  sort_order: number;
-  document: {
-    id: string;
-    title: string;
-    file_path: string;
-    file_size: number | null;
-  } | null;
+  title: string;
+  file_path: string;
+  file_name: string;
+  file_size: number | null;
+  category: string;
 }
 
-interface ResolutionRow {
+interface MeetingArchiveResolution {
   id: string;
   resolution_number: number;
   title: string;
@@ -45,7 +42,35 @@ interface ResolutionRow {
   result_for: number;
   result_against: number;
   result_abstain: number;
-  resolution_documents?: ResolutionDocLink[];
+  documents: MeetingArchiveDoc[];
+}
+
+interface MeetingArchiveAttendee {
+  id: string;
+  attendance_type: "fizinis" | "nuotolinis" | "rastu";
+  first_name: string;
+  last_name: string;
+}
+
+interface MeetingArchiveData {
+  error?: string;
+  meeting?: {
+    id: string;
+    title: string;
+    description: string | null;
+    meeting_date: string;
+    ended_at: string | null;
+    location: string;
+    meeting_type: string;
+    status: string;
+    protocol_number: string | null;
+    chairperson_name: string | null;
+    secretary_name: string | null;
+    total_members_at_time: number;
+    quorum_required: number;
+  };
+  resolutions?: MeetingArchiveResolution[];
+  attendance?: MeetingArchiveAttendee[];
 }
 
 function statusColor(status: string) {
@@ -62,16 +87,18 @@ function statusColor(status: string) {
 }
 
 export default async function MeetingArchivePage({ params }: { params: { id: string } }) {
-  let meeting;
-  try {
-    meeting = await getMeeting(params.id);
-  } catch {
-    notFound();
-  }
-  if (!meeting) notFound();
+  const supabase = createServerSupabaseClient();
+  const { data, error } = await supabase.rpc("get_public_meeting_data", {
+    p_meeting_id: params.id,
+  });
 
-  const resolutions = (await getResolutions(params.id)) as ResolutionRow[];
-  const attendance = await getMeetingAttendance(params.id);
+  if (error || !data) notFound();
+  const archive = data as MeetingArchiveData;
+  if (archive.error || !archive.meeting) notFound();
+
+  const meeting = archive.meeting;
+  const resolutions = archive.resolutions || [];
+  const attendance = archive.attendance || [];
 
   const isFinished = meeting.status === "baigtas";
   const totalAttended = attendance.length;
@@ -166,23 +193,19 @@ export default async function MeetingArchivePage({ params }: { params: { id: str
                 Iš jų: {liveCount} gyvai, {remoteCount} nuotoliu
               </p>
               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                {attendance.map((a) => {
-                  type AnyMember = { first_name?: string; last_name?: string } | null;
-                  const m = (Array.isArray(a.member) ? a.member[0] : a.member) as AnyMember;
-                  return (
-                    <li key={a.id} className="flex items-center gap-2 text-gray-700">
-                      <Users className="h-3.5 w-3.5 text-gray-400" />
-                      {m?.first_name} {m?.last_name}
-                      <span className="text-xs text-gray-400 ml-auto">
-                        {a.attendance_type === "fizinis"
-                          ? "gyvai"
-                          : a.attendance_type === "nuotolinis"
-                            ? "nuotoliu"
-                            : "raštu"}
-                      </span>
-                    </li>
-                  );
-                })}
+                {attendance.map((a) => (
+                  <li key={a.id} className="flex items-center gap-2 text-gray-700">
+                    <Users className="h-3.5 w-3.5 text-gray-400" />
+                    {a.first_name} {a.last_name}
+                    <span className="text-xs text-gray-400 ml-auto">
+                      {a.attendance_type === "fizinis"
+                        ? "gyvai"
+                        : a.attendance_type === "nuotolinis"
+                          ? "nuotoliu"
+                          : "raštu"}
+                    </span>
+                  </li>
+                ))}
               </ul>
               <p className="text-xs text-gray-400 mt-3 pt-3 border-t border-gray-100">
                 Kvorumui reikalinga: {meeting.quorum_required} narių · Iš viso narių susirinkimo metu:{" "}
@@ -213,14 +236,9 @@ function ResolutionCard({
   resolution,
   showResults,
 }: {
-  resolution: ResolutionRow;
+  resolution: MeetingArchiveResolution;
   showResults: boolean;
 }) {
-  const docs =
-    resolution.resolution_documents
-      ?.map((rd) => rd.document)
-      .filter((d): d is NonNullable<typeof d> => d !== null) || [];
-
   const totalVotes =
     resolution.result_for + resolution.result_against + resolution.result_abstain;
   const isPassed = resolution.requires_qualified_majority
@@ -247,12 +265,12 @@ function ResolutionCard({
           </div>
         </div>
 
-        {docs.length > 0 && (
+        {resolution.documents.length > 0 && (
           <div className="mt-4 ml-11 space-y-1.5">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
               Susiję dokumentai
             </p>
-            {docs.map((doc) => (
+            {resolution.documents.map((doc) => (
               <a
                 key={doc.id}
                 href={getDocumentPublicUrl(doc.file_path)}
