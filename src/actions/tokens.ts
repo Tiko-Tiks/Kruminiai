@@ -255,12 +255,12 @@ export async function castVotesByToken(
     .join("");
 
   const body = `
-    <h1 style="margin:0 0 20px;font-size:22px;font-weight:600;color:#111827;letter-spacing:-0.01em;line-height:1.3;">${greeting}</h1>
-    <p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:#374151;">
+    <h1 style="margin:0 0 20px;font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:400;color:#0f3d20;letter-spacing:0.01em;line-height:1.3;">${greeting}</h1>
+    <p style="margin:0 0 20px;font-size:15px;line-height:1.7;color:#374151;">
       Jūsų balsas dėl <strong style="color:#111827;">2026 m. gegužės 23 d.</strong> Krūminių kaimo bendruomenės eilinio visuotinio narių susirinkimo klausimų sėkmingai užregistruotas.
     </p>
 
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f0fdf4;border-left:3px solid #15803d;border-radius:6px;margin:24px 0;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f0fdf4;border-left:3px solid #15803d;border-radius:4px;margin:24px 0;">
       <tr>
         <td style="padding:16px 20px;">
           <div style="font-size:14px;color:#166534;font-weight:600;">✓ Balsas užregistruotas</div>
@@ -272,7 +272,7 @@ export async function castVotesByToken(
       </tr>
     </table>
 
-    <h2 style="margin:32px 0 12px;font-size:16px;font-weight:600;color:#111827;">Jūsų balsai pagal darbotvarkę</h2>
+    <h2 style="margin:32px 0 12px;font-family:Georgia,'Times New Roman',serif;font-size:18px;font-weight:400;color:#0f3d20;letter-spacing:0.01em;">Jūsų balsai pagal darbotvarkę</h2>
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;">
       ${votesHtml}
     </table>
@@ -281,10 +281,10 @@ export async function castVotesByToken(
       Jei pastebėjote klaidą arba turite klausimų, parašykite <a href="mailto:info@kruminiai.lt" style="color:#15803d;text-decoration:underline;">info@kruminiai.lt</a>.
     </p>
 
-    <p style="margin:24px 0 0;font-size:15px;line-height:1.65;color:#374151;">
+    <p style="margin:24px 0 0;font-size:15px;line-height:1.7;color:#374151;">
       Pagarbiai,<br>
-      <strong style="color:#111827;">Mindaugas Mameniškis</strong><br>
-      <span style="color:#6b7280;font-size:14px;">Bendruomenės pirmininkas</span>
+      <strong style="font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:16px;color:#0f3d20;">Mindaugas Mameniškis</strong><br>
+      <span style="color:#6b7280;font-size:13px;">Bendruomenės pirmininkas</span>
     </p>
   `;
 
