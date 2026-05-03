@@ -3,8 +3,24 @@ import { PublicFooter } from "@/components/layout/PublicFooter";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { formatDateLong } from "@/lib/utils";
 import { SITE_NAME } from "@/lib/constants";
-import { ArrowRight, FileText, Users, Newspaper, Phone, Handshake, Eye, TrendingUp, Pin, CalendarDays } from "lucide-react";
+import {
+  ArrowRight,
+  FileText,
+  Users,
+  Newspaper,
+  Phone,
+  Handshake,
+  Eye,
+  TrendingUp,
+  Pin,
+  CalendarDays,
+  Calendar,
+  MapPin,
+  Vote,
+  Clock,
+} from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 async function getLatestNews() {
   const supabase = createServerSupabaseClient();
@@ -18,77 +34,174 @@ async function getLatestNews() {
   return data || [];
 }
 
+async function getUpcomingMeeting() {
+  const supabase = createServerSupabaseClient();
+  const { data } = await supabase
+    .from("meetings")
+    .select("id, title, meeting_date, location, meeting_type, status")
+    .in("status", ["planuojamas", "registracija", "vyksta"])
+    .gte("meeting_date", new Date().toISOString())
+    .order("meeting_date", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  return data;
+}
+
 export default async function HomePage() {
-  const news = await getLatestNews();
+  const [news, upcomingMeeting] = await Promise.all([getLatestNews(), getUpcomingMeeting()]);
 
   return (
     <div className="min-h-screen flex flex-col">
       <PublicHeader />
 
       {/* Hero */}
-      <section className="bg-gradient-to-br from-green-800 via-green-700 to-green-900 text-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-20 md:py-28">
-          <div className="max-w-2xl">
-            <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-4">
-              {SITE_NAME}
-            </h1>
-            <p className="text-lg text-green-100 leading-relaxed mb-8">
-              Kartu kuriame geresnę ateitį mūsų kaimui ir žmonėms.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <Link
-                href="/naujienos"
-                className="inline-flex items-center gap-2 px-5 py-3 bg-white text-green-800 rounded-lg font-medium hover:bg-green-50 transition-colors"
-              >
-                Naujienos <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/kontaktai"
-                className="inline-flex items-center gap-2 px-5 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-500 transition-colors"
-              >
-                Susisiekite
-              </Link>
+      <section className="relative bg-gradient-to-br from-green-800 via-green-700 to-green-900 text-white overflow-hidden">
+        {/* Subtili dekoracinė tekstūra */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
+          <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/20 blur-3xl" />
+          <div className="absolute bottom-0 left-1/3 w-72 h-72 rounded-full bg-green-400/30 blur-3xl" />
+        </div>
+
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-16 md:py-24">
+          <div className="grid md:grid-cols-2 gap-8 items-center">
+            <div>
+              <p className="text-sm uppercase tracking-widest text-green-200 mb-3 font-medium">
+                Nuo 2012 m.
+              </p>
+              <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-4">
+                {SITE_NAME}
+              </h1>
+              <p className="text-lg text-green-100 leading-relaxed mb-8 max-w-lg">
+                Kartu kuriame geresnę ateitį mūsų kaimui ir žmonėms.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  href="/naujienos"
+                  className="inline-flex items-center gap-2 px-5 py-3 bg-white text-green-800 rounded-lg font-medium hover:bg-green-50 transition-colors shadow-sm"
+                >
+                  Naujienos <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  href="/kontaktai"
+                  className="inline-flex items-center gap-2 px-5 py-3 bg-white/10 text-white border border-white/30 rounded-lg font-medium hover:bg-white/20 transition-colors backdrop-blur-sm"
+                >
+                  Susisiekite
+                </Link>
+              </div>
+
+              {/* Statistikos */}
+              <div className="grid grid-cols-3 gap-4 mt-10 max-w-md">
+                <div>
+                  <div className="text-3xl font-bold">70+</div>
+                  <div className="text-xs text-green-200">narių</div>
+                </div>
+                <div>
+                  <div className="text-3xl font-bold">25</div>
+                  <div className="text-xs text-green-200">savanorių</div>
+                </div>
+                <div>
+                  <div className="text-3xl font-bold">14</div>
+                  <div className="text-xs text-green-200">veiklos metų</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="hidden md:flex justify-center md:justify-end">
+              <Image
+                src="/images/logo-md.png"
+                alt={SITE_NAME}
+                width={280}
+                height={420}
+                className="h-64 w-auto opacity-90 drop-shadow-2xl"
+                priority
+              />
             </div>
           </div>
         </div>
       </section>
 
-      {/* Pinned announcement */}
-      {news.filter(n => n.is_pinned).length > 0 && (
-        <section className="bg-white border-b border-gray-200">
+      {/* Artėjantis susirinkimas */}
+      {upcomingMeeting && (
+        <section className="bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border-b-2 border-amber-300">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
-            {news.filter(n => n.is_pinned).map((article) => (
-              <Link
-                key={article.id}
-                href={`/naujienos/${article.slug}`}
-                className="block bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border-2 border-amber-300 p-6 sm:p-8 hover:border-amber-400 hover:shadow-lg transition-all group"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0 w-12 h-12 rounded-full bg-amber-400 flex items-center justify-center">
-                    <CalendarDays className="h-6 w-6 text-white" />
+            <Link
+              href={`/susirinkimai/${upcomingMeeting.id}`}
+              className="block group"
+            >
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-amber-500 flex items-center justify-center shadow-md">
+                  <Vote className="h-7 w-7 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white uppercase tracking-wide">
+                      <Clock className="h-3 w-3" /> Artėjantis susirinkimas
+                    </span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-400 text-white">
-                        <Pin className="h-3 w-3" /> Svarbu
-                      </span>
-                      <span className="text-xs text-gray-400">
-                        {article.published_at ? formatDateLong(article.published_at) : ""}
-                      </span>
-                    </div>
-                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 group-hover:text-amber-700 transition-colors">
-                      {article.title}
-                    </h3>
-                    {article.excerpt && (
-                      <p className="text-sm sm:text-base text-gray-600 line-clamp-2">{article.excerpt}</p>
-                    )}
-                    <span className="inline-flex items-center gap-1 mt-3 text-sm font-medium text-amber-700 group-hover:text-amber-800">
-                      Skaityti daugiau <ArrowRight className="h-4 w-4" />
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-1 group-hover:text-amber-700 transition-colors">
+                    {upcomingMeeting.title}
+                  </h2>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-700">
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="h-4 w-4 text-amber-600" />
+                      {formatDateLong(upcomingMeeting.meeting_date)}{" "}
+                      {new Date(upcomingMeeting.meeting_date).toLocaleTimeString("lt-LT", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <MapPin className="h-4 w-4 text-amber-600" />
+                      {upcomingMeeting.location}
                     </span>
                   </div>
                 </div>
-              </Link>
-            ))}
+                <div className="flex-shrink-0 self-stretch sm:self-center">
+                  <span className="inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-semibold group-hover:bg-amber-700 transition-colors">
+                    Darbotvarkė ir dokumentai <ArrowRight className="h-4 w-4" />
+                  </span>
+                </div>
+              </div>
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {/* Pinned announcement */}
+      {news.filter((n) => n.is_pinned).length > 0 && (
+        <section className="bg-white border-b border-gray-200">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+            {news
+              .filter((n) => n.is_pinned)
+              .map((article) => (
+                <Link
+                  key={article.id}
+                  href={`/naujienos/${article.slug}`}
+                  className="block bg-amber-50 rounded-xl border border-amber-200 p-5 hover:border-amber-300 hover:shadow-sm transition-all group"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center">
+                      <CalendarDays className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-400 text-white">
+                          <Pin className="h-3 w-3" /> Svarbu
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {article.published_at ? formatDateLong(article.published_at) : ""}
+                        </span>
+                      </div>
+                      <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1 group-hover:text-amber-700 transition-colors">
+                        {article.title}
+                      </h3>
+                      {article.excerpt && (
+                        <p className="text-sm text-gray-600 line-clamp-2">{article.excerpt}</p>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              ))}
           </div>
         </section>
       )}
@@ -98,10 +211,30 @@ export default async function HomePage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { icon: Newspaper, title: "Naujienos", desc: "Pranešimai apie susirinkimus, renginius ir svarbius sprendimus", href: "/naujienos" },
-              { icon: FileText, title: "Dokumentai", desc: "Įstatai, protokolai, ataskaitos ir kiti svarbūs dokumentai", href: "/dokumentai" },
-              { icon: Users, title: "Apie mus", desc: "Vizija, misija ir socialinio verslo modelis", href: "/kontaktai" },
-              { icon: Phone, title: "Kontaktai", desc: "Susisiekite su bendruomenės valdyba", href: "/kontaktai" },
+              {
+                icon: Newspaper,
+                title: "Naujienos",
+                desc: "Pranešimai apie susirinkimus, renginius ir svarbius sprendimus",
+                href: "/naujienos",
+              },
+              {
+                icon: FileText,
+                title: "Dokumentai",
+                desc: "Įstatai, protokolai, ataskaitos ir kiti svarbūs dokumentai",
+                href: "/dokumentai",
+              },
+              {
+                icon: Users,
+                title: "Apie mus",
+                desc: "Vizija, misija ir socialinio verslo modelis",
+                href: "/kontaktai",
+              },
+              {
+                icon: Phone,
+                title: "Kontaktai",
+                desc: "Susisiekite su bendruomenės valdyba",
+                href: "/kontaktai",
+              },
             ].map((item) => (
               <Link
                 key={item.title}
@@ -143,9 +276,7 @@ export default async function HomePage() {
                     {article.published_at ? formatDateLong(article.published_at) : ""}
                   </p>
                   <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">{article.title}</h3>
-                  <p className="text-sm text-gray-500 line-clamp-3">
-                    {article.excerpt || ""}
-                  </p>
+                  <p className="text-sm text-gray-500 line-clamp-3">{article.excerpt || ""}</p>
                 </Link>
               ))}
             </div>
@@ -159,17 +290,29 @@ export default async function HomePage() {
           <div className="max-w-3xl mx-auto text-center mb-12">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Apie bendruomenę</h2>
             <p className="text-gray-600 leading-relaxed">
-              Telkiame bendruomenės narius bendriems projektams ir iniciatyvoms, kurios
-              pagerina gyvenimo kokybę Krūminiuose. Skatinama kaimynystė, savanoriškumas
-              ir tarpusavio pagarba. Aktyviai bendradarbiaujame su vietiniais verslais,
-              savivaldybe ir kitomis organizacijomis.
+              Telkiame bendruomenės narius bendriems projektams ir iniciatyvoms, kurios pagerina
+              gyvenimo kokybę Krūminiuose. Skatinama kaimynystė, savanoriškumas ir tarpusavio
+              pagarba. Aktyviai bendradarbiaujame su vietiniais verslais, savivaldybe ir kitomis
+              organizacijomis.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             {[
-              { icon: Handshake, title: "Bendruomeniškumas", desc: "Telkiame Krūminių ir aplinkinių kaimų gyventojus bendriems projektams ir iniciatyvoms" },
-              { icon: Eye, title: "Skaidrumas", desc: "Visi finansiniai srautai yra skaidrūs ir prieinami bendruomenės nariams" },
-              { icon: TrendingUp, title: "Socialinis verslas", desc: "Visos pajamos reinvestuojamos į bendruomenės gerovę – nuo SPA centro iki pavežimo paslaugų" },
+              {
+                icon: Handshake,
+                title: "Bendruomeniškumas",
+                desc: "Telkiame Krūminių ir aplinkinių kaimų gyventojus bendriems projektams ir iniciatyvoms",
+              },
+              {
+                icon: Eye,
+                title: "Skaidrumas",
+                desc: "Visi finansiniai srautai yra skaidrūs ir prieinami bendruomenės nariams",
+              },
+              {
+                icon: TrendingUp,
+                title: "Socialinis verslas",
+                desc: "Visos pajamos reinvestuojamos į bendruomenės gerovę – nuo SPA centro iki pavežimo paslaugų",
+              },
             ].map((item) => (
               <div key={item.title} className="text-center">
                 <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-green-100 text-green-700 mb-3">
@@ -189,11 +332,10 @@ export default async function HomePage() {
           <div className="max-w-3xl mx-auto text-center">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Tapkite nariu</h2>
             <p className="text-gray-600 leading-relaxed mb-6">
-              Bendruomenės nariais gali būti 18 metų sulaukę veiksnūs fiziniai asmenys,
-              gyvenantys, dirbantys ar turintys nuosavybės Krūminių kaime ir pritariantys
-              bendruomenės tikslams.
+              Bendruomenės nariais gali būti 18 metų sulaukę veiksnūs fiziniai asmenys, gyvenantys,
+              dirbantys ar turintys nuosavybės Krūminių kaime ir pritariantys bendruomenės tikslams.
             </p>
-            <div className="flex flex-wrap justify-center gap-6">
+            <div className="flex flex-wrap justify-center gap-6 mb-8">
               <div className="bg-white rounded-xl border border-gray-200 px-6 py-4 text-center">
                 <p className="text-2xl font-bold text-green-700">20 &euro;</p>
                 <p className="text-sm text-gray-500">Stojamasis mokestis</p>
@@ -203,6 +345,13 @@ export default async function HomePage() {
                 <p className="text-sm text-gray-500">Metinis nario mokestis</p>
               </div>
             </div>
+            <Link
+              href="/registracija"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-green-700 text-white rounded-lg font-medium hover:bg-green-600 transition-colors shadow-sm"
+            >
+              Pateikti prašymą
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
         </div>
       </section>
