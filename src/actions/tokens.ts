@@ -8,7 +8,8 @@ import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 
 function generateToken(): string {
-  return crypto.randomBytes(32).toString("hex");
+  // 16 baitu = 32 hex simboliai = 128 bitu entropija (saugu, telpa i 1 SMS)
+  return crypto.randomBytes(16).toString("hex");
 }
 
 function getBaseUrl(): string {
@@ -89,9 +90,9 @@ export async function generateAndSendVotingTokens(meetingId: string) {
       continue;
     }
 
-    // SMS tekstas (≤160 sym. – telpa į 1 SMS)
+    // SMS be lt diakritikos (GSM-7 = 160 simb./SMS), su trumpu tokenu telpa i 1 SMS.
     const url = `${baseUrl}/balsuoti/${token}`;
-    const text = `Krūminių bendruomenė. Visuotinis susirinkimas 2026-05-23. Balsuokite čia: ${url}`;
+    const text = `KKB visuotinis susirinkimas 2026-05-23 18:00. Balsuokite: ${url}`;
 
     const result = await sendSms(m.phone, text);
     if (result.success) {
@@ -142,7 +143,7 @@ export async function resendVotingSms(meetingId: string) {
     if (!member?.phone) continue;
 
     const url = `${baseUrl}/balsuoti/${t.token}`;
-    const text = `Priminimas: Krūminių bendruomenės balsavimas 2026-05-23. Balsuokite: ${url}`;
+    const text = `Priminimas: KKB balsavimas 2026-05-23 18:00. Balsuokite: ${url}`;
 
     const result = await sendSms(member.phone, text);
     if (result.success) {
@@ -207,6 +208,7 @@ export async function castVotesByToken(
   if (data?.error) return { error: data.error };
 
   // Po balsavimo siųsti patvirtinimą email (jei pateikta)
+  // Email gali būti su lt – jis nieko nekainuoja
   if (email) {
     await sendEmail(
       email,
