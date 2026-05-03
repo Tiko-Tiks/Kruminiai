@@ -2,18 +2,35 @@ import { getDocuments } from "@/actions/documents";
 import { DOCUMENT_CATEGORY_LABELS } from "@/lib/constants";
 import { formatDate, formatFileSize, getDocumentPublicUrl } from "@/lib/utils";
 import { FileText, Download } from "lucide-react";
+import { PortalDocFilters } from "./PortalDocFilters";
 
 export const dynamic = "force-dynamic";
 
-export default async function PortalDocumentsPage() {
-  const documents = await getDocuments();
+interface PageProps {
+  searchParams: {
+    q?: string;
+    category?: string;
+  };
+}
 
-  const grouped = documents.reduce((acc: Record<string, typeof documents>, doc) => {
-    const cat = doc.category;
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(doc);
+export default async function PortalDocumentsPage({ searchParams }: PageProps) {
+  const [allDocuments, filtered] = await Promise.all([
+    getDocuments({ visibility: "visible" }),
+    getDocuments({
+      visibility: "visible",
+      category: searchParams.category,
+      search: searchParams.q,
+    }),
+  ]);
+
+  // Grupuoti pagal metus
+  const grouped = filtered.reduce((acc: Record<string, typeof filtered>, doc) => {
+    const year = new Date(doc.created_at).getFullYear().toString();
+    if (!acc[year]) acc[year] = [];
+    acc[year].push(doc);
     return acc;
   }, {});
+  const years = Object.keys(grouped).sort((a, b) => Number(b) - Number(a));
 
   return (
     <div className="space-y-6">
@@ -22,19 +39,24 @@ export default async function PortalDocumentsPage() {
         <p className="text-sm text-gray-500 mt-1">Bendruomenės dokumentų archyvas</p>
       </div>
 
-      {documents.length === 0 ? (
+      <PortalDocFilters totalCount={allDocuments.length} filteredCount={filtered.length} />
+
+      {filtered.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <p className="text-gray-400">Kol kas dokumentų nėra</p>
+          <FileText className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-500 font-medium">Dokumentų nerasta</p>
+          <p className="text-xs text-gray-400 mt-1">Pabandykite pakeisti paieškos kriterijus</p>
         </div>
       ) : (
         <div className="space-y-6">
-          {Object.entries(grouped).map(([category, docs]) => (
-            <div key={category}>
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                {DOCUMENT_CATEGORY_LABELS[category] || category}
-              </h2>
+          {years.map((year) => (
+            <div key={year}>
+              <div className="flex items-center gap-2 mb-2 px-1">
+                <h2 className="text-sm font-semibold text-gray-700">{year} m.</h2>
+                <span className="text-xs text-gray-400">({grouped[year].length})</span>
+              </div>
               <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-                {docs.map((doc) => {
+                {grouped[year].map((doc) => {
                   const url = doc.file_path.startsWith("__api__/")
                     ? `/api/dokumentai/${doc.file_path.replace("__api__/", "")}`
                     : doc.file_path.startsWith("__public__/")
@@ -48,7 +70,12 @@ export default async function PortalDocumentsPage() {
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         <FileText className="h-5 w-5 text-gray-400 flex-shrink-0" />
                         <div className="min-w-0 flex-1">
-                          <p className="font-medium text-gray-900 truncate">{doc.title}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-gray-900 truncate">{doc.title}</p>
+                            <span className="text-xs text-gray-400 flex-shrink-0">
+                              {DOCUMENT_CATEGORY_LABELS[doc.category] || doc.category}
+                            </span>
+                          </div>
                           {doc.description && (
                             <p className="text-xs text-gray-500 truncate">{doc.description}</p>
                           )}

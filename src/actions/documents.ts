@@ -4,12 +4,43 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 
-export async function getDocuments(category?: string, publicOnly = false) {
-  const supabase = createServerSupabaseClient();
-  let query = supabase.from("documents").select("*").order("created_at", { ascending: false });
+export interface DocumentsFilter {
+  category?: string;
+  publicOnly?: boolean;
+  visibility?: "all" | "visible" | "hidden";
+  search?: string;
+  sort?: "newest" | "oldest" | "name";
+}
 
-  if (publicOnly) query = query.eq("is_public", true);
-  if (category && category !== "visos") query = query.eq("category", category);
+export async function getDocuments(
+  categoryOrFilter?: string | DocumentsFilter,
+  publicOnly = false
+) {
+  const supabase = createServerSupabaseClient();
+
+  // Backwards-compat: jei perduotas tik category string
+  const filter: DocumentsFilter =
+    typeof categoryOrFilter === "object" && categoryOrFilter !== null
+      ? categoryOrFilter
+      : { category: categoryOrFilter as string | undefined, publicOnly };
+
+  const sort = filter.sort || "newest";
+  let query = supabase.from("documents").select("*");
+
+  if (sort === "newest") query = query.order("created_at", { ascending: false });
+  else if (sort === "oldest") query = query.order("created_at", { ascending: true });
+  else if (sort === "name") query = query.order("title", { ascending: true });
+
+  if (filter.publicOnly) query = query.eq("is_public", true);
+  if (filter.visibility === "visible") query = query.eq("is_public", true);
+  else if (filter.visibility === "hidden") query = query.eq("is_public", false);
+
+  if (filter.category && filter.category !== "visos") query = query.eq("category", filter.category);
+
+  if (filter.search && filter.search.trim()) {
+    const term = filter.search.trim();
+    query = query.or(`title.ilike.%${term}%,description.ilike.%${term}%,file_name.ilike.%${term}%`);
+  }
 
   const { data, error } = await query;
   if (error) throw error;
