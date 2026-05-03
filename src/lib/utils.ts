@@ -19,6 +19,19 @@ export function formatCurrency(cents: number): string {
   return `${(cents / 100).toFixed(2)} €`;
 }
 
+export function formatFileSize(bytes: number | null | undefined): string {
+  if (!bytes) return "";
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb.toFixed(0)} KB`;
+  return `${(kb / 1024).toFixed(1)} MB`;
+}
+
+// Sukonstruoti viešą Supabase Storage URL pagal failo kelią
+export function getDocumentPublicUrl(filePath: string): string {
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  return `${base}/storage/v1/object/public/documents/${filePath}`;
+}
+
 // Lietuviškas šauksmininkas (vocative case) – kreipiniams.
 // Mindaugas → Mindaugai, Andrius → Andriau, Eglė → Egle.
 export function vocative(name: string): string {

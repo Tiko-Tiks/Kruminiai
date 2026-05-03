@@ -17,7 +17,7 @@ export async function getResolutions(meetingId: string) {
   const supabase = createServerSupabaseClient();
   const { data, error } = await supabase
     .from("resolutions")
-    .select("*")
+    .select("*, resolution_documents(id, sort_order, document:documents(*))")
     .eq("meeting_id", meetingId)
     .order("resolution_number", { ascending: true });
   if (error) throw error;
@@ -253,6 +253,82 @@ export async function setResolutionResults(
     tableName: "resolutions",
     recordId: id,
     newData: { ...results, status } as Record<string, unknown>,
+  });
+
+  revalidatePath(`/admin/susirinkimai/${meetingId}`);
+  return { success: true };
+}
+
+// Dokumentų prikabinimas prie nutarimų
+
+export async function getResolutionDocuments(resolutionId: string) {
+  const supabase = createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("resolution_documents")
+    .select("id, sort_order, document:documents(*)")
+    .eq("resolution_id", resolutionId)
+    .order("sort_order", { ascending: true });
+  if (error) throw error;
+  return data;
+}
+
+export async function attachDocumentToResolution(
+  resolutionId: string,
+  documentId: string,
+  meetingId: string
+) {
+  const supabase = createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // Nustatyti sort_order kaip max+1
+  const { data: existing } = await supabase
+    .from("resolution_documents")
+    .select("sort_order")
+    .eq("resolution_id", resolutionId)
+    .order("sort_order", { ascending: false })
+    .limit(1);
+  const nextOrder = existing && existing.length > 0 ? existing[0].sort_order + 1 : 0;
+
+  const { error } = await supabase.from("resolution_documents").insert({
+    resolution_id: resolutionId,
+    document_id: documentId,
+    sort_order: nextOrder,
+  });
+  if (error) return { error: error.message };
+
+  await logAudit(supabase, {
+    userId: user?.id ?? null,
+    action: "CREATE",
+    tableName: "resolution_documents",
+    recordId: resolutionId,
+    newData: { resolution_id: resolutionId, document_id: documentId } as Record<string, unknown>,
+  });
+
+  revalidatePath(`/admin/susirinkimai/${meetingId}`);
+  return { success: true };
+}
+
+export async function detachDocumentFromResolution(
+  resolutionId: string,
+  documentId: string,
+  meetingId: string
+) {
+  const supabase = createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const { error } = await supabase
+    .from("resolution_documents")
+    .delete()
+    .eq("resolution_id", resolutionId)
+    .eq("document_id", documentId);
+  if (error) return { error: error.message };
+
+  await logAudit(supabase, {
+    userId: user?.id ?? null,
+    action: "DELETE",
+    tableName: "resolution_documents",
+    recordId: resolutionId,
+    oldData: { resolution_id: resolutionId, document_id: documentId } as Record<string, unknown>,
   });
 
   revalidatePath(`/admin/susirinkimai/${meetingId}`);

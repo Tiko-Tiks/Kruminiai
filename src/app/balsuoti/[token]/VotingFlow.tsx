@@ -14,11 +14,22 @@ import {
   AlertCircle,
   Users,
   Mail,
+  FileText,
+  ExternalLink,
 } from "lucide-react";
-import { formatDateLong, vocative } from "@/lib/utils";
+import { formatDateLong, formatFileSize, getDocumentPublicUrl, vocative } from "@/lib/utils";
 import { toast } from "sonner";
 
 type VoteChoice = "uz" | "pries" | "susilaike";
+
+interface ResolutionDocument {
+  id: string;
+  title: string;
+  file_path: string;
+  file_name: string;
+  file_size: number | null;
+  category: string;
+}
 
 interface Resolution {
   id: string;
@@ -27,6 +38,7 @@ interface Resolution {
   description: string | null;
   requires_qualified_majority: boolean;
   is_procedural: boolean;
+  documents: ResolutionDocument[];
 }
 
 interface Props {
@@ -84,6 +96,11 @@ export function VotingFlow({ token, data }: Props) {
         resolution_number: r.resolution_number,
         title: r.title,
         vote: votes[r.id],
+        documents: r.documents?.map((d) => ({
+          id: d.id,
+          title: d.title,
+          file_path: d.file_path,
+        })),
       }))
     );
     setSubmitting(false);
@@ -438,6 +455,33 @@ function VotingStep({
               )}
             </div>
           </div>
+
+          {r.documents && r.documents.length > 0 && (
+            <div className="mb-4 bg-gray-50 border border-gray-100 rounded-lg p-3">
+              <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+                Susipažinkite prieš balsuojant
+              </p>
+              <ul className="space-y-1.5">
+                {r.documents.map((doc) => (
+                  <li key={doc.id}>
+                    <a
+                      href={getDocumentPublicUrl(doc.file_path)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-green-700 hover:text-green-800 hover:underline"
+                    >
+                      <FileText className="h-4 w-4 flex-shrink-0" />
+                      <span className="flex-1">{doc.title}</span>
+                      {doc.file_size && (
+                        <span className="text-xs text-gray-500">{formatFileSize(doc.file_size)}</span>
+                      )}
+                      <ExternalLink className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div className="grid grid-cols-3 gap-2">
             {(["uz", "pries", "susilaike"] as VoteChoice[]).map((choice) => {

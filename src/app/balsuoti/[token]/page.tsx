@@ -33,6 +33,14 @@ interface TokenData {
     description: string | null;
     requires_qualified_majority: boolean;
     is_procedural: boolean;
+    documents: {
+      id: string;
+      title: string;
+      file_path: string;
+      file_name: string;
+      file_size: number | null;
+      category: string;
+    }[];
   }[];
   expires_at?: string;
   live_intent_at?: string | null;

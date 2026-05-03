@@ -6,7 +6,8 @@ import { updateResolutionStatus, updateResolution, deleteResolution, setResoluti
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { RESOLUTION_STATUS_LABELS } from "@/lib/constants";
-import { Resolution } from "@/lib/types";
+import { Resolution, Document } from "@/lib/types";
+import { ResolutionDocuments } from "./ResolutionDocuments";
 import { toast } from "sonner";
 import {
   Vote,
@@ -31,13 +32,18 @@ function statusVariant(status: string) {
   }
 }
 
-interface Props {
-  resolutions: Resolution[];
-  meetingId: string;
-  meetingStatus: string;
+interface ResolutionWithDocs extends Resolution {
+  resolution_documents?: { id: string; sort_order: number; document: Document | null }[];
 }
 
-export function ResolutionsList({ resolutions, meetingId, meetingStatus }: Props) {
+interface Props {
+  resolutions: ResolutionWithDocs[];
+  meetingId: string;
+  meetingStatus: string;
+  allDocuments: Document[];
+}
+
+export function ResolutionsList({ resolutions, meetingId, meetingStatus, allDocuments }: Props) {
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
@@ -153,6 +159,17 @@ export function ResolutionsList({ resolutions, meetingId, meetingStatus }: Props
               <div className="px-5 pb-4 border-t border-gray-100 pt-4 space-y-4">
                 {res.description && (
                   <p className="text-sm text-gray-600">{res.description}</p>
+                )}
+
+                {/* Susiję dokumentai */}
+                {!res.is_procedural && (
+                  <ResolutionDocuments
+                    resolutionId={res.id}
+                    meetingId={meetingId}
+                    attached={res.resolution_documents || []}
+                    allDocuments={allDocuments}
+                    canModify={canModify}
+                  />
                 )}
 
                 {/* Balsavimo rezultatai */}

@@ -196,6 +196,7 @@ interface VoteWithDetails {
   resolution_number: number;
   title: string;
   vote: "uz" | "pries" | "susilaike";
+  documents?: { id: string; title: string; file_path: string }[];
 }
 
 export async function castVotesByToken(
@@ -235,9 +236,22 @@ export async function castVotesByToken(
     susilaike: { label: "Susilaikė", color: "#374151", bg: "#f3f4f6" },
   };
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const docUrl = (filePath: string) =>
+    `${supabaseUrl}/storage/v1/object/public/documents/${filePath}`;
+
   const votesHtml = votes
     .map((v) => {
       const style = voteLabels[v.vote];
+      const docsLine =
+        v.documents && v.documents.length > 0
+          ? `<div style="margin-top:6px;font-size:12px;color:#6b7280;">${v.documents
+              .map(
+                (d) =>
+                  `<a href="${docUrl(d.file_path)}" style="color:#15803d;text-decoration:none;">📄 ${d.title}</a>`
+              )
+              .join(" &nbsp;·&nbsp; ")}</div>`
+          : "";
       return `
         <tr>
           <td style="padding:12px 8px 12px 0;border-bottom:1px solid #f3f4f6;vertical-align:top;width:32px;">
@@ -245,6 +259,7 @@ export async function castVotesByToken(
           </td>
           <td style="padding:12px 8px;border-bottom:1px solid #f3f4f6;font-size:14px;color:#374151;line-height:1.5;">
             ${v.title}
+            ${docsLine}
           </td>
           <td style="padding:12px 0 12px 8px;border-bottom:1px solid #f3f4f6;text-align:right;white-space:nowrap;vertical-align:top;">
             <span style="display:inline-block;padding:4px 12px;background:${style.bg};color:${style.color};font-size:12px;font-weight:600;border-radius:12px;">${style.label}</span>

@@ -1,6 +1,7 @@
 import { getMeeting, getMeetingAttendance } from "@/actions/meetings";
 import { getResolutions } from "@/actions/voting";
 import { getMembers } from "@/actions/members";
+import { getDocuments } from "@/actions/documents";
 import { getVotingTokensStats } from "@/actions/tokens";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
@@ -33,6 +34,7 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
   const resolutions = await getResolutions(params.id);
   const attendance = await getMeetingAttendance(params.id);
   const allMembers = await getMembers(undefined, "aktyvus");
+  const allDocuments = await getDocuments();
   const tokenStats = await getVotingTokensStats(params.id);
 
   return (
@@ -107,6 +109,7 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
             resolutions={resolutions}
             meetingId={meeting.id}
             meetingStatus={meeting.status}
+            allDocuments={allDocuments}
           />
         </div>
 
