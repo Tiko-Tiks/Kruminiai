@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
-import { Send, RotateCcw, Users, CheckCircle2, Clock, Phone } from "lucide-react";
+import { Send, RotateCcw, Users, CheckCircle2, Clock, Phone, UserCheck } from "lucide-react";
 import { generateAndSendVotingTokens, resendVotingSms } from "@/actions/tokens";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -12,7 +12,11 @@ interface TokenStat {
   id: string;
   sent_at: string | null;
   voted_at: string | null;
-  member: { first_name: string; last_name: string; phone: string | null } | { first_name: string; last_name: string; phone: string | null }[] | null;
+  live_intent_at: string | null;
+  member:
+    | { first_name: string; last_name: string; phone: string | null }
+    | { first_name: string; last_name: string; phone: string | null }[]
+    | null;
 }
 
 interface Props {
@@ -21,6 +25,7 @@ interface Props {
     total: number;
     sent: number;
     voted: number;
+    liveIntent: number;
     pending: number;
     tokens: TokenStat[];
   };
@@ -95,19 +100,29 @@ export function RemoteVotingPanel({ meetingId, stats }: Props) {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-3 gap-3">
-              <Stat icon={<Users className="h-4 w-4 text-gray-500" />} label="Iš viso" value={stats.total} />
+            <div className="grid grid-cols-2 gap-3">
               <Stat
                 icon={<CheckCircle2 className="h-4 w-4 text-green-600" />}
-                label="Balsavo"
+                label="Balsavo nuotoliu"
                 value={stats.voted}
                 color="text-green-700"
               />
               <Stat
+                icon={<UserCheck className="h-4 w-4 text-blue-600" />}
+                label="Atvyks gyvai"
+                value={stats.liveIntent}
+                color="text-blue-700"
+              />
+              <Stat
                 icon={<Clock className="h-4 w-4 text-amber-600" />}
-                label="Laukia"
+                label="Dar neatsakė"
                 value={stats.pending}
                 color="text-amber-700"
+              />
+              <Stat
+                icon={<Users className="h-4 w-4 text-gray-500" />}
+                label="Iš viso narių"
+                value={stats.total}
               />
             </div>
 
@@ -160,6 +175,11 @@ export function RemoteVotingPanel({ meetingId, stats }: Props) {
                           <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded">
                             <CheckCircle2 className="h-3 w-3" />
                             Balsavo
+                          </span>
+                        ) : t.live_intent_at ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
+                            <UserCheck className="h-3 w-3" />
+                            Atvyks gyvai
                           </span>
                         ) : t.sent_at ? (
                           <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded">

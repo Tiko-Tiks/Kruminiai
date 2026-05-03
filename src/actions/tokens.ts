@@ -3,7 +3,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { logAudit } from "@/lib/audit";
 import { sendSms } from "@/lib/infobip";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, renderBrandedEmail } from "@/lib/email";
 import { vocative } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
@@ -166,7 +166,7 @@ export async function getVotingTokensStats(meetingId: string) {
 
   const { data: tokens } = await supabase
     .from("meeting_voting_tokens")
-    .select("id, sent_at, voted_at, member:members(first_name, last_name, phone)")
+    .select("id, sent_at, voted_at, live_intent_at, member:members(first_name, last_name, phone)")
     .eq("meeting_id", meetingId)
     .order("voted_at", { ascending: false, nullsFirst: false });
 
@@ -175,7 +175,8 @@ export async function getVotingTokensStats(meetingId: string) {
     total: all.length,
     sent: all.filter((t) => t.sent_at).length,
     voted: all.filter((t) => t.voted_at).length,
-    pending: all.filter((t) => t.sent_at && !t.voted_at).length,
+    liveIntent: all.filter((t) => t.live_intent_at && !t.voted_at).length,
+    pending: all.filter((t) => t.sent_at && !t.voted_at && !t.live_intent_at).length,
     tokens: all,
   };
 }
@@ -190,37 +191,124 @@ export async function getVotingTokenData(token: string) {
   return data;
 }
 
+interface VoteWithDetails {
+  resolution_id: string;
+  resolution_number: number;
+  title: string;
+  vote: "uz" | "pries" | "susilaike";
+}
+
 export async function castVotesByToken(
   token: string,
   firstName: string,
-  email: string | null,
+  email: string,
   phone: string | null,
-  votes: { resolution_id: string; vote: "uz" | "pries" | "susilaike" }[]
+  votes: VoteWithDetails[]
 ) {
   const supabase = createServerSupabaseClient();
 
+  // RPC priima tik resolution_id ir vote – likę laukai naudojami tik email'ui
   const { data, error } = await supabase.rpc("cast_votes_with_token", {
     p_token: token,
     p_email: email,
     p_phone: phone,
-    p_votes: votes,
+    p_votes: votes.map((v) => ({ resolution_id: v.resolution_id, vote: v.vote })),
   });
 
   if (error) return { error: error.message };
   if (data?.error) return { error: data.error };
 
-  // Po balsavimo siųsti patvirtinimą email su asmenizuotu kreipiniu
-  if (email) {
-    const greeting = firstName ? `Sveiki, ${vocative(firstName)},` : "Sveiki,";
-    await sendEmail(
-      email,
-      "Krūminių bendruomenė – jūsų balsas užregistruotas",
-      `<p>${greeting}</p>
-       <p>Jūsų balsas dėl 2026 m. gegužės 23 d. visuotinio susirinkimo klausimų sėkmingai užregistruotas.</p>
-       <p>Ačiū, kad dalyvaujate bendruomenės gyvenime!</p>
-       <p>Pagarbiai,<br/>Krūminių kaimo bendruomenė</p>`
-    ).catch(() => null);
-  }
+  // Po balsavimo siųsti patvirtinimą su pilnais balsų rezultatais
+  const greeting = firstName ? `Sveiki, ${vocative(firstName)}!` : "Sveiki!";
+  const votedAt = new Date().toLocaleString("lt-LT", {
+    timeZone: "Europe/Vilnius",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
+  const voteLabels: Record<string, { label: string; color: string; bg: string }> = {
+    uz: { label: "Už", color: "#166534", bg: "#dcfce7" },
+    pries: { label: "Prieš", color: "#991b1b", bg: "#fee2e2" },
+    susilaike: { label: "Susilaikė", color: "#374151", bg: "#f3f4f6" },
+  };
+
+  const votesHtml = votes
+    .map((v) => {
+      const style = voteLabels[v.vote];
+      return `
+        <tr>
+          <td style="padding:12px 8px 12px 0;border-bottom:1px solid #f3f4f6;vertical-align:top;width:32px;">
+            <span style="display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;background:#f3f4f6;color:#6b7280;border-radius:50%;font-size:12px;font-weight:600;">${v.resolution_number}</span>
+          </td>
+          <td style="padding:12px 8px;border-bottom:1px solid #f3f4f6;font-size:14px;color:#374151;line-height:1.5;">
+            ${v.title}
+          </td>
+          <td style="padding:12px 0 12px 8px;border-bottom:1px solid #f3f4f6;text-align:right;white-space:nowrap;vertical-align:top;">
+            <span style="display:inline-block;padding:4px 12px;background:${style.bg};color:${style.color};font-size:12px;font-weight:600;border-radius:12px;">${style.label}</span>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  const body = `
+    <h1 style="margin:0 0 20px;font-size:22px;font-weight:600;color:#111827;letter-spacing:-0.01em;line-height:1.3;">${greeting}</h1>
+    <p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:#374151;">
+      Jūsų balsas dėl <strong style="color:#111827;">2026 m. gegužės 23 d.</strong> Krūminių kaimo bendruomenės eilinio visuotinio narių susirinkimo klausimų sėkmingai užregistruotas.
+    </p>
+
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f0fdf4;border-left:3px solid #15803d;border-radius:6px;margin:24px 0;">
+      <tr>
+        <td style="padding:16px 20px;">
+          <div style="font-size:14px;color:#166534;font-weight:600;">✓ Balsas užregistruotas</div>
+          <div style="margin-top:4px;font-size:13px;color:#374151;">${votedAt} (Europe/Vilnius)</div>
+          <div style="margin-top:8px;font-size:13px;color:#4b5563;line-height:1.5;">
+            Susirinkimo metu būsite skaičiuojamas kaip <strong>nuotolinis dalyvis</strong> kvorumui nustatyti.
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <h2 style="margin:32px 0 12px;font-size:16px;font-weight:600;color:#111827;">Jūsų balsai pagal darbotvarkę</h2>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;">
+      ${votesHtml}
+    </table>
+
+    <p style="margin:32px 0 8px;font-size:14px;line-height:1.6;color:#6b7280;">
+      Jei pastebėjote klaidą arba turite klausimų, parašykite <a href="mailto:info@kruminiai.lt" style="color:#15803d;text-decoration:underline;">info@kruminiai.lt</a>.
+    </p>
+
+    <p style="margin:24px 0 0;font-size:15px;line-height:1.65;color:#374151;">
+      Pagarbiai,<br>
+      <strong style="color:#111827;">Mindaugas Mameniškis</strong><br>
+      <span style="color:#6b7280;font-size:14px;">Bendruomenės pirmininkas</span>
+    </p>
+  `;
+
+  const html = renderBrandedEmail({
+    preheader: `Jūsų balsas dėl 2026-05-23 visuotinio susirinkimo užregistruotas (${votes.length} klausimai).`,
+    body,
+  });
+
+  await sendEmail(
+    email,
+    "Jūsų balsas užregistruotas – Krūminių bendruomenė",
+    html
+  ).catch(() => null);
+
+  return { success: true };
+}
+
+// Narys paspaudžia "Dalyvausiu gyvai" – jokio balsavimo, tik intencija
+export async function registerLiveIntentByToken(token: string) {
+  const supabase = createServerSupabaseClient();
+  const { data, error } = await supabase.rpc("register_live_intent_with_token", {
+    p_token: token,
+  });
+  if (error) return { error: error.message };
+  if (data?.error) return { error: data.error };
   return { success: true };
 }

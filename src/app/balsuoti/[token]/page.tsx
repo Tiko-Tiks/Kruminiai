@@ -35,6 +35,7 @@ interface TokenData {
     is_procedural: boolean;
   }[];
   expires_at?: string;
+  live_intent_at?: string | null;
 }
 
 export default async function VotingPage({ params }: { params: { token: string } }) {
