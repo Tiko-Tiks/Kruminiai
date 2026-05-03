@@ -136,7 +136,14 @@ export function VotingFlow({ token, data }: Props) {
           <Mail className="h-4 w-4" />
           Patvirtinimas su balsų suvestine išsiųstas į <span className="font-medium">{email}</span>
         </p>
-        <p className="text-sm text-gray-500">
+        <a
+          href={`/susirinkimai/${data.meeting.id}`}
+          className="inline-flex items-center gap-1.5 text-sm text-green-700 hover:text-green-800 hover:underline mb-3"
+        >
+          <FileText className="h-4 w-4" />
+          Visi susirinkimo dokumentai ir rezultatai
+        </a>
+        <p className="text-xs text-gray-400">
           Šią nuorodą galite uždaryti – pakartotinai balsuoti nebegalėsite.
         </p>
       </div>
@@ -169,7 +176,14 @@ export function VotingFlow({ token, data }: Props) {
             {data.meeting.location}
           </div>
         </div>
-        <p className="text-sm text-gray-500">
+        <a
+          href={`/susirinkimai/${data.meeting.id}`}
+          className="inline-flex items-center gap-1.5 text-sm text-green-700 hover:text-green-800 hover:underline mb-3"
+        >
+          <FileText className="h-4 w-4" />
+          Visi susirinkimo dokumentai
+        </a>
+        <p className="text-xs text-gray-400 mt-2">
           Jei persigalvosite – galite grįžti per tą pačią SMS nuorodą ir balsuoti nuotoliu.
         </p>
       </div>

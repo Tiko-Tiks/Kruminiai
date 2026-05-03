@@ -39,13 +39,25 @@ export async function createResolution(meetingId: string, formData: FormData) {
   const supabase = createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const raw = Object.fromEntries(formData.entries());
+  // Pagrindiniai laukai
+  const raw = {
+    title: formData.get("title"),
+    description: formData.get("description"),
+    requires_qualified_majority: formData.get("requires_qualified_majority"),
+  };
   const parsed = resolutionSchema.safeParse(raw);
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
-  // Gauti sekantį numerį
+  // Esami dokumentai (multi-select)
+  const existingDocIds = formData.getAll("existing_document_ids").filter((v) => v) as string[];
+
+  // Nauji failai (su pavadinimais)
+  const newFiles = formData.getAll("new_files").filter((f) => f instanceof File && f.size > 0) as File[];
+  const newFileTitles = formData.getAll("new_file_titles") as string[];
+
+  // Sekantis numeris
   const { data: existing } = await supabase
     .from("resolutions")
     .select("resolution_number")
@@ -72,15 +84,58 @@ export async function createResolution(meetingId: string, formData: FormData) {
 
   if (error) return { error: { _form: [error.message] } };
 
+  // Įkelti naujus failus į Storage + sukurti documents įrašus
+  const uploadedDocIds: string[] = [];
+  for (let i = 0; i < newFiles.length; i++) {
+    const file = newFiles[i];
+    const title = (newFileTitles[i] || file.name.replace(/\.[^.]+$/, "")).trim();
+    const fileName = `${Date.now()}-${i}-${file.name}`;
+
+    const { error: uploadErr } = await supabase.storage.from("documents").upload(fileName, file);
+    if (uploadErr) {
+      console.error("Upload klaida:", uploadErr);
+      continue;
+    }
+
+    const { data: docRow, error: docErr } = await supabase
+      .from("documents")
+      .insert({
+        title,
+        category: "ataskaitos",
+        file_path: fileName,
+        file_name: file.name,
+        file_size: file.size,
+        is_public: true,
+        published_at: new Date().toISOString().split("T")[0],
+        created_by: user?.id ?? null,
+      })
+      .select("id")
+      .single();
+
+    if (!docErr && docRow) uploadedDocIds.push(docRow.id);
+  }
+
+  // Susieti visus dokumentus su nutarimu
+  const allDocIds = [...existingDocIds, ...uploadedDocIds];
+  if (allDocIds.length > 0) {
+    const links = allDocIds.map((docId, idx) => ({
+      resolution_id: data.id,
+      document_id: docId,
+      sort_order: idx,
+    }));
+    await supabase.from("resolution_documents").insert(links);
+  }
+
   await logAudit(supabase, {
     userId: user?.id ?? null,
     action: "CREATE",
     tableName: "resolutions",
     recordId: data.id,
-    newData: values as Record<string, unknown>,
+    newData: { ...values, documentsCount: allDocIds.length } as Record<string, unknown>,
   });
 
   revalidatePath(`/admin/susirinkimai/${meetingId}`);
+  revalidatePath("/admin/dokumentai");
   return { success: true, id: data.id };
 }
 

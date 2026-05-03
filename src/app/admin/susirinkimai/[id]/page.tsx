@@ -102,7 +102,7 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
           </div>
 
           {meeting.status !== "atšauktas" && meeting.status !== "baigtas" && (
-            <AddResolutionForm meetingId={meeting.id} />
+            <AddResolutionForm meetingId={meeting.id} allDocuments={allDocuments} />
           )}
 
           <ResolutionsList

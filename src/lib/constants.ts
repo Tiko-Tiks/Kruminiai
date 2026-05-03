@@ -3,6 +3,7 @@ export const SITE_NAME = "Krūminių kaimo bendruomenė";
 export const PUBLIC_NAV = [
   { label: "Pradžia", href: "/" },
   { label: "Naujienos", href: "/naujienos" },
+  { label: "Susirinkimai", href: "/susirinkimai" },
   { label: "Dokumentai", href: "/dokumentai" },
   { label: "Apie mus", href: "/kontaktai" },
   { label: "Skaidrumas", href: "/skaidrumas" },
