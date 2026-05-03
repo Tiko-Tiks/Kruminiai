@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/Input";
 import { castVotesByToken } from "@/actions/tokens";
 import { VOTE_LABELS } from "@/lib/constants";
 import { CheckCircle2, ChevronRight, ChevronLeft, Calendar, MapPin, AlertCircle } from "lucide-react";
-import { formatDateLong } from "@/lib/utils";
+import { formatDateLong, vocative } from "@/lib/utils";
 import { toast } from "sonner";
 
 type VoteChoice = "uz" | "pries" | "susilaike";
@@ -45,6 +45,7 @@ export function VotingFlow({ token, data }: Props) {
     setSubmitting(true);
     const result = await castVotesByToken(
       token,
+      data.member.first_name,
       email.trim() || null,
       phone.trim() || null,
       data.resolutions.map((r) => ({ resolution_id: r.id, vote: votes[r.id] }))
@@ -62,7 +63,7 @@ export function VotingFlow({ token, data }: Props) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
         <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
-        <h2 className="text-2xl font-semibold text-gray-900 mb-2">Ačiū, {data.member.first_name}!</h2>
+        <h2 className="text-2xl font-semibold text-gray-900 mb-2">Ačiū, {vocative(data.member.first_name)}!</h2>
         <p className="text-gray-600 mb-6">
           Jūsų balsas sėkmingai užregistruotas. Patvirtinimą atsiųsime į el. paštą.
         </p>
@@ -81,7 +82,7 @@ export function VotingFlow({ token, data }: Props) {
 
       {step === "contacts" && (
         <ContactsStep
-          firstName={data.member.first_name}
+          firstNameVocative={vocative(data.member.first_name)}
           lastName={data.member.last_name}
           email={email}
           phone={phone}
@@ -180,7 +181,7 @@ function MeetingHeader({ meeting }: { meeting: Props["data"]["meeting"] }) {
 }
 
 function ContactsStep({
-  firstName,
+  firstNameVocative,
   lastName,
   email,
   phone,
@@ -188,7 +189,7 @@ function ContactsStep({
   onPhoneChange,
   onNext,
 }: {
-  firstName: string;
+  firstNameVocative: string;
   lastName: string;
   email: string;
   phone: string;
@@ -200,7 +201,7 @@ function ContactsStep({
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-1">Patikslinkite kontaktus</h3>
       <p className="text-sm text-gray-500 mb-5">
-        Sveiki, <span className="font-medium text-gray-900">{firstName} {lastName}</span>.
+        Sveiki, <span className="font-medium text-gray-900">{firstNameVocative} {lastName}</span>.
         Įveskite arba patikslinkite savo kontaktus, kad galėtume išsiųsti balsavimo patvirtinimą.
       </p>
 

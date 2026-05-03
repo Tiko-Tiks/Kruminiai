@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { logAudit } from "@/lib/audit";
 import { sendSms } from "@/lib/infobip";
 import { sendEmail } from "@/lib/email";
+import { vocative } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 
@@ -191,6 +192,7 @@ export async function getVotingTokenData(token: string) {
 
 export async function castVotesByToken(
   token: string,
+  firstName: string,
   email: string | null,
   phone: string | null,
   votes: { resolution_id: string; vote: "uz" | "pries" | "susilaike" }[]
@@ -207,13 +209,13 @@ export async function castVotesByToken(
   if (error) return { error: error.message };
   if (data?.error) return { error: data.error };
 
-  // Po balsavimo siųsti patvirtinimą email (jei pateikta)
-  // Email gali būti su lt – jis nieko nekainuoja
+  // Po balsavimo siųsti patvirtinimą email su asmenizuotu kreipiniu
   if (email) {
+    const greeting = firstName ? `Sveiki, ${vocative(firstName)},` : "Sveiki,";
     await sendEmail(
       email,
       "Krūminių bendruomenė – jūsų balsas užregistruotas",
-      `<p>Sveiki,</p>
+      `<p>${greeting}</p>
        <p>Jūsų balsas dėl 2026 m. gegužės 23 d. visuotinio susirinkimo klausimų sėkmingai užregistruotas.</p>
        <p>Ačiū, kad dalyvaujate bendruomenės gyvenime!</p>
        <p>Pagarbiai,<br/>Krūminių kaimo bendruomenė</p>`

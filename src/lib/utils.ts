@@ -19,6 +19,27 @@ export function formatCurrency(cents: number): string {
   return `${(cents / 100).toFixed(2)} €`;
 }
 
+// Lietuviškas šauksmininkas (vocative case) – kreipiniams.
+// Mindaugas → Mindaugai, Andrius → Andriau, Eglė → Egle.
+export function vocative(name: string): string {
+  if (!name) return name;
+  const lower = name.toLowerCase();
+  // -ius → -iau (turi būti tikrinamas prieš -us)
+  if (lower.endsWith("ius")) return name.slice(0, -3) + "iau";
+  // -ys → -y
+  if (lower.endsWith("ys")) return name.slice(0, -2) + "y";
+  // -us → -au
+  if (lower.endsWith("us")) return name.slice(0, -2) + "au";
+  // -as → -ai
+  if (lower.endsWith("as")) return name.slice(0, -2) + "ai";
+  // -is → -i
+  if (lower.endsWith("is")) return name.slice(0, -2) + "i";
+  // -ė → -e
+  if (lower.endsWith("ė")) return name.slice(0, -1) + "e";
+  // -a → nesikeičia (Aldona, Rasa)
+  return name;
+}
+
 export function generateSlug(text: string): string {
   const charMap: Record<string, string> = {
     ą: "a", č: "c", ę: "e", ė: "e", į: "i",
