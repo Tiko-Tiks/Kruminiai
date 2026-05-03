@@ -363,6 +363,74 @@ export async function attachDocumentToResolution(
   return { success: true };
 }
 
+// Įkelti naują failą + sukurti documents įrašą + prikabinti prie nutarimo
+export async function uploadAndAttachDocument(
+  resolutionId: string,
+  meetingId: string,
+  formData: FormData
+) {
+  const supabase = createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const file = formData.get("file") as File | null;
+  const title = ((formData.get("title") as string) || "").trim();
+
+  if (!file || !file.size) return { error: "Nepasirinktas failas" };
+  const finalTitle = title || file.name.replace(/\.[^.]+$/, "");
+
+  // 1. Įkelti į Storage
+  const fileName = `${Date.now()}-${file.name}`;
+  const { error: uploadErr } = await supabase.storage
+    .from("documents")
+    .upload(fileName, file);
+  if (uploadErr) return { error: `Nepavyko įkelti failo: ${uploadErr.message}` };
+
+  // 2. Sukurti documents įrašą
+  const { data: doc, error: docErr } = await supabase
+    .from("documents")
+    .insert({
+      title: finalTitle,
+      category: "ataskaitos",
+      file_path: fileName,
+      file_name: file.name,
+      file_size: file.size,
+      is_public: true,
+      published_at: new Date().toISOString().split("T")[0],
+      created_by: user?.id ?? null,
+    })
+    .select("id")
+    .single();
+  if (docErr) return { error: docErr.message };
+
+  // 3. Susieti su nutarimu
+  const { data: existing } = await supabase
+    .from("resolution_documents")
+    .select("sort_order")
+    .eq("resolution_id", resolutionId)
+    .order("sort_order", { ascending: false })
+    .limit(1);
+  const nextOrder = existing && existing.length > 0 ? existing[0].sort_order + 1 : 0;
+
+  const { error: linkErr } = await supabase.from("resolution_documents").insert({
+    resolution_id: resolutionId,
+    document_id: doc.id,
+    sort_order: nextOrder,
+  });
+  if (linkErr) return { error: linkErr.message };
+
+  await logAudit(supabase, {
+    userId: user?.id ?? null,
+    action: "CREATE",
+    tableName: "documents",
+    recordId: doc.id,
+    newData: { title: finalTitle, attached_to_resolution: resolutionId } as Record<string, unknown>,
+  });
+
+  revalidatePath(`/admin/susirinkimai/${meetingId}`);
+  revalidatePath("/admin/dokumentai");
+  return { success: true };
+}
+
 export async function detachDocumentFromResolution(
   resolutionId: string,
   documentId: string,

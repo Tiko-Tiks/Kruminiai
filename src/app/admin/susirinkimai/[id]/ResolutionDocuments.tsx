@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { attachDocumentToResolution, detachDocumentFromResolution } from "@/actions/voting";
-import { FileText, Plus, X } from "lucide-react";
+import {
+  attachDocumentToResolution,
+  detachDocumentFromResolution,
+  uploadAndAttachDocument,
+} from "@/actions/voting";
+import { FileText, Plus, X, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { formatFileSize } from "@/lib/utils";
 import { Document } from "@/lib/types";
@@ -31,7 +35,9 @@ export function ResolutionDocuments({
   canModify,
 }: Props) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [adding, setAdding] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
   const attachedIds = new Set(
@@ -63,6 +69,27 @@ export function ResolutionDocuments({
     }
   }
 
+  async function handleFileUpload(file: File) {
+    if (!file) return;
+    setUploading(true);
+
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("title", file.name.replace(/\.[^.]+$/, ""));
+
+    const result = await uploadAndAttachDocument(resolutionId, meetingId, fd);
+    setUploading(false);
+
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Failas įkeltas ir prikabintas");
+      setAdding(false);
+      router.refresh();
+    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
   if (attached.length === 0 && !canModify) return null;
 
   return (
@@ -71,14 +98,14 @@ export function ResolutionDocuments({
         <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
           Susiję dokumentai ({attached.length})
         </h4>
-        {canModify && !adding && available.length > 0 && (
+        {canModify && !adding && (
           <button
             type="button"
             onClick={() => setAdding(true)}
             className="text-xs text-green-700 hover:text-green-800 flex items-center gap-1"
           >
             <Plus className="h-3 w-3" />
-            Prikabinti
+            Pridėti
           </button>
         )}
       </div>
@@ -117,28 +144,53 @@ export function ResolutionDocuments({
         </ul>
       )}
 
-      {adding && available.length > 0 && (
-        <div className="mt-2 pt-2 border-t border-gray-200">
-          <p className="text-xs text-gray-600 mb-1.5">Pasirinkite dokumentą:</p>
-          <ul className="space-y-1">
-            {available.map((d) => (
-              <li key={d.id}>
-                <button
-                  type="button"
-                  onClick={() => handleAttach(d.id)}
-                  disabled={busy === d.id}
-                  className="w-full flex items-center gap-2 text-sm text-left text-gray-700 hover:bg-white px-2 py-1.5 rounded border border-transparent hover:border-gray-200 disabled:opacity-50"
-                >
-                  <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                  <span className="flex-1 truncate">{d.title}</span>
-                  {d.file_size && (
-                    <span className="text-xs text-gray-400">{formatFileSize(d.file_size)}</span>
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
-          <Button variant="ghost" size="sm" onClick={() => setAdding(false)} className="mt-1">
+      {adding && (
+        <div className="mt-2 pt-2 border-t border-gray-200 space-y-3">
+          {/* Naujo failo įkėlimas */}
+          <div>
+            <p className="text-xs text-gray-600 mb-1.5">Įkelti naują failą:</p>
+            <label className="flex items-center justify-center gap-2 w-full px-3 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-green-400 hover:bg-green-50/50 transition-colors text-sm text-gray-600">
+              <Upload className="h-4 w-4" />
+              {uploading ? "Įkeliama..." : "Pasirinkite failą iš kompiuterio"}
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                disabled={uploading}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleFileUpload(file);
+                }}
+              />
+            </label>
+          </div>
+
+          {/* Iš bibliotekos */}
+          {available.length > 0 && (
+            <div>
+              <p className="text-xs text-gray-600 mb-1.5">Arba iš bibliotekos:</p>
+              <ul className="space-y-1 max-h-40 overflow-y-auto">
+                {available.map((d) => (
+                  <li key={d.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleAttach(d.id)}
+                      disabled={busy === d.id}
+                      className="w-full flex items-center gap-2 text-sm text-left text-gray-700 hover:bg-white px-2 py-1.5 rounded border border-transparent hover:border-gray-200 disabled:opacity-50"
+                    >
+                      <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                      <span className="flex-1 truncate">{d.title}</span>
+                      {d.file_size && (
+                        <span className="text-xs text-gray-400">{formatFileSize(d.file_size)}</span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <Button variant="ghost" size="sm" onClick={() => setAdding(false)}>
             Uždaryti
           </Button>
         </div>
