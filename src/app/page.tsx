@@ -20,7 +20,6 @@ import {
   Clock,
 } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
 
 async function getLatestNews() {
   const supabase = createServerSupabaseClient();
@@ -56,65 +55,52 @@ export default async function HomePage() {
 
       {/* Hero */}
       <section className="relative bg-gradient-to-br from-green-800 via-green-700 to-green-900 text-white overflow-hidden">
-        {/* Subtili dekoracinė tekstūra */}
-        <div className="absolute inset-0 opacity-10 pointer-events-none">
-          <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/20 blur-3xl" />
-          <div className="absolute bottom-0 left-1/3 w-72 h-72 rounded-full bg-green-400/30 blur-3xl" />
+        {/* Dekoracija – tik subtilios šviesos formos, be logotipo */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute -top-32 -right-32 w-[28rem] h-[28rem] rounded-full bg-white/5 blur-3xl" />
+          <div className="absolute bottom-0 -left-24 w-72 h-72 rounded-full bg-green-400/15 blur-3xl" />
         </div>
 
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-16 md:py-24">
-          <div className="grid md:grid-cols-2 gap-8 items-center">
-            <div>
-              <p className="text-sm uppercase tracking-widest text-green-200 mb-3 font-medium">
-                Nuo 2012 m.
-              </p>
-              <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-4">
-                {SITE_NAME}
-              </h1>
-              <p className="text-lg text-green-100 leading-relaxed mb-8 max-w-lg">
-                Kartu kuriame geresnę ateitį mūsų kaimui ir žmonėms.
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <Link
-                  href="/naujienos"
-                  className="inline-flex items-center gap-2 px-5 py-3 bg-white text-green-800 rounded-lg font-medium hover:bg-green-50 transition-colors shadow-sm"
-                >
-                  Naujienos <ArrowRight className="h-4 w-4" />
-                </Link>
-                <Link
-                  href="/kontaktai"
-                  className="inline-flex items-center gap-2 px-5 py-3 bg-white/10 text-white border border-white/30 rounded-lg font-medium hover:bg-white/20 transition-colors backdrop-blur-sm"
-                >
-                  Susisiekite
-                </Link>
-              </div>
-
-              {/* Statistikos */}
-              <div className="grid grid-cols-3 gap-4 mt-10 max-w-md">
-                <div>
-                  <div className="text-3xl font-bold">70+</div>
-                  <div className="text-xs text-green-200">narių</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold">25</div>
-                  <div className="text-xs text-green-200">savanorių</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold">14</div>
-                  <div className="text-xs text-green-200">veiklos metų</div>
-                </div>
-              </div>
+          <div className="max-w-3xl">
+            <p className="text-sm uppercase tracking-widest text-green-200 mb-3 font-medium">
+              Nuo 2012 m.
+            </p>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-5">
+              {SITE_NAME}
+            </h1>
+            <p className="text-lg md:text-xl text-green-100 leading-relaxed mb-8 max-w-2xl">
+              Kartu kuriame geresnę ateitį mūsų kaimui ir žmonėms.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/naujienos"
+                className="inline-flex items-center gap-2 px-5 py-3 bg-white text-green-800 rounded-lg font-medium hover:bg-green-50 transition-colors shadow-sm"
+              >
+                Naujienos <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/kontaktai"
+                className="inline-flex items-center gap-2 px-5 py-3 bg-white/10 text-white border border-white/30 rounded-lg font-medium hover:bg-white/20 transition-colors backdrop-blur-sm"
+              >
+                Susisiekite
+              </Link>
             </div>
+          </div>
 
-            <div className="hidden md:flex justify-center md:justify-end">
-              <Image
-                src="/images/logo-md.png"
-                alt={SITE_NAME}
-                width={280}
-                height={420}
-                className="h-64 w-auto opacity-90 drop-shadow-2xl"
-                priority
-              />
+          {/* Statistikos juostelė */}
+          <div className="mt-12 pt-8 border-t border-white/15 grid grid-cols-3 gap-4 max-w-2xl">
+            <div>
+              <div className="text-3xl md:text-4xl font-bold">70+</div>
+              <div className="text-xs sm:text-sm text-green-200 mt-1">narių</div>
+            </div>
+            <div className="border-l border-white/15 pl-4">
+              <div className="text-3xl md:text-4xl font-bold">25</div>
+              <div className="text-xs sm:text-sm text-green-200 mt-1">savanorių</div>
+            </div>
+            <div className="border-l border-white/15 pl-4">
+              <div className="text-3xl md:text-4xl font-bold">14</div>
+              <div className="text-xs sm:text-sm text-green-200 mt-1">veiklos metų</div>
             </div>
           </div>
         </div>
