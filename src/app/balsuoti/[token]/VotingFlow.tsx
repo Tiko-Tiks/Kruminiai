@@ -1,10 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { castVotesByToken, registerLiveIntentByToken } from "@/actions/tokens";
 import { VOTE_LABELS } from "@/lib/constants";
+
+// PDF Viewer įkraunamas tik kliente (react-pdf reikalauja browser API)
+const PdfViewer = dynamic(() => import("@/components/PdfViewer").then((m) => m.PdfViewer), {
+  ssr: false,
+});
 import {
   CheckCircle2,
   ChevronRight,
@@ -296,13 +302,8 @@ function DocPreviewModal({
           Uždaryti
         </button>
       </div>
-      <div className="flex-1 bg-gray-100" onClick={(e) => e.stopPropagation()}>
-        <iframe
-          src={url}
-          title={doc.title}
-          className="w-full h-full border-0"
-          allow="fullscreen"
-        />
+      <div className="flex-1 bg-gray-100 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <PdfViewer url={url} />
       </div>
     </div>
   );
