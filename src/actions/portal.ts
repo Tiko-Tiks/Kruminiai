@@ -61,7 +61,7 @@ export async function updateMemberContacts(email: string, phone: string, address
   return { success: true };
 }
 
-// Aktyvus susirinkimas su nutarimais (balsavimui)
+// Aktyvus susirinkimas su nutarimais (balsavimui) + nario balsai jei jau balsavo
 export async function getMeetingForVoting(meetingId: string) {
   const supabase = createServerSupabaseClient();
 
@@ -80,5 +80,31 @@ export async function getMeetingForVoting(meetingId: string) {
     .eq("is_procedural", false)
     .order("resolution_number");
 
-  return { meeting, resolutions: resolutions || [] };
+  // Patikrinti ar narys jau balsavo
+  const { data: { user } } = await supabase.auth.getUser();
+  let memberVotes: { resolution_id: string; vote: string; voted_at: string }[] = [];
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("member_id")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.member_id && resolutions) {
+      const resolutionIds = resolutions.map((r) => r.id);
+      const { data: votes } = await supabase
+        .from("vote_ballots")
+        .select("resolution_id, vote, voted_at")
+        .eq("member_id", profile.member_id)
+        .in("resolution_id", resolutionIds);
+      memberVotes = votes || [];
+    }
+  }
+
+  return {
+    meeting,
+    resolutions: resolutions || [],
+    memberVotes,
+    hasVoted: memberVotes.length > 0,
+  };
 }

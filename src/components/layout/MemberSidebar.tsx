@@ -24,10 +24,10 @@ import { createClient } from "@/lib/supabase";
 const navItems = [
   { label: "Pradžia", href: "/portalas", icon: LayoutDashboard },
   { label: "Balsavimai", href: "/portalas/balsavimai", icon: Vote },
-  { label: "Susirinkimai", href: "/susirinkimai", icon: CalendarDays, external: true },
+  { label: "Susirinkimai", href: "/portalas/susirinkimai", icon: CalendarDays },
   { label: "Mano istorija", href: "/portalas/istorija", icon: History },
   { label: "Finansai", href: "/portalas/finansai", icon: Banknote },
-  { label: "Dokumentai", href: "/dokumentai", icon: FileText, external: true },
+  { label: "Dokumentai", href: "/portalas/dokumentai", icon: FileText },
   { label: "Mano duomenys", href: "/portalas/profilis", icon: User },
 ];
 
@@ -81,7 +81,6 @@ export function MemberSidebar() {
             >
               <Icon className="h-5 w-5 flex-shrink-0" />
               <span className="flex-1">{item.label}</span>
-              {item.external && <ExternalLink className="h-3.5 w-3.5 opacity-60" />}
             </Link>
           );
         })}

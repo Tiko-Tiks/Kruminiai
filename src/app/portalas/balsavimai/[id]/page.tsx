@@ -1,5 +1,6 @@
 import { getMeetingForVoting } from "@/actions/portal";
 import { PortalVotingFlow } from "./PortalVotingFlow";
+import { AlreadyVotedView } from "./AlreadyVotedView";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +48,26 @@ export default async function PortalVotingPage({ params }: { params: { id: strin
       documents: docs,
     };
   });
+
+  // Jei narys jau balsavo - rodyti balsų santrauką, ne formą
+  if (data.hasVoted) {
+    const votesMap = new Map(data.memberVotes.map((v) => [v.resolution_id, v]));
+    return (
+      <AlreadyVotedView
+        meetingId={data.meeting.id}
+        meeting={{
+          title: data.meeting.title,
+          meeting_date: data.meeting.meeting_date,
+          location: data.meeting.location,
+        }}
+        resolutions={resolutions.map((r) => ({
+          ...r,
+          memberVote: votesMap.get(r.id)?.vote as "uz" | "pries" | "susilaike" | undefined,
+          votedAt: votesMap.get(r.id)?.voted_at,
+        }))}
+      />
+    );
+  }
 
   return (
     <PortalVotingFlow
