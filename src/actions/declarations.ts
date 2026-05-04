@@ -3,6 +3,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { logAudit } from "@/lib/audit";
 import { sendSms } from "@/lib/infobip";
+import { getMembersWithDebts } from "@/actions/reminders";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 
@@ -27,15 +28,13 @@ export async function generateAndSendDeclarations() {
   const supabase = createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Įtraukiame ir 'pasyvus' (jie vis dar nariai). 'išstojęs' – ne.
-  const { data: members, error } = await supabase
-    .from("members")
-    .select("id, first_name, last_name, phone, email")
-    .in("status", ["aktyvus", "pasyvus"]);
+  // Tik skolingi nariai – kurie pilnai atsiskaitė, jiems siūsti nereikia
+  // (mokėjimas reiškia, kad jie tęsia narystę).
+  const { members: debtors } = await getMembersWithDebts();
+  const members = debtors;
 
-  if (error) return { success: false as const, error: error.message };
   if (!members || members.length === 0)
-    return { success: false as const, error: "Narių nėra" };
+    return { success: false as const, error: "Skolingų narių nėra – siųsti nereikia" };
 
   const baseUrl = getBaseUrl();
   let smsSent = 0;
