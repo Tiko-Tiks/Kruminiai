@@ -1,4 +1,4 @@
-import { SiteHeader } from "@/components/layout/SiteHeader";
+import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { getNewsArticle } from "@/actions/news";
 import { formatDateLong } from "@/lib/utils";
@@ -46,7 +46,7 @@ export default async function NewsArticlePage({ params }: Props) {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <SiteHeader />
+      <PublicHeader />
 
       <main className="flex-1 bg-gray-50">
         <article className="max-w-3xl mx-auto px-4 sm:px-6 py-12">

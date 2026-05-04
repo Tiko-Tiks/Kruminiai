@@ -3,30 +3,14 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Menu, X, UserPlus, LayoutDashboard } from "lucide-react";
+import { Menu, X, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { PUBLIC_NAV, SITE_NAME } from "@/lib/constants";
 
-interface PublicHeaderProps {
-  isAuthenticated?: boolean;
-  canAccessMeetings?: boolean;
-  portalHref?: string;
-}
-
-export function PublicHeader({
-  isAuthenticated = false,
-  canAccessMeetings = false,
-  portalHref = "/portalas",
-}: PublicHeaderProps) {
+export function PublicHeader() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
-
-  const navItems = PUBLIC_NAV.filter((item) => {
-    if (item.requiresActiveMember && !canAccessMeetings) return false;
-    if (item.requiresAuth && !isAuthenticated) return false;
-    return true;
-  });
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-200">
@@ -47,7 +31,7 @@ export function PublicHeader({
           </Link>
 
           <nav className="hidden md:flex items-center gap-0.5 ml-auto">
-            {navItems.map((item) => (
+            {PUBLIC_NAV.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -62,31 +46,19 @@ export function PublicHeader({
               </Link>
             ))}
             <div className="ml-3 pl-3 border-l border-gray-200 flex items-center gap-2">
-              {isAuthenticated ? (
-                <Link
-                  href={portalHref}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium bg-green-700 text-white hover:bg-green-600 transition-colors whitespace-nowrap shadow-sm"
-                >
-                  <LayoutDashboard className="h-4 w-4" />
-                  Mano paskyra
-                </Link>
-              ) : (
-                <>
-                  <Link
-                    href="/prisijungimas"
-                    className="px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors whitespace-nowrap"
-                  >
-                    Prisijungti
-                  </Link>
-                  <Link
-                    href="/registracija"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium bg-green-700 text-white hover:bg-green-600 transition-colors whitespace-nowrap shadow-sm"
-                  >
-                    <UserPlus className="h-4 w-4" />
-                    Tapti nariu
-                  </Link>
-                </>
-              )}
+              <Link
+                href="/prisijungimas"
+                className="px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors whitespace-nowrap"
+              >
+                Prisijungti
+              </Link>
+              <Link
+                href="/registracija"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium bg-green-700 text-white hover:bg-green-600 transition-colors whitespace-nowrap shadow-sm"
+              >
+                <UserPlus className="h-4 w-4" />
+                Tapti nariu
+              </Link>
             </div>
           </nav>
 
@@ -101,7 +73,7 @@ export function PublicHeader({
 
         {menuOpen && (
           <div className="md:hidden pb-4 border-t border-gray-100 pt-2 space-y-0.5">
-            {navItems.map((item) => (
+            {PUBLIC_NAV.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -117,34 +89,21 @@ export function PublicHeader({
               </Link>
             ))}
             <div className="border-t border-gray-100 mt-2 pt-2 space-y-0.5">
-              {isAuthenticated ? (
-                <Link
-                  href={portalHref}
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium bg-green-700 text-white"
-                >
-                  <LayoutDashboard className="h-4 w-4" />
-                  Mano paskyra
-                </Link>
-              ) : (
-                <>
-                  <Link
-                    href="/prisijungimas"
-                    onClick={() => setMenuOpen(false)}
-                    className="block px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50"
-                  >
-                    Prisijungti
-                  </Link>
-                  <Link
-                    href="/registracija"
-                    onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium bg-green-700 text-white"
-                  >
-                    <UserPlus className="h-4 w-4" />
-                    Tapti nariu
-                  </Link>
-                </>
-              )}
+              <Link
+                href="/prisijungimas"
+                onClick={() => setMenuOpen(false)}
+                className="block px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Prisijungti
+              </Link>
+              <Link
+                href="/registracija"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium bg-green-700 text-white"
+              >
+                <UserPlus className="h-4 w-4" />
+                Tapti nariu
+              </Link>
             </div>
           </div>
         )}

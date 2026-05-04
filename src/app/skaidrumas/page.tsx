@@ -1,4 +1,4 @@
-import { SiteHeader } from "@/components/layout/SiteHeader";
+import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { SkaidrumasTabs } from "./SkaidrumasTabs";
@@ -47,7 +47,7 @@ export default async function SkaidrumasPage() {
   const istatai = documents.filter((d) => d.category === "istatai" || d.category === "sutartys");
   return (
     <div className="min-h-screen flex flex-col bg-amber-50/50">
-      <SiteHeader />
+      <PublicHeader />
 
       <main className="flex-1">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">

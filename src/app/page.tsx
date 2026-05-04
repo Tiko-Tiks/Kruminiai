@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SiteHeader } from "@/components/layout/SiteHeader";
+import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { formatDateLong } from "@/lib/utils";
@@ -109,7 +109,54 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteLd) }}
       />
-      <SiteHeader />
+      <PublicHeader />
+
+      {/* Artėjantis susirinkimas – svarbus skelbimas pačiame viršuje */}
+      {upcomingMeeting && (
+        <section className="bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border-b-2 border-amber-300">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+            <Link
+              href={`/susirinkimai/${upcomingMeeting.id}`}
+              className="block group"
+            >
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-amber-500 flex items-center justify-center shadow-md">
+                  <Vote className="h-7 w-7 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white uppercase tracking-wide">
+                      <Clock className="h-3 w-3" /> Artėjantis susirinkimas
+                    </span>
+                  </div>
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-1 group-hover:text-amber-700 transition-colors">
+                    {upcomingMeeting.title}
+                  </h2>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-700">
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="h-4 w-4 text-amber-600" />
+                      {formatDateLong(upcomingMeeting.meeting_date)}{" "}
+                      {new Date(upcomingMeeting.meeting_date).toLocaleTimeString("lt-LT", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <MapPin className="h-4 w-4 text-amber-600" />
+                      {upcomingMeeting.location}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex-shrink-0 self-stretch sm:self-center">
+                  <span className="inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-semibold group-hover:bg-amber-700 transition-colors">
+                    Darbotvarkė ir dokumentai <ArrowRight className="h-4 w-4" />
+                  </span>
+                </div>
+              </div>
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* Hero */}
       <section className="relative bg-gradient-to-br from-green-800 via-green-700 to-green-900 text-white overflow-hidden">
@@ -163,53 +210,6 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
-
-      {/* Artėjantis susirinkimas */}
-      {upcomingMeeting && (
-        <section className="bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border-b-2 border-amber-300">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
-            <Link
-              href={`/susirinkimai/${upcomingMeeting.id}`}
-              className="block group"
-            >
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-amber-500 flex items-center justify-center shadow-md">
-                  <Vote className="h-7 w-7 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white uppercase tracking-wide">
-                      <Clock className="h-3 w-3" /> Artėjantis susirinkimas
-                    </span>
-                  </div>
-                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-1 group-hover:text-amber-700 transition-colors">
-                    {upcomingMeeting.title}
-                  </h2>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-700">
-                    <span className="flex items-center gap-1.5">
-                      <Calendar className="h-4 w-4 text-amber-600" />
-                      {formatDateLong(upcomingMeeting.meeting_date)}{" "}
-                      {new Date(upcomingMeeting.meeting_date).toLocaleTimeString("lt-LT", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <MapPin className="h-4 w-4 text-amber-600" />
-                      {upcomingMeeting.location}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex-shrink-0 self-stretch sm:self-center">
-                  <span className="inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-semibold group-hover:bg-amber-700 transition-colors">
-                    Darbotvarkė ir dokumentai <ArrowRight className="h-4 w-4" />
-                  </span>
-                </div>
-              </div>
-            </Link>
-          </div>
-        </section>
-      )}
 
       {/* Pinned announcement */}
       {news.filter((n) => n.is_pinned).length > 0 && (
