@@ -50,7 +50,7 @@ export async function middleware(request: NextRequest) {
   if (user && (isAdminPath || isPortalPath || isMeetingsPath)) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role, is_approved, member_id, members(status)")
+      .select("role, is_approved, member_id, members!profiles_member_id_fkey(status)")
       .eq("id", user.id)
       .single();
 
