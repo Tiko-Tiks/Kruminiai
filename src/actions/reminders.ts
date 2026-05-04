@@ -269,7 +269,8 @@ export async function sendOverdueReminders(channel: ChannelChoice = "both") {
 }
 
 // =============================================================================
-// Backwards-compat: vienos periodo priminimas (paliekam, jei kažkur naudojama)
+// Preview: visi nariai su BET KOKIA skola (ne tik vieno periodo)
+// Atitinka sendOverdueReminders elgseną.
 // =============================================================================
 export async function previewUnpaidMembers(feePeriodId: string) {
   const supabase = createServerSupabaseClient();
@@ -282,19 +283,17 @@ export async function previewUnpaidMembers(feePeriodId: string) {
 
   if (!period) return { error: "Laikotarpis nerastas" };
 
+  // Grąžiname VISUS narius su skola (ne tik šio periodo)
   const { members: allWithDebts } = await getMembersWithDebts();
-  // Filtruoti tik tuos, kurie skolingi BENT už šį periodą
-  const unpaid = allWithDebts
-    .filter((m) => m.unpaidPeriods.some((p) => p.id === feePeriodId))
-    .map((m) => ({
-      id: m.id,
-      first_name: m.first_name,
-      last_name: m.last_name,
-      email: m.email,
-      phone: m.phone,
-      totalCents: m.totalCents,
-      yearsUnpaid: m.unpaidPeriods.length,
-    }));
+  const unpaid = allWithDebts.map((m) => ({
+    id: m.id,
+    first_name: m.first_name,
+    last_name: m.last_name,
+    email: m.email,
+    phone: m.phone,
+    totalCents: m.totalCents,
+    yearsUnpaid: m.unpaidPeriods.length,
+  }));
 
   const withEmail = unpaid.filter((m) => m.email && m.email.trim() !== "");
   const withPhone = unpaid.filter((m) => m.phone && normalizePhone(m.phone));
