@@ -150,15 +150,35 @@ export function DeclarationForm({ token, member, existingDeclaration, debt }: Pr
 
   return (
     <div className="space-y-5">
-      {/* Sveikinimas + susirinkimo info */}
+      {/* Sveikinimas + situacijos paaiškinimas */}
       <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">
           Sveiki, {vocative(member.first_name)} {member.last_name}
         </h2>
-        <p className="text-sm text-gray-700">
-          Artėja eilinis visuotinis bendruomenės narių susirinkimas. Prieš jį prašome trumpai
-          patvirtinti savo duomenis – kad galėtume tinkamai pasiruošti.
-        </p>
+
+        {hasDebt ? (
+          <>
+            <p className="text-sm text-gray-700 leading-relaxed">
+              Pagal Krūminių kaimo bendruomenės įrašus, jūsų <strong>nario mokestis dar neapmokėtas</strong>.
+              Galbūt tiesiog pamiršote – tokiu atveju paspauskite vieną iš variantų žemiau ir
+              sumokėkite. Jei nebenorite tęsti narystės – pažymėkite atitinkamai.
+            </p>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-3 text-sm text-gray-700">
+              <p>
+                <strong>Svarbu:</strong> jei per <strong>7 dienas</strong> nuo šios žinutės nieko
+                nepažymėsite ir mokesčio negausime, jūsų narystė bus svarstoma{" "}
+                <strong>2026 m. gegužės 23 d.</strong> visuotiniame susirinkime kaip kandidato
+                pašalinimui dėl nemokumo.
+              </p>
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-gray-700">
+            Artėja eilinis visuotinis bendruomenės narių susirinkimas. Prieš jį trumpai
+            patvirtinkite savo duomenis – kad galėtume tinkamai pasiruošti.
+          </p>
+        )}
+
         <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-700 space-y-1 mt-3">
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-green-700" />
@@ -319,13 +339,6 @@ export function DeclarationForm({ token, member, existingDeclaration, debt }: Pr
         >
           {intent === "withdraw" ? "Patvirtinti išstojimą" : "Patvirtinti"}
         </Button>
-
-        {hasDebt && (
-          <p className="text-xs text-gray-500 mt-3 leading-relaxed">
-            <strong>Pastaba:</strong> nepasirinkus jokio varianto ir per <strong>savaitę negavus mokėjimo</strong>, narys
-            įtraukiamas į kandidatų pašalinti sąrašą, kuris bus svarstomas visuotiniame susirinkime.
-          </p>
-        )}
       </div>
     </div>
   );
