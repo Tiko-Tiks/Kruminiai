@@ -77,7 +77,9 @@ export async function generateAndSendDeclarations() {
     }
 
     const url = `${baseUrl}/deklaracija/${token}`;
-    const text = `KKB pries 2026-05-23 susirinkima patvirtinkit naryste: ${url}`;
+    // Svelnus tonas, be KKB, be lt diakritikos (kad telpa i 1 SMS).
+    // Vardas asmenizuoja - aisku is ko (ne spam).
+    const text = `Sveiki, ${m.first_name}. Galbut pamirsote nario mokesti. Patvirtinkit duomenis ir mokejima: ${url}`;
 
     const result = await sendSms(m.phone, text);
     if (result.success) {
@@ -127,7 +129,7 @@ export async function resendDeclarationSms() {
     if (!member?.phone) continue;
 
     const url = `${baseUrl}/deklaracija/${t.token}`;
-    const text = `Priminimas: KKB pries 2026-05-23 susirinkima patvirtinkit naryste: ${url}`;
+    const text = `Sveiki, ${member.first_name}. Priminam del nario mokescio - patvirtinkit duomenis: ${url}`;
 
     const r = await sendSms(member.phone, text);
     if (r.success) smsSent++;

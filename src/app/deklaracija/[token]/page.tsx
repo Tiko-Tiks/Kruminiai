@@ -24,6 +24,10 @@ interface TokenData {
     email: string | null;
     notes: string | null;
   };
+  debt?: {
+    unpaid_periods: { fee_period_id: string; year: number; amount_cents: number }[];
+    total_cents: number;
+  };
   expires_at?: string;
 }
 
@@ -43,7 +47,7 @@ export default async function DeclarationPage({ params }: { params: { token: str
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-2xl mx-auto px-4 py-5">
           <h1 className="text-lg font-semibold text-gray-900">{COMMUNITY_LEGAL.name}</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Narystės patvirtinimas prieš susirinkimą</p>
+          <p className="text-sm text-gray-500 mt-0.5">Nario duomenų patvirtinimas</p>
         </div>
       </header>
 
@@ -52,6 +56,7 @@ export default async function DeclarationPage({ params }: { params: { token: str
           token={params.token}
           member={data.member}
           existingDeclaration={data.declaration}
+          debt={data.debt}
         />
       </main>
 
