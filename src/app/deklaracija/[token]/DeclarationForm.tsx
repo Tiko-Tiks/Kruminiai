@@ -319,6 +319,13 @@ export function DeclarationForm({ token, member, existingDeclaration, debt }: Pr
         >
           {intent === "withdraw" ? "Patvirtinti išstojimą" : "Patvirtinti"}
         </Button>
+
+        {hasDebt && (
+          <p className="text-xs text-gray-500 mt-3 leading-relaxed">
+            <strong>Pastaba:</strong> nepasirinkus jokio varianto ir per <strong>savaitę negavus mokėjimo</strong>, narys
+            įtraukiamas į kandidatų pašalinti sąrašą, kuris bus svarstomas visuotiniame susirinkime.
+          </p>
+        )}
       </div>
     </div>
   );
