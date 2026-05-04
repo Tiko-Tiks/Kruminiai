@@ -3,7 +3,7 @@ import { Badge, statusBadgeVariant } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { MEMBER_STATUS_LABELS } from "@/lib/constants";
-import { Plus } from "lucide-react";
+import { Plus, ClipboardCheck } from "lucide-react";
 import Link from "next/link";
 import { MembersSearch } from "./MembersSearch";
 import { DeleteMemberButton } from "./DeleteMemberButton";
@@ -22,11 +22,18 @@ export default async function MembersPage({ searchParams }: Props) {
           <h1 className="text-2xl font-bold text-gray-900">Nariai</h1>
           <p className="text-sm text-gray-500 mt-1">{members.length} narių bendruomenėje</p>
         </div>
-        <Link href="/admin/nariai/naujas">
-          <Button>
-            <Plus className="h-4 w-4" /> Naujas narys
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/admin/nariai/deklaracija">
+            <Button variant="outline">
+              <ClipboardCheck className="h-4 w-4" /> Narystės deklaracija
+            </Button>
+          </Link>
+          <Link href="/admin/nariai/naujas">
+            <Button>
+              <Plus className="h-4 w-4" /> Naujas narys
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <MembersSearch />
