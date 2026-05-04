@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { FEE_TYPE_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/constants";
-import { Plus } from "lucide-react";
+import { Plus, Bell } from "lucide-react";
 import Link from "next/link";
 import { CreateFeePeriodForm } from "./CreateFeePeriodForm";
 
@@ -69,6 +69,14 @@ export default async function FeesPage({ searchParams }: Props) {
         <div className="lg:col-span-3">
           {selectedPeriod ? (
             <>
+              <div className="flex items-center justify-end mb-3">
+                <Link href={`/admin/mokesciai/${selectedPeriod.id}/priminimai`}>
+                  <Button variant="outline" size="sm">
+                    <Bell className="h-4 w-4" />
+                    Siųsti priminimus
+                  </Button>
+                </Link>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                 <Card>
                   <CardContent>
