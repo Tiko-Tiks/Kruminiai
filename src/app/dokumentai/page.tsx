@@ -1,4 +1,4 @@
-import { PublicHeader } from "@/components/layout/PublicHeader";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { getDocuments } from "@/actions/documents";
 import { DOCUMENT_CATEGORY_LABELS } from "@/lib/constants";
@@ -6,7 +6,16 @@ import { formatDate } from "@/lib/utils";
 import { FileText } from "lucide-react";
 
 export const metadata = {
-  title: "Dokumentai | Krūminių kaimo bendruomenė",
+  title: "Dokumentai",
+  description:
+    "Krūminių kaimo bendruomenės dokumentų archyvas – įstatai, protokolai, ataskaitos ir kiti svarbūs dokumentai.",
+  alternates: { canonical: "/dokumentai" },
+  openGraph: {
+    title: "Dokumentai",
+    description:
+      "Bendruomenės dokumentų archyvas – įstatai, protokolai, ataskaitos.",
+    url: "/dokumentai",
+  },
 };
 
 export default async function DocumentsPage() {
@@ -21,7 +30,7 @@ export default async function DocumentsPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <PublicHeader />
+      <SiteHeader />
 
       <main className="flex-1 bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12">

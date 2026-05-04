@@ -4,7 +4,8 @@ import { CheckCircle2, XCircle, Clock } from "lucide-react";
 import { COMMUNITY_LEGAL } from "@/lib/constants";
 
 export const metadata = {
-  title: "Balsavimas | Krūminių kaimo bendruomenė",
+  title: "Balsavimas",
+  robots: { index: false, follow: false, nocache: true },
 };
 
 export const dynamic = "force-dynamic";

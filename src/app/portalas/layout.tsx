@@ -1,7 +1,8 @@
 import { MemberSidebar } from "@/components/layout/MemberSidebar";
 
 export const metadata = {
-  title: "Nario portalas | Krūminių kaimo bendruomenė",
+  title: "Nario portalas",
+  robots: { index: false, follow: false, nocache: true },
 };
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {

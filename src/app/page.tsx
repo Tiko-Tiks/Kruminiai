@@ -1,8 +1,27 @@
-import { PublicHeader } from "@/components/layout/PublicHeader";
+import type { Metadata } from "next";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { formatDateLong } from "@/lib/utils";
-import { SITE_NAME } from "@/lib/constants";
+import { SITE_NAME, COMMUNITY_LEGAL } from "@/lib/constants";
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://kruminiai.lt";
+
+export const metadata: Metadata = {
+  title: { absolute: "Krūminių kaimo bendruomenė – kartu kuriame savo kaimą" },
+  description:
+    "Krūminių kaimo bendruomenė nuo 2012 m. – aktyvi Varėnos r. kaimo bendruomenė. Naujienos, artėjantys susirinkimai, dokumentai, skaidri finansų ataskaita ir narystės informacija.",
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    locale: "lt_LT",
+    url: SITE_URL,
+    siteName: "Krūminių kaimo bendruomenė",
+    title: "Krūminių kaimo bendruomenė – kartu kuriame savo kaimą",
+    description:
+      "Aktyvi kaimo bendruomenė Varėnos r. – naujienos, susirinkimai, dokumentai ir skaidri veikla.",
+  },
+};
 import {
   ArrowRight,
   FileText,
@@ -49,9 +68,48 @@ async function getUpcomingMeeting() {
 export default async function HomePage() {
   const [news, upcomingMeeting] = await Promise.all([getLatestNews(), getUpcomingMeeting()]);
 
+  const organizationLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: COMMUNITY_LEGAL.name,
+    legalName: COMMUNITY_LEGAL.name,
+    url: SITE_URL,
+    logo: `${SITE_URL}/images/logo-md.png`,
+    foundingDate: "2012",
+    taxID: COMMUNITY_LEGAL.code,
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: "Beržų g. 8",
+      addressLocality: "Krūminių k.",
+      addressRegion: "Varėnos r.",
+      addressCountry: "LT",
+    },
+    areaServed: {
+      "@type": "Place",
+      name: "Krūminių k., Varėnos r.",
+    },
+    sameAs: [SITE_URL],
+  };
+
+  const websiteLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: SITE_NAME,
+    url: SITE_URL,
+    inLanguage: "lt-LT",
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
-      <PublicHeader />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteLd) }}
+      />
+      <SiteHeader />
 
       {/* Hero */}
       <section className="relative bg-gradient-to-br from-green-800 via-green-700 to-green-900 text-white overflow-hidden">

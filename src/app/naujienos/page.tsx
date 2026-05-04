@@ -1,4 +1,4 @@
-import { PublicHeader } from "@/components/layout/PublicHeader";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { getNewsArticles } from "@/actions/news";
 import { formatDateLong } from "@/lib/utils";
@@ -6,7 +6,16 @@ import { Pin } from "lucide-react";
 import Link from "next/link";
 
 export const metadata = {
-  title: "Naujienos | Krūminių kaimo bendruomenė",
+  title: "Naujienos",
+  description:
+    "Krūminių kaimo bendruomenės naujienos – pranešimai apie susirinkimus, renginius, sprendimus ir bendruomenės gyvenimą.",
+  alternates: { canonical: "/naujienos" },
+  openGraph: {
+    title: "Naujienos",
+    description:
+      "Krūminių kaimo bendruomenės naujienos – pranešimai apie susirinkimus, renginius ir sprendimus.",
+    url: "/naujienos",
+  },
 };
 
 export default async function NewsPage() {
@@ -14,7 +23,7 @@ export default async function NewsPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <PublicHeader />
+      <SiteHeader />
 
       <main className="flex-1 bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12">

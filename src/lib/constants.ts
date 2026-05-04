@@ -1,12 +1,22 @@
 export const SITE_NAME = "Krūminių kaimo bendruomenė";
 
-export const PUBLIC_NAV = [
+export const PUBLIC_NAV: {
+  label: string;
+  href: string;
+  requiresAuth?: boolean;
+  requiresActiveMember?: boolean;
+}[] = [
   { label: "Pradžia", href: "/" },
   { label: "Naujienos", href: "/naujienos" },
-  { label: "Susirinkimai", href: "/susirinkimai" },
-  { label: "Dokumentai", href: "/dokumentai" },
+  {
+    label: "Susirinkimai",
+    href: "/susirinkimai",
+    requiresAuth: true,
+    requiresActiveMember: true,
+  },
+  { label: "Dokumentai", href: "/dokumentai", requiresAuth: true },
   { label: "Apie mus", href: "/kontaktai" },
-  { label: "Skaidrumas", href: "/skaidrumas" },
+  { label: "Skaidrumas", href: "/skaidrumas", requiresAuth: true },
 ];
 
 export const ADMIN_NAV = [

@@ -1,7 +1,8 @@
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
 
 export const metadata = {
-  title: "Administravimas | Krūminių kaimo bendruomenė",
+  title: "Administravimas",
+  robots: { index: false, follow: false, nocache: true },
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

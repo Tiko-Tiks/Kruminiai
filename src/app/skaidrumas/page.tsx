@@ -1,4 +1,4 @@
-import { PublicHeader } from "@/components/layout/PublicHeader";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { SkaidrumasTabs } from "./SkaidrumasTabs";
@@ -27,7 +27,16 @@ async function getFinansaiData() {
 }
 
 export const metadata = {
-  title: "Skaidrumas | Krūminių kaimo bendruomenė",
+  title: "Skaidrumas",
+  description:
+    "Krūminių kaimo bendruomenės skaidrumo puslapis – metinės ataskaitos, susirinkimų protokolai, įstatai ir kiti viešai prieinami dokumentai.",
+  alternates: { canonical: "/skaidrumas" },
+  openGraph: {
+    title: "Skaidrumas",
+    description:
+      "Metinės ataskaitos, protokolai ir įstatai – atvira informacija apie bendruomenės veiklą.",
+    url: "/skaidrumas",
+  },
 };
 
 export default async function SkaidrumasPage() {
@@ -38,7 +47,7 @@ export default async function SkaidrumasPage() {
   const istatai = documents.filter((d) => d.category === "istatai" || d.category === "sutartys");
   return (
     <div className="min-h-screen flex flex-col bg-amber-50/50">
-      <PublicHeader />
+      <SiteHeader />
 
       <main className="flex-1">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">

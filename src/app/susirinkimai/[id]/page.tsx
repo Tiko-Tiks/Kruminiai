@@ -1,4 +1,4 @@
-import { PublicHeader } from "@/components/layout/PublicHeader";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { MEETING_TYPE_LABELS, MEETING_STATUS_LABELS } from "@/lib/constants";
@@ -110,7 +110,7 @@ export default async function MeetingArchivePage({ params }: { params: { id: str
 
   return (
     <div className="min-h-screen flex flex-col">
-      <PublicHeader />
+      <SiteHeader />
 
       <main className="flex-1 bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">

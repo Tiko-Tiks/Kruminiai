@@ -1,4 +1,4 @@
-import { PublicHeader } from "@/components/layout/PublicHeader";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { getNewsArticle } from "@/actions/news";
 import { formatDateLong } from "@/lib/utils";
@@ -15,9 +15,28 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const article = await getNewsArticle(params.slug);
   if (!article) return { title: "Nerasta" };
+  const description =
+    article.excerpt ||
+    `Krūminių kaimo bendruomenės naujiena: ${article.title}`;
+  const canonical = `/naujienos/${article.slug}`;
   return {
-    title: `${article.title} | Krūminių kaimo bendruomenė`,
-    description: article.excerpt || undefined,
+    title: article.title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      type: "article",
+      title: article.title,
+      description,
+      url: canonical,
+      publishedTime: article.published_at || undefined,
+      locale: "lt_LT",
+      siteName: "Krūminių kaimo bendruomenė",
+    },
+    twitter: {
+      card: "summary",
+      title: article.title,
+      description,
+    },
   };
 }
 
@@ -27,7 +46,7 @@ export default async function NewsArticlePage({ params }: Props) {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <PublicHeader />
+      <SiteHeader />
 
       <main className="flex-1 bg-gray-50">
         <article className="max-w-3xl mx-auto px-4 sm:px-6 py-12">

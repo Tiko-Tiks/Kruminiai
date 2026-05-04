@@ -1,15 +1,24 @@
-import { PublicHeader } from "@/components/layout/PublicHeader";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { Eye, MapPin, Briefcase, Heart, Sparkles, Bus, Home, Users } from "lucide-react";
 
 export const metadata = {
-  title: "Apie mus | Krūminių kaimo bendruomenė",
+  title: "Apie mus",
+  description:
+    "Krūminių kaimo bendruomenės vizija, misija, vertybės ir socialinio verslo modelis. Telkiame Krūminių, Valkininkų, Užuperkasio, Bucivonių, Urkionių, Jakėnų ir Paversekio gyventojus.",
+  alternates: { canonical: "/kontaktai" },
+  openGraph: {
+    title: "Apie mus",
+    description:
+      "Krūminių kaimo bendruomenės vizija, misija ir socialinio verslo modelis.",
+    url: "/kontaktai",
+  },
 };
 
 export default function AboutPage() {
   return (
     <div className="min-h-screen flex flex-col bg-amber-50/50">
-      <PublicHeader />
+      <SiteHeader />
 
       <main className="flex-1">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 py-12">

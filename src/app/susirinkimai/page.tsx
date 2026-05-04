@@ -1,4 +1,4 @@
-import { PublicHeader } from "@/components/layout/PublicHeader";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { getMeetings } from "@/actions/meetings";
 import { MEETING_TYPE_LABELS, MEETING_STATUS_LABELS } from "@/lib/constants";
@@ -7,7 +7,16 @@ import { Calendar, MapPin, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
 export const metadata = {
-  title: "Susirinkimai | Krūminių kaimo bendruomenė",
+  title: "Susirinkimai",
+  description:
+    "Krūminių kaimo bendruomenės visuotinių susirinkimų sąrašas, darbotvarkės ir nutarimai.",
+  alternates: { canonical: "/susirinkimai" },
+  openGraph: {
+    title: "Susirinkimai",
+    description:
+      "Visuotinių susirinkimų darbotvarkės, nutarimai ir dokumentai.",
+    url: "/susirinkimai",
+  },
 };
 
 export const dynamic = "force-dynamic";
@@ -33,7 +42,7 @@ export default async function MeetingsPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <PublicHeader />
+      <SiteHeader />
       <main className="flex-1 bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Susirinkimai</h1>
