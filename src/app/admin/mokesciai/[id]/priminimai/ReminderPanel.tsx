@@ -49,7 +49,7 @@ export function ReminderPanel({ feePeriodId, period, unpaid, counts }: Props) {
   })();
 
   const estimatedSmsCount = channel === "sms" ? counts.withPhone : channel === "both" ? counts.withPhone : 0;
-  const estimatedCost = (estimatedSmsCount * 0.05).toFixed(2);
+  const estimatedCost = (estimatedSmsCount * 0.03).toFixed(2);
 
   async function handleSend() {
     const channelLabel =
@@ -128,7 +128,7 @@ export function ReminderPanel({ feePeriodId, period, unpaid, counts }: Props) {
         <CardHeader>
           <h2 className="text-base font-semibold text-gray-900">Kanalas</h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            Email - nemokama. SMS – ~0,05 EUR/žinutei.
+            Email - nemokama. SMS – ~0,03 EUR/žinutei.
           </p>
         </CardHeader>
         <CardContent>
