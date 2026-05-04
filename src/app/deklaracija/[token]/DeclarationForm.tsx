@@ -117,8 +117,8 @@ export function DeclarationForm({ token, member, existingDeclaration, debt }: Pr
           {intent === "withdraw" && (
             <div className="bg-amber-50 border border-amber-100 rounded-lg p-4 text-sm text-gray-700 mt-5 text-left">
               <p>
-                Jūsų pageidavimas užfiksuotas. Pagal įstatus narystė nutraukiama tik visuotiniam
-                susirinkimui balsavus dėl išstojimo. Ačiū už buvimą bendruomenėje!
+                Jūsų pageidavimas užfiksuotas. Pagal įstatų 3.3.5 punktą galite bet kada išstoti
+                iš Bendruomenės pateikę prašymą. Ačiū už buvimą bendruomenėje!
               </p>
             </div>
           )}
@@ -153,7 +153,7 @@ export function DeclarationForm({ token, member, existingDeclaration, debt }: Pr
       {/* Sveikinimas + situacijos paaiškinimas */}
       <div className="bg-white rounded-xl border border-gray-200 p-5">
         <h2 className="text-lg font-semibold text-gray-900 mb-3">
-          Sveiki, {vocative(member.first_name)} {member.last_name}
+          Sveiki, {vocative(member.first_name)}
         </h2>
 
         {hasDebt ? (
@@ -166,9 +166,8 @@ export function DeclarationForm({ token, member, existingDeclaration, debt }: Pr
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-3 text-sm text-gray-700">
               <p>
                 <strong>Svarbu:</strong> jei per <strong>7 dienas</strong> nuo šios žinutės nieko
-                nepažymėsite ir mokesčio negausime, jūsų narystė bus svarstoma{" "}
-                <strong>2026 m. gegužės 23 d.</strong> visuotiniame susirinkime kaip kandidato
-                pašalinimui dėl nemokumo.
+                nepažymėsite ir mokesčio negausime, pagal bendruomenės įstatų 3.5 punktą Tarybos
+                sprendimu narystė gali būti nutraukta dėl nemokumo.
               </p>
             </div>
           </>

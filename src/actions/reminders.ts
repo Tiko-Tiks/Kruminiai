@@ -162,7 +162,7 @@ export async function sendOverdueReminders(channel: ChannelChoice = "both") {
           </table>
 
           <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#374151;">
-            Pagal Krūminių kaimo bendruomenės įstatus, <strong>nesumokėjus nario mokesčio</strong>, narystė gali būti nutraukta visuotinio narių susirinkimo sprendimu. Klausimas dėl nemokių narių šalinimo bus svarstomas <strong>2026 m. gegužės 23 d.</strong> susirinkime.
+            Pagal Krūminių kaimo bendruomenės įstatų <strong>3.5 punktą</strong>, jei narys nustatytu laiku nesumoka nario mokesčio, narystė gali būti nutraukta Tarybos sprendimu.
           </p>
 
           <p style="margin:0 0 20px;font-size:14px;line-height:1.65;color:#4b5563;background:#fffbeb;border-left:3px solid #f59e0b;padding:12px 16px;border-radius:4px;">

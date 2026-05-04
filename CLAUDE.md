@@ -161,6 +161,26 @@ Naudoja `node scripts/X.mjs` su .env.local skaitymu.
 - Admin profilis susietas su Mindaugo nariu (testavimui)
 - 13 balsavimų suvesta už 2026 m. metinį mokestį iš banko išrašo
 
+## Įstatai (2025 m. nauja redakcija)
+
+**Failo vieta:** `C:\Users\Administrator\Desktop\Bendruomene\DOK\Visuotinis susirinkimas\Įstatai_nauja redakcija2025.pdf` – patvirtinti 2025-12-07 (Protokolo Nr. 2)
+
+Esminiai punktai, į kuriuos verta atsižvelgti rašant naują logiką:
+
+- **3.1** – nariais gali būti tiek **fiziniai**, tiek **juridiniai** asmenys
+- **3.3.5** – narys bet kada gali išstoti pateikęs prašymą
+- **3.4.4** – nario mokestį nustato visuotinis susirinkimas
+- **3.5** – narystė pasibaigia: išstojimu **arba Tarybos sprendimu** (jei nemoka mokesčio, sistemingai nevykdo pareigų ar kenkia reputacijai)
+- **4.5** – kvorumas: daugiau kaip **1/2 narių**
+- **4.6** – pakartotinis susirinkimas be kvorumo apribojimų
+- **4.7** – paprasta dauguma; **2/3** dėl įstatų keitimo, pertvarkymo ar likvidavimo
+- **5.1–5.5** – valdymo organai: **Taryba** (3–7 narių, 4 m. kadencija) + **Pirmininkas** (4 m. kadencija)
+- **5.3.1** – **Taryba** priima į narius IR sprendžia dėl jų šalinimo (ne visuotinis susirinkimas!)
+- **2.4** – pelnas (100%) reinvestuojamas, nariams nedalinamas
+- **6.2** – **Revizorius** renkamas 4 metams, negali būti valdymo organo nariu
+
+**Svarbu programos tekstams:** narystės šalinimas yra **Tarybos kompetencija** (ne susirinkimo). Visuotinis susirinkimas tik renka/atšaukia Pirmininką ir Tarybą, tvirtina ataskaitas. Visi tekstai apie „pašalinimą per susirinkimą" turi būti atnaujinti į „Tarybos sprendimu".
+
 ## Žinios prieš pradedant naują darbą
 
 - **Patikrinti šį failą** kaskart – nedubliuoti egzistuojančio
