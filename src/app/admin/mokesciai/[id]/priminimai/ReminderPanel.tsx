@@ -14,6 +14,7 @@ interface UnpaidMember {
   last_name: string;
   email: string | null;
   phone: string | null;
+  status?: string;
   totalCents?: number;
   yearsUnpaid?: number;
 }
@@ -204,10 +205,15 @@ export function ReminderPanel({ feePeriodId, period, unpaid, counts }: Props) {
               <div key={m.id} className="flex items-center gap-3 px-5 py-3">
                 <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-medium text-gray-900">
                       {m.first_name} {m.last_name}
                     </p>
+                    {m.status === "pasyvus" && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-200 text-gray-700">
+                        Pasyvus
+                      </span>
+                    )}
                     {multiYear && (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">
                         {m.yearsUnpaid} m. skola

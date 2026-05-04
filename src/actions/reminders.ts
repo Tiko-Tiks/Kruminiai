@@ -29,12 +29,15 @@ interface MemberWithDebt {
   email: string | null;
   phone: string | null;
   join_date: string | null;
+  status: string;
   unpaidPeriods: FeePeriod[];
   totalCents: number;
 }
 
 // =============================================================================
-// Surinkti narius su skolomis (visi metai nuo įstojimo)
+// Surinkti narius su skolomis (aktyvūs + pasyvūs, visi metai nuo įstojimo)
+// Pasyvūs nariai vis dar yra bendruomenės nariai, tik mažiau aktyvūs.
+// Iš sąrašo neįtraukiame tik 'išstojęs' – tų jau nebėra.
 // =============================================================================
 export async function getMembersWithDebts() {
   const supabase = createServerSupabaseClient();
@@ -42,7 +45,7 @@ export async function getMembersWithDebts() {
   const { data: members } = await supabase
     .from("members")
     .select("id, first_name, last_name, email, phone, join_date, status")
-    .eq("status", "aktyvus");
+    .in("status", ["aktyvus", "pasyvus"]);
 
   const { data: periods } = await supabase
     .from("fee_periods")
@@ -79,6 +82,7 @@ export async function getMembersWithDebts() {
       email: m.email,
       phone: m.phone,
       join_date: m.join_date,
+      status: m.status,
       unpaidPeriods: unpaid,
       totalCents: unpaid.reduce((s, p) => s + p.amount_cents, 0),
     });
@@ -283,7 +287,7 @@ export async function previewUnpaidMembers(feePeriodId: string) {
 
   if (!period) return { error: "Laikotarpis nerastas" };
 
-  // Grąžiname VISUS narius su skola (ne tik šio periodo)
+  // Grąžiname VISUS narius su skola (aktyvūs + pasyvūs, ne tik šio periodo)
   const { members: allWithDebts } = await getMembersWithDebts();
   const unpaid = allWithDebts.map((m) => ({
     id: m.id,
@@ -291,6 +295,7 @@ export async function previewUnpaidMembers(feePeriodId: string) {
     last_name: m.last_name,
     email: m.email,
     phone: m.phone,
+    status: m.status,
     totalCents: m.totalCents,
     yearsUnpaid: m.unpaidPeriods.length,
   }));
