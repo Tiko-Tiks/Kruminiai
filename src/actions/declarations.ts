@@ -27,14 +27,15 @@ export async function generateAndSendDeclarations() {
   const supabase = createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
 
+  // Įtraukiame ir 'pasyvus' (jie vis dar nariai). 'išstojęs' – ne.
   const { data: members, error } = await supabase
     .from("members")
     .select("id, first_name, last_name, phone, email")
-    .eq("status", "aktyvus");
+    .in("status", ["aktyvus", "pasyvus"]);
 
   if (error) return { success: false as const, error: error.message };
   if (!members || members.length === 0)
-    return { success: false as const, error: "Aktyvių narių nėra" };
+    return { success: false as const, error: "Narių nėra" };
 
   const baseUrl = getBaseUrl();
   let smsSent = 0;
