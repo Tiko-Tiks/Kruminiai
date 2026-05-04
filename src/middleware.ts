@@ -34,7 +34,8 @@ export async function middleware(request: NextRequest) {
     isAdminPath ||
     isPortalPath ||
     path.startsWith("/dokumentai") ||
-    path.startsWith("/skaidrumas");
+    path.startsWith("/skaidrumas") ||
+    path.startsWith("/susirinkimai");
 
   // Neprisijungę į apsaugotus puslapius – į login
   if (requiresAuth && !user) {
@@ -44,11 +45,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Prisijungę – tikrinti rolę admin / portalas atskyrimui
-  if (user && (isAdminPath || isPortalPath)) {
+  // Prisijungę – tikrinti rolę + nario statusą
+  const isMeetingsPath = path.startsWith("/susirinkimai");
+  if (user && (isAdminPath || isPortalPath || isMeetingsPath)) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role, is_approved")
+      .select("role, is_approved, member_id, members(status)")
       .eq("id", user.id)
       .single();
 
@@ -70,8 +72,17 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // Adminas atsidūrė /portalas – ne klaida, leidžiama (admin gali žiūrėti);
-    // bet paprastai admin'ai naudoja /admin.
+    // /susirinkimai – tik admin arba 'aktyvus' narys
+    if (isMeetingsPath && !isAdmin) {
+      const m = Array.isArray(profile.members) ? profile.members[0] : profile.members;
+      const memberStatus = m && typeof m === "object" && "status" in m ? m.status : null;
+      if (memberStatus !== "aktyvus") {
+        const url = request.nextUrl.clone();
+        url.pathname = "/portalas";
+        url.searchParams.set("error", "members_only");
+        return NextResponse.redirect(url);
+      }
+    }
   }
 
   return supabaseResponse;
@@ -83,5 +94,6 @@ export const config = {
     "/portalas/:path*",
     "/dokumentai/:path*",
     "/skaidrumas/:path*",
+    "/susirinkimai/:path*",
   ],
 };
