@@ -97,8 +97,9 @@ export function DeclarationForm({ token, member, existingDeclaration }: Props) {
           <div className="bg-amber-50 border border-amber-100 rounded-lg p-4 text-sm text-gray-700 my-5">
             <p className="font-medium text-amber-800 mb-1">Atsisakote narystės</p>
             <p>
-              Jūsų sprendimas užfiksuotas. Susirinkimo metu valdyba oficialiai patvirtins
-              išstojimą.
+              Jūsų pageidavimas užfiksuotas. Pagal įstatus, narystė nutraukiama tik
+              <strong> visuotiniam narių susirinkimui balsavus dėl išstojimo</strong>.
+              Jūsų sprendimas bus svarstomas 2026 m. gegužės 23 d. susirinkime.
             </p>
           </div>
         )}

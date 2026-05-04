@@ -14,6 +14,8 @@ interface UnpaidMember {
   last_name: string;
   email: string | null;
   phone: string | null;
+  totalCents?: number;
+  yearsUnpaid?: number;
 }
 
 interface Props {
@@ -62,8 +64,8 @@ export function ReminderPanel({ feePeriodId, period, unpaid, counts }: Props) {
     const result = await sendPaymentReminders(feePeriodId, channel);
     setSending(false);
 
-    if (!("success" in result) || !result.success) {
-      toast.error(("error" in result && result.error) || "Klaida siunčiant priminimus");
+    if (!result.success) {
+      toast.error("Klaida siunčiant priminimus");
       return;
     }
     toast.success(`Priminimai išsiųsti: ${result.emailsSent} email + ${result.smsSent} SMS`);
@@ -90,6 +92,16 @@ export function ReminderPanel({ feePeriodId, period, unpaid, counts }: Props) {
 
   return (
     <div className="space-y-6">
+      <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-blue-900">
+        <p className="font-medium mb-1">📋 Kaip veikia priminimas</p>
+        <p className="text-blue-800">
+          Siunčiama <strong>visiems aktyviems nariams su bet kokia skola</strong> (ne tik šio
+          periodo). Priminime nurodoma pilna skolos suma už visus pradelstus metus, taip pat
+          paaiškinama, kad nesumokėjus narystė gali būti nutraukta visuotinio susirinkimo
+          sprendimu, o naujam stojimui reiks 20 EUR stojamojo mokesčio.
+        </p>
+      </div>
+
       {/* Statistikos kortelės */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard label="Iš viso skolingų" value={counts.total} accent="amber" />
@@ -185,15 +197,25 @@ export function ReminderPanel({ feePeriodId, period, unpaid, counts }: Props) {
               (channel === "both" && (hasEmail || hasPhone)) ||
               (channel === "email" && hasEmail) ||
               (channel === "sms" && hasPhone);
+            const totalEur = ((m.totalCents ?? 0) / 100).toFixed(2);
+            const multiYear = (m.yearsUnpaid ?? 1) > 1;
 
             return (
               <div key={m.id} className="flex items-center gap-3 px-5 py-3">
                 <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">
-                    {m.first_name} {m.last_name}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-gray-900">
+                      {m.first_name} {m.last_name}
+                    </p>
+                    {multiYear && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">
+                        {m.yearsUnpaid} m. skola
+                      </span>
+                    )}
+                  </div>
                   <div className="flex flex-wrap gap-3 text-xs text-gray-500 mt-0.5">
+                    <span className="font-semibold text-red-700">{totalEur} EUR</span>
                     {hasEmail && (
                       <span className="flex items-center gap-1">
                         <Mail className="h-3 w-3" />
