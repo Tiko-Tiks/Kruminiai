@@ -17,15 +17,18 @@
 ## Maršrutų struktūra
 
 ```
-/                         Viešas pagrindinis (hero, stats, artėjantis susirinkimas)
-/naujienos                Viešas
-/susirinkimai             Viešas (sąrašas)
-/susirinkimai/[id]        Viešas archyvas (SECURITY DEFINER RPC, ne RLS)
-/dokumentai               Auth required (apsaugotas middleware)
-/skaidrumas               Auth required
-/balsuoti/[token]         BE auth (SMS magic link)
-/portalas/*               Auth required, member rolė
-/admin/*                  Auth required, admin/super_admin rolė
+/                                          Viešas pagrindinis (hero, stats, artėjantis susirinkimas banneris)
+/naujienos                                 Viešas
+/susirinkimai                              Auth + status='aktyvus' (arba admin)
+/susirinkimai/[id]                         Auth + status='aktyvus' – pilna darbotvarkė + dokumentai
+/dokumentai                                Auth required (apsaugotas middleware)
+/skaidrumas                                Auth required
+/balsuoti/[token]                          BE auth (SMS magic link, balsavimo flow)
+/deklaracija/[token]                       BE auth (SMS magic link, narystės deklaracija)
+/portalas/*                                Auth required, member rolė
+/admin/*                                   Auth required, admin/super_admin rolė
+/admin/mokesciai/[id]/priminimai           Mokėjimų priminimai (email + SMS)
+/admin/nariai/deklaracija                  Narystės deklaracijos kampanija
 ```
 
 Middleware: `src/middleware.ts` valdo prieigą + role-based redirect (`/admin` ↔ `/portalas`).
@@ -40,7 +43,8 @@ Middleware: `src/middleware.ts` valdo prieigą + role-based redirect (`/admin` �
 | `resolutions` | Darbotvarkės klausimai (procedūriniai + standartiniai) |
 | `vote_ballots` | Individualūs balsai (nematomi nariams!) |
 | `meeting_attendance` | Dalyviai (gyvai, nuotoliu, raštu) |
-| `meeting_voting_tokens` | SMS magic link tokenai (16-byte hex) |
+| `meeting_voting_tokens` | SMS magic link tokenai balsavimui (16-byte hex) |
+| `membership_declarations` | SMS magic link tokenai narystės patvirtinimui (3 intencijos) |
 | `documents` | Centrinis failų registras |
 | `resolution_documents` | M:N junction nutarimas↔dokumentas |
 | `fee_periods` + `payments` | Mokesčiai |
@@ -64,6 +68,8 @@ Naudoti vietoj tiesioginių užklausų į apsaugotas lenteles, ypač viešuose p
 | `get_member_financial_status()` | authenticated | Skolos + mokėjimo istorija |
 | `get_member_profile()` | authenticated | Nario duomenys |
 | `update_member_contacts(email, phone, address)` | authenticated | Kontaktų atnaujinimas |
+| `get_declaration_token_data(token)` | anon | Narystės deklaracija + skola |
+| `submit_declaration(token, intent, email, notes)` | anon | Narystės deklaracijos pateikimas |
 
 ## Konvencijos
 
@@ -110,6 +116,7 @@ Naudoti vietoj tiesioginių užklausų į apsaugotas lenteles, ypač viešuose p
 5. `005_resolution_documents.sql`
 6. `006_public_meeting_archive.sql`
 7. `007_member_portal.sql`
+8. `008_membership_declarations.sql`
 
 DB pakeitimai daromi **per Supabase MCP** (`apply_migration`) IR sinchronizuojami į `supabase/migrations/` lokaliam repo įrašymui.
 
@@ -122,7 +129,8 @@ NEXT_PUBLIC_SITE_URL=https://kruminiai.lt
 
 INFOBIP_BASE_URL=xxxxx.api.infobip.com   (be https://)
 INFOBIP_API_KEY=
-INFOBIP_SMS_SENDER=Kruminiai             (max 11 ASCII simb.)
+INFOBIP_SMS_SENDER=37065031091           (telefono numeris, ne alphanum
+                                          – nariai jau pažįsta šį numerį)
 
 SMTP_HOST=smtp.hostinger.com
 SMTP_PORT=465
@@ -139,9 +147,12 @@ EMAIL_FROM_NAME=Krūminių kaimo bendruomenė
 `scripts/`:
 - `test-sms.mjs` – Infobip SMS test į statinį numerį
 - `test-voting-sms.mjs` – test SMS su balsavimo nuoroda
-- `test-email.mjs` – SMTP test
-- `test-branded-email.mjs` – brand'into šablono peržiūra
 - `test-voting-sms-dovile.mjs` – multi-recipient test
+- `test-declaration-sms.mjs` – test deklaracijos SMS
+- `test-email.mjs` – SMTP test
+- `test-email-raw.mjs` – password debug variantas
+- `test-branded-email.mjs` – brand'into šablono peržiūra
+- `test-reminder.mjs` – mokėjimo priminimo SMS+email su mock daugiamete skola
 
 Naudoja `node scripts/X.mjs` su .env.local skaitymu.
 
@@ -153,13 +164,36 @@ Naudoja `node scripts/X.mjs` su .env.local skaitymu.
 - **Native HTML5 date/time inputs**: OS-locale specific (Windows EN-US rodo MM/DD/YYYY, AM/PM). Naudoti `DatePicker` komponentą.
 - **iframe PDF**: Android atveria OS dialogą. Naudoti `PdfViewer` komponentą per react-pdf.
 
+## Mokesčių sistema
+
+Žr. `payment_system.md` memory dėl pilno paaiškinimo. Trumpai:
+
+- `fee_periods` – metiniai mokesčio periodai (12 EUR/m. nuo 2023)
+- `payments` – įrašai siejami su `member_id` ir `fee_period_id`
+- **Bendrieji pavedimai už porą** – įrašomi kaip 2 atskiri payment'ai su tuo pačiu `receipt_number`
+- **Mokesčių priminimai** (`/admin/mokesciai/[id]/priminimai`):
+  - Paima visus aktyvius + pasyvius narius su BET KOKIA skola (per visus metus nuo įstojimo)
+  - Email + SMS pasirinkimas
+  - Multi-year skola pateikiama lentelėje
+- **Narystės deklaracija** (`/admin/nariai/deklaracija`):
+  - Tik skolingiems siunčiama (sumokėjusiems – aišku, kad tęsia)
+  - 3 intencijos: continue_cash / continue_transfer / withdraw
+  - „Withdraw" pasirinkus – statusas DB **NEbekeicia** (Tarybos kompetencija pagal naujus įstatus)
+- **Stojamasis mokestis**: 20 EUR (jei buvęs narys nori vėl įstoti po šalinimo)
+- **SMS sender**: telefono numeris `37065031091` (ne „Kruminiai" alphanumeric)
+- **SMS kaina**: ~0,03 EUR/segmentui
+
 ## Esami testaviniai duomenys (gegužės 23 d. susirinkimas)
 
 - Susirinkimo ID: `99d4ea03-0f38-430b-9dec-ddd9128ef82b`
 - Mindaugas Mameniškis: `b0000000-0000-0000-0000-000000000001` (+37065849514)
 - Dovilė Mameniškienė: `b0000000-0000-0000-0000-000000000002` (+37065849515)
 - Admin profilis susietas su Mindaugo nariu (testavimui)
-- 13 balsavimų suvesta už 2026 m. metinį mokestį iš banko išrašo
+- 33 nariai sumokėjo už 2026 m. (13 banko pavedimu + 20 grynais)
+- ~43 nariai dar skolingi (vienas turi 4 m. skolą)
+- Susirinkimas: 76 nariai (70 aktyvūs + 6 pasyvūs), kvorumas 39
+- 8 darbotvarkės klausimai + 2 procedūriniai
+- 3 PDF dokumentai prikabinti prie 3 ir 4 nutarimo
 
 ## Įstatai (2025 m. nauja redakcija)
 
