@@ -4,8 +4,10 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { logAudit } from "@/lib/audit";
 import { sendSms, normalizePhone } from "@/lib/infobip";
 import { sendEmail, renderBrandedEmail } from "@/lib/email";
+import { logNotification } from "@/lib/notification-log";
 import { vocative } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
+import crypto from "crypto";
 
 const BANK_NAME = "AB Artea bankas";
 const BANK_ACCOUNT = "LT167181200000606866";
@@ -110,6 +112,7 @@ export async function sendOverdueReminders(channel: ChannelChoice = "both") {
   const { data: { user } } = await supabase.auth.getUser();
 
   const { members } = await getMembersWithDebts();
+  const batchId = crypto.randomUUID();
 
   const result: ReminderResult = {
     total: members.length,
@@ -216,11 +219,20 @@ export async function sendOverdueReminders(channel: ChannelChoice = "both") {
         `,
       });
 
-      const r = await sendEmail(
-        m.email.trim(),
-        `SVARBU: pradelstas nario mokestis ${totalEur} EUR – ${BANK_RECIPIENT}`,
-        html
-      );
+      const subject = `SVARBU: pradelstas nario mokestis ${totalEur} EUR – ${BANK_RECIPIENT}`;
+      const r = await sendEmail(m.email.trim(), subject, html);
+      await logNotification(supabase, {
+        memberId: m.id,
+        channel: "email",
+        kind: "overdue_reminder",
+        recipient: m.email.trim(),
+        subject,
+        message: html,
+        status: r.success ? "sent" : "failed",
+        error: r.success ? null : r.error,
+        externalId: r.messageId ?? null,
+        batchId,
+      });
       if (r.success) {
         result.emailsSent++;
         sentSomething = true;
@@ -241,6 +253,17 @@ export async function sendOverdueReminders(channel: ChannelChoice = "both") {
         // ~155 simb. limit – 1 SMS
         const text = `KKB: PRADELSTAS nario mokestis ${yearsLabel} ${totalEur} EUR. Sumokekite ${BANK_ACCOUNT}. Nesumokejus busite salinami; naujam istojimui +${ENTRY_FEE_EUR}EUR.`;
         const r = await sendSms(m.phone, text);
+        await logNotification(supabase, {
+          memberId: m.id,
+          channel: "sms",
+          kind: "overdue_reminder",
+          recipient: normalized,
+          message: text,
+          status: r.success ? "sent" : "failed",
+          error: r.success ? null : r.error,
+          batchId,
+          segments: 1,
+        });
         if (r.success) {
           result.smsSent++;
           sentSomething = true;
@@ -257,19 +280,22 @@ export async function sendOverdueReminders(channel: ChannelChoice = "both") {
   await logAudit(supabase, {
     userId: user?.id ?? null,
     action: "CREATE",
-    tableName: "members",
-    recordId: "overdue_reminder_batch",
+    tableName: "notification_log",
+    recordId: batchId,
     newData: {
+      batch_kind: "overdue_reminder",
       reminder_channel: channel,
       total: result.total,
       emails: result.emailsSent,
       sms: result.smsSent,
       skipped: result.skipped,
+      email_errors: result.emailErrors,
+      sms_errors: result.smsErrors,
     },
   });
 
   revalidatePath("/admin/mokesciai");
-  return { success: true as const, ...result };
+  return { success: true as const, batchId, ...result };
 }
 
 // =============================================================================

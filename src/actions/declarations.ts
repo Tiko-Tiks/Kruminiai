@@ -2,7 +2,8 @@
 
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { logAudit } from "@/lib/audit";
-import { sendSms } from "@/lib/infobip";
+import { sendSms, normalizePhone } from "@/lib/infobip";
+import { logNotification } from "@/lib/notification-log";
 import { getMembersWithDebts } from "@/actions/reminders";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
@@ -37,6 +38,7 @@ export async function generateAndSendDeclarations() {
     return { success: false as const, error: "Skolingų narių nėra – siųsti nereikia" };
 
   const baseUrl = getBaseUrl();
+  const batchId = crypto.randomUUID();
   let smsSent = 0;
   let smsSkipped = 0;
   const errors: string[] = [];
@@ -76,11 +78,21 @@ export async function generateAndSendDeclarations() {
     }
 
     const url = `${baseUrl}/deklaracija/${token}`;
-    // Svelnus tonas, be KKB, be lt diakritikos (kad telpa i 1 SMS).
-    // Vardas asmenizuoja - aisku is ko (ne spam).
     const text = `Sveiki, ${m.first_name}. Galbut pamirsote nario mokesti. Patvirtinkit duomenis ir mokejima: ${url}`;
 
     const result = await sendSms(m.phone, text);
+    await logNotification(supabase, {
+      memberId: m.id,
+      channel: "sms",
+      kind: "membership_declaration",
+      recipient: normalizePhone(m.phone) ?? m.phone,
+      message: text,
+      status: result.success ? "sent" : "failed",
+      error: result.success ? null : result.error,
+      externalId: result.messageId ?? null,
+      batchId,
+      segments: 1,
+    });
     if (result.success) {
       await supabase
         .from("membership_declarations")
@@ -95,9 +107,14 @@ export async function generateAndSendDeclarations() {
   await logAudit(supabase, {
     userId: user?.id ?? null,
     action: "CREATE",
-    tableName: "membership_declarations",
-    recordId: "batch",
-    newData: { smsSent, smsSkipped, errorsCount: errors.length },
+    tableName: "notification_log",
+    recordId: batchId,
+    newData: {
+      batch_kind: "membership_declaration",
+      smsSent,
+      smsSkipped,
+      errorsCount: errors.length,
+    },
   });
 
   revalidatePath("/admin/nariai/deklaracija");
@@ -123,6 +140,7 @@ export async function resendDeclarationSms() {
   let smsSent = 0;
   const errors: string[] = [];
 
+  const batchId = crypto.randomUUID();
   for (const t of tokens) {
     const member = Array.isArray(t.members) ? t.members[0] : t.members;
     if (!member?.phone) continue;
@@ -131,6 +149,18 @@ export async function resendDeclarationSms() {
     const text = `Sveiki, ${member.first_name}. Priminam del nario mokescio - patvirtinkit duomenis: ${url}`;
 
     const r = await sendSms(member.phone, text);
+    await logNotification(supabase, {
+      memberId: t.member_id,
+      channel: "sms",
+      kind: "membership_declaration",
+      recipient: normalizePhone(member.phone) ?? member.phone,
+      message: text,
+      status: r.success ? "sent" : "failed",
+      error: r.success ? null : r.error,
+      externalId: r.messageId ?? null,
+      batchId,
+      segments: 1,
+    });
     if (r.success) smsSent++;
     else errors.push(`${member.first_name} ${member.last_name}: ${r.error}`);
   }

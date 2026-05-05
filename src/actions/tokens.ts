@@ -2,8 +2,9 @@
 
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { logAudit } from "@/lib/audit";
-import { sendSms } from "@/lib/infobip";
+import { sendSms, normalizePhone } from "@/lib/infobip";
 import { sendEmail, renderBrandedEmail } from "@/lib/email";
+import { logNotification } from "@/lib/notification-log";
 import { vocative } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
@@ -49,6 +50,7 @@ export async function generateAndSendVotingTokens(meetingId: string) {
 
   const baseUrl = getBaseUrl();
   const expiresAt = meeting.meeting_date; // iki susirinkimo pradžios
+  const batchId = crypto.randomUUID();
 
   let smsSent = 0;
   let smsSkipped = 0;
@@ -96,6 +98,18 @@ export async function generateAndSendVotingTokens(meetingId: string) {
     const text = `KKB visuotinis susirinkimas 2026-05-23 18:00. Balsuokite: ${url}`;
 
     const result = await sendSms(m.phone, text);
+    await logNotification(supabase, {
+      memberId: m.id,
+      channel: "sms",
+      kind: "voting_token",
+      recipient: normalizePhone(m.phone) ?? m.phone,
+      message: text,
+      status: result.success ? "sent" : "failed",
+      error: result.success ? null : result.error,
+      externalId: result.messageId ?? null,
+      batchId,
+      segments: 1,
+    });
     if (result.success) {
       await supabase
         .from("meeting_voting_tokens")
@@ -112,7 +126,13 @@ export async function generateAndSendVotingTokens(meetingId: string) {
     action: "CREATE",
     tableName: "meeting_voting_tokens",
     recordId: meetingId,
-    newData: { smsSent, smsSkipped, errorsCount: errors.length },
+    newData: {
+      batch_kind: "voting_token",
+      batch_id: batchId,
+      smsSent,
+      smsSkipped,
+      errorsCount: errors.length,
+    },
   });
 
   revalidatePath(`/admin/susirinkimai/${meetingId}`);
@@ -136,6 +156,7 @@ export async function resendVotingSms(meetingId: string) {
   }
 
   const baseUrl = getBaseUrl();
+  const batchId = crypto.randomUUID();
   let smsSent = 0;
   const errors: string[] = [];
 
@@ -147,6 +168,18 @@ export async function resendVotingSms(meetingId: string) {
     const text = `Priminimas: KKB balsavimas 2026-05-23 18:00. Balsuokite: ${url}`;
 
     const result = await sendSms(member.phone, text);
+    await logNotification(supabase, {
+      memberId: t.member_id,
+      channel: "sms",
+      kind: "voting_resend",
+      recipient: normalizePhone(member.phone) ?? member.phone,
+      message: text,
+      status: result.success ? "sent" : "failed",
+      error: result.success ? null : result.error,
+      externalId: result.messageId ?? null,
+      batchId,
+      segments: 1,
+    });
     if (result.success) {
       smsSent++;
     } else {
@@ -308,11 +341,19 @@ export async function castVotesByToken(
     body,
   });
 
-  await sendEmail(
-    email,
-    "Jūsų balsas užregistruotas – Krūminių bendruomenė",
-    html
-  ).catch(() => null);
+  const subject = "Jūsų balsas užregistruotas – Krūminių bendruomenė";
+  const sendResult = await sendEmail(email, subject, html).catch(() => null);
+  await logNotification(supabase, {
+    memberId: null, // tokenu pagrįstas srautas; member_id žinomas tik per RPC, čia praleidžiam
+    channel: "email",
+    kind: "vote_confirmation",
+    recipient: email,
+    subject,
+    message: html,
+    status: sendResult?.success ? "sent" : "failed",
+    error: sendResult?.success ? null : sendResult?.error ?? "send failed",
+    externalId: sendResult?.messageId ?? null,
+  });
 
   return { success: true };
 }

@@ -13,6 +13,7 @@ import {
   LogOut,
   ExternalLink,
   Vote,
+  Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SITE_NAME } from "@/lib/constants";
@@ -27,6 +28,7 @@ const icons = {
   Newspaper,
   UserCheck,
   Vote,
+  Bell,
 };
 
 const navItems = [
@@ -36,6 +38,7 @@ const navItems = [
   { label: "Dokumentai", href: "/admin/dokumentai", icon: "FileText" },
   { label: "Naujienos", href: "/admin/naujienos", icon: "Newspaper" },
   { label: "Susirinkimai", href: "/admin/susirinkimai", icon: "Vote" },
+  { label: "Pranešimai", href: "/admin/pranesimai", icon: "Bell" },
   { label: "Vartotojai", href: "/admin/vartotojai", icon: "UserCheck" },
 ] as const;
 
