@@ -144,7 +144,7 @@ export async function sendOverdueReminders(channel: ChannelChoice = "both") {
       const html = renderBrandedEmail({
         preheader: `SVARBU: pradelsta ${totalEur} EUR (${yearsCount} m.). Skubiai sumokėkite arba būsite šalinami.`,
         body: `
-          <h1 style="margin:0 0 20px;font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:400;color:#0f3d20;letter-spacing:0.01em;line-height:1.3;">Sveiki, ${vocative(m.first_name)}!</h1>
+          <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">Sveiki, ${vocative(m.first_name)}!</h1>
 
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#fef3f2;border-left:3px solid #dc2626;border-radius:4px;margin:0 0 20px;">
             <tr>
@@ -210,7 +210,7 @@ export async function sendOverdueReminders(channel: ChannelChoice = "both") {
           </p>
           <p style="margin:24px 0 0;font-size:15px;line-height:1.7;color:#374151;">
             Pagarbiai,<br>
-            <strong style="font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:16px;color:#0f3d20;">Mindaugas Mameniškis</strong><br>
+            <strong style="font-family:Arial,Helvetica,sans-serif;font-weight:700;font-size:15px;color:#0f3d20;">Mindaugas Mameniškis</strong><br>
             <span style="color:#6b7280;font-size:13px;">Bendruomenės pirmininkas</span>
           </p>
         `,

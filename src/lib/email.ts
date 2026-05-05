@@ -78,10 +78,10 @@ export function renderBrandedEmail(opts: {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://kruminiai.lt";
   const logoUrl = `${baseUrl}/images/logo-md.png`;
 
-  // Kūno šriftai: sisteminis sans-serif – švarus, gerai veikia visur.
-  // Antraštės: Georgia (klasikinis serif, prieinamas visiems email klientams).
-  const bodyFont = `-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif`;
-  const headingFont = `Georgia,'Times New Roman',serif`;
+  // Sans-serif visur – švari, gerai atvaizduoja lt diakritiką (ė, ų, č, ž, š).
+  // Arial/Helvetica – universaliausi šriftai email klientams.
+  const bodyFont = `Arial,Helvetica,sans-serif`;
+  const headingFont = `Arial,Helvetica,sans-serif`;
 
   return `<!DOCTYPE html>
 <html lang="lt">
@@ -118,7 +118,7 @@ ${opts.preheader ? `<div style="display:none;max-height:0;overflow:hidden;font-s
                   <img src="${logoUrl}" alt="" width="56" style="display:block;height:auto;max-width:56px;border:0;">
                 </td>
                 <td valign="middle">
-                  <div style="color:#0f3d20;font-family:${headingFont};font-size:14px;font-weight:400;letter-spacing:0.01em;margin-bottom:4px;">Krūminių kaimo bendruomenė</div>
+                  <div style="color:#0f3d20;font-family:${headingFont};font-size:14px;font-weight:700;margin-bottom:4px;">Krūminių kaimo bendruomenė</div>
                   Beržų g. 8, Krūminių k., LT-65474 Varėnos r. &nbsp;·&nbsp; Įm. kodas: 302795244<br>
                   <a href="mailto:info@kruminiai.lt" style="color:#15803d;text-decoration:none;">info@kruminiai.lt</a> &nbsp;·&nbsp; <a href="https://kruminiai.lt" style="color:#15803d;text-decoration:none;">kruminiai.lt</a>
                 </td>

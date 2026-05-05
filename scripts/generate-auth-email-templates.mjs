@@ -15,8 +15,8 @@ const OUT_DIR = join(__dirname, "..", "email-templates");
 const SITE_URL = "https://kruminiai.lt";
 const LOGO_URL = `${SITE_URL}/images/logo-md.png`;
 
-const bodyFont = `-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif`;
-const headingFont = `Georgia,'Times New Roman',serif`;
+const bodyFont = `Arial,Helvetica,sans-serif`;
+const headingFont = `Arial,Helvetica,sans-serif`;
 
 function renderBrandedEmail({ preheader, body }) {
   return `<!DOCTYPE html>
@@ -51,7 +51,7 @@ ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;font-size:1
                   <img src="${LOGO_URL}" alt="" width="56" style="display:block;height:auto;max-width:56px;border:0;">
                 </td>
                 <td valign="middle">
-                  <div style="color:#0f3d20;font-family:${headingFont};font-size:14px;font-weight:400;letter-spacing:0.01em;margin-bottom:4px;">Krūminių kaimo bendruomenė</div>
+                  <div style="color:#0f3d20;font-family:${headingFont};font-size:14px;font-weight:700;margin-bottom:4px;">Krūminių kaimo bendruomenė</div>
                   Beržų g. 8, Krūminių k., LT-65474 Varėnos r. &nbsp;·&nbsp; Įm. kodas: 302795244<br>
                   <a href="mailto:info@kruminiai.lt" style="color:#15803d;text-decoration:none;">info@kruminiai.lt</a> &nbsp;·&nbsp; <a href="https://kruminiai.lt" style="color:#15803d;text-decoration:none;">kruminiai.lt</a>
                 </td>
@@ -81,7 +81,7 @@ function ctaButton(href, label) {
 }
 
 function heading(text) {
-  return `<h1 style="margin:0 0 20px;font-family:${headingFont};font-size:24px;font-weight:400;color:#0f3d20;letter-spacing:0.01em;line-height:1.3;">${text}</h1>`;
+  return `<h1 style="margin:0 0 20px;font-family:${headingFont};font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">${text}</h1>`;
 }
 
 function paragraph(text) {
@@ -98,7 +98,7 @@ function fallbackLink(href) {
 function signature() {
   return `<p style="margin:32px 0 0;font-size:14px;line-height:1.6;color:#6b7280;">
     Pagarbiai,<br>
-    <strong style="font-family:${headingFont};font-weight:400;font-size:15px;color:#0f3d20;">Krūminių kaimo bendruomenė</strong>
+    <strong style="font-family:${headingFont};font-weight:700;font-size:15px;color:#0f3d20;">Krūminių kaimo bendruomenė</strong>
   </p>`;
 }
 
