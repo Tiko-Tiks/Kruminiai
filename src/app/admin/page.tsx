@@ -11,7 +11,10 @@ async function getDashboardData() {
 
   const [membersRes, activeMembersRes, documentsRes, newsRes, , paymentsRes, recentAuditRes] =
     await Promise.all([
-      supabase.from("members").select("id", { count: "exact", head: true }),
+      supabase
+        .from("members")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["aktyvus", "pasyvus"]),
       supabase.from("members").select("id", { count: "exact", head: true }).eq("status", "aktyvus"),
       supabase.from("documents").select("id", { count: "exact", head: true }),
       supabase.from("news").select("id", { count: "exact", head: true }).eq("is_published", true),
