@@ -64,6 +64,7 @@ export function SearchableSelect({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const hiddenInputRef = useRef<HTMLInputElement>(null);
 
   const selected = useMemo(
     () => options.find((o) => o.value === value) || null,
@@ -96,6 +97,14 @@ export function SearchableSelect({
   useEffect(() => {
     setHighlightIdx(0);
   }, [query, open]);
+
+  // Tiesiogiai sinchronizuoti hidden input value su DOM, kad FormData visada
+  // gautų teisingą reikšmę (kai kurie React quirk'ai su hidden inputs).
+  useEffect(() => {
+    if (hiddenInputRef.current) {
+      hiddenInputRef.current.value = value || "";
+    }
+  }, [value]);
 
   const setValue = (v: string) => {
     if (controlledValue === undefined) setInternalValue(v);
@@ -147,14 +156,14 @@ export function SearchableSelect({
         </label>
       )}
 
-      {/* Hidden input – jis nešasi formoje. readOnly + onChange={() => {}} nuima React warning'ą.
-          required nededam – HTML5 hidden input validation nepatikima; serveris validuoja. */}
+      {/* Hidden input – jis nešasi formoje. defaultValue + ref-based DOM sync
+          (žr. useEffect aukščiau) – išvengia React controlled-input quirk'ų
+          su hidden type. Required nededam – HTML5 hidden validation nepatikima. */}
       <input
+        ref={hiddenInputRef}
         type="hidden"
         name={name}
-        value={value || ""}
-        readOnly
-        onChange={() => {}}
+        defaultValue={value || ""}
       />
 
       <div className="relative">
