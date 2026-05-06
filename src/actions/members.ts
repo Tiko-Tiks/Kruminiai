@@ -21,6 +21,7 @@ export async function getMembers(search?: string, status?: string) {
   let query = supabase
     .from("members")
     .select("*")
+    .order("first_name", { ascending: true })
     .order("last_name", { ascending: true });
 
   if (status && status !== "visi") {

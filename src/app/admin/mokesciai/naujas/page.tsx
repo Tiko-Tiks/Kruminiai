@@ -27,7 +27,7 @@ export default function NewPaymentPage() {
           .from("members")
           .select("id, first_name, last_name, phone, email, status")
           .in("status", ["aktyvus", "pasyvus"])
-          .order("last_name"),
+          .order("first_name").order("last_name"),
         supabase.from("fee_periods").select("id, name, year, amount_cents").order("year", { ascending: false }),
       ]);
       setMembers(

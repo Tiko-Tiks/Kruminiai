@@ -63,7 +63,7 @@ export default async function MembersPage({ searchParams }: Props) {
                   <tr key={member.id} className="border-b border-gray-50 hover:bg-gray-50/50">
                     <td className="px-6 py-3 font-medium text-gray-900">
                       <Link href={`/admin/nariai/${member.id}`} className="hover:text-blue-600">
-                        {member.last_name} {member.first_name}
+                        {member.first_name} {member.last_name}
                       </Link>
                     </td>
                     <td className="px-6 py-3 text-gray-600">{member.phone || "–"}</td>

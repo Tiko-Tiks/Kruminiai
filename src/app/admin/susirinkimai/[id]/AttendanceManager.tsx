@@ -152,7 +152,7 @@ export function AttendanceManager({
                     }
                     className="rounded border-gray-300"
                   />
-                  {m.last_name} {m.first_name}
+                  {m.first_name} {m.last_name}
                 </label>
               ))}
               {available.length === 0 && (
@@ -197,7 +197,7 @@ export function AttendanceManager({
                         className="flex items-center justify-between text-sm py-1 px-2 rounded hover:bg-gray-50"
                       >
                         <span className="text-gray-700">
-                          {a.member?.last_name} {a.member?.first_name}
+                          {a.member?.first_name} {a.member?.last_name}
                         </span>
                         {canEdit && (
                           <button

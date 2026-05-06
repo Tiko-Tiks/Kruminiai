@@ -159,7 +159,7 @@ export async function getFeeReport(feePeriodId: string) {
   const supabase = createServerSupabaseClient();
 
   const [membersRes, paymentsRes, periodRes] = await Promise.all([
-    supabase.from("members").select("id, first_name, last_name, status").eq("status", "aktyvus").order("last_name"),
+    supabase.from("members").select("id, first_name, last_name, status").eq("status", "aktyvus").order("first_name").order("last_name"),
     supabase.from("payments").select("member_id, amount_cents").eq("fee_period_id", feePeriodId),
     supabase.from("fee_periods").select("*").eq("id", feePeriodId).single(),
   ]);
