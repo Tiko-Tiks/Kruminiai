@@ -36,7 +36,7 @@ export default function NewPaymentPage() {
           const hint = [m.phone, m.email].filter(Boolean).join(" · ");
           return {
             value: m.id,
-            label: `${m.last_name} ${m.first_name}${statusBadge}`,
+            label: `${m.first_name} ${m.last_name}${statusBadge}`,
             searchHint: hint || undefined,
           };
         })
@@ -100,6 +100,14 @@ export default function NewPaymentPage() {
               emptyText="Narių pagal paiešką nerasta"
               error={errors.member_id?.[0]}
               required
+              onChange={(v) => {
+                if (v && errors.member_id) {
+                  setErrors((prev) => {
+                    const { member_id: _omit, ...rest } = prev;
+                    return rest;
+                  });
+                }
+              }}
             />
             <Select
               id="fee_period_id"

@@ -147,8 +147,15 @@ export function SearchableSelect({
         </label>
       )}
 
-      {/* Hidden input – jis nešasi formoje */}
-      <input type="hidden" name={name} value={value} required={required} />
+      {/* Hidden input – jis nešasi formoje. readOnly + onChange={() => {}} nuima React warning'ą.
+          required nededam – HTML5 hidden input validation nepatikima; serveris validuoja. */}
+      <input
+        type="hidden"
+        name={name}
+        value={value || ""}
+        readOnly
+        onChange={() => {}}
+      />
 
       <div className="relative">
         <button
