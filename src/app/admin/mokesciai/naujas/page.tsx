@@ -6,6 +6,7 @@ import { createPayment } from "@/actions/payments";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/SearchableSelect";
 import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase";
@@ -14,7 +15,7 @@ import { toast } from "sonner";
 export default function NewPaymentPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [members, setMembers] = useState<{ value: string; label: string }[]>([]);
+  const [members, setMembers] = useState<SearchableSelectOption[]>([]);
   const [periods, setPeriods] = useState<{ value: string; label: string }[]>([]);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
 
@@ -22,14 +23,23 @@ export default function NewPaymentPage() {
     const load = async () => {
       const supabase = createClient();
       const [membersRes, periodsRes] = await Promise.all([
-        supabase.from("members").select("id, first_name, last_name").eq("status", "aktyvus").order("last_name"),
+        supabase
+          .from("members")
+          .select("id, first_name, last_name, phone, email, status")
+          .in("status", ["aktyvus", "pasyvus"])
+          .order("last_name"),
         supabase.from("fee_periods").select("id, name, year, amount_cents").order("year", { ascending: false }),
       ]);
       setMembers(
-        (membersRes.data || []).map((m) => ({
-          value: m.id,
-          label: `${m.last_name} ${m.first_name}`,
-        }))
+        (membersRes.data || []).map((m) => {
+          const statusBadge = m.status === "pasyvus" ? " (pasyvus)" : "";
+          const hint = [m.phone, m.email].filter(Boolean).join(" · ");
+          return {
+            value: m.id,
+            label: `${m.last_name} ${m.first_name}${statusBadge}`,
+            searchHint: hint || undefined,
+          };
+        })
       );
       setPeriods(
         (periodsRes.data || []).map((p) => ({
@@ -81,12 +91,13 @@ export default function NewPaymentPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4 max-w-2xl">
-            <Select
+            <SearchableSelect
               id="member_id"
               name="member_id"
               label="Narys *"
               options={members}
               placeholder="Pasirinkite narį..."
+              emptyText="Narių pagal paiešką nerasta"
               error={errors.member_id?.[0]}
               required
             />
