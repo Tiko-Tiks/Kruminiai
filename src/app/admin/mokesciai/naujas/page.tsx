@@ -18,6 +18,7 @@ export default function NewPaymentPage() {
   const [members, setMembers] = useState<SearchableSelectOption[]>([]);
   const [periods, setPeriods] = useState<{ value: string; label: string }[]>([]);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
+  const [memberId, setMemberId] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -57,6 +58,8 @@ export default function NewPaymentPage() {
     setErrors({});
 
     const formData = new FormData(e.currentTarget);
+    // Aiškiai įrašom member_id iš controlled state – nepasitikime hidden input'u
+    formData.set("member_id", memberId);
     const amountEur = parseFloat(formData.get("amount_eur") as string);
     formData.set("amount_cents", Math.round(amountEur * 100).toString());
     formData.delete("amount_eur");
@@ -100,7 +103,9 @@ export default function NewPaymentPage() {
               emptyText="Narių pagal paiešką nerasta"
               error={errors.member_id?.[0]}
               required
+              value={memberId}
               onChange={(v) => {
+                setMemberId(v);
                 if (v && errors.member_id) {
                   setErrors((prev) => {
                     const rest = { ...prev };
