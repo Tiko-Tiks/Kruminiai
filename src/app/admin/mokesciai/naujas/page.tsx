@@ -103,7 +103,8 @@ export default function NewPaymentPage() {
               onChange={(v) => {
                 if (v && errors.member_id) {
                   setErrors((prev) => {
-                    const { member_id: _omit, ...rest } = prev;
+                    const rest = { ...prev };
+                    delete rest.member_id;
                     return rest;
                   });
                 }

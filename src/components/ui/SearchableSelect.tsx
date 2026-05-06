@@ -171,6 +171,7 @@ export function SearchableSelect({
           type="button"
           id={id}
           disabled={disabled}
+          aria-required={required || undefined}
           onClick={() => {
             setOpen((o) => !o);
             setTimeout(() => inputRef.current?.focus(), 0);
