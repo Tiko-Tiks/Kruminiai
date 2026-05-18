@@ -171,29 +171,29 @@ export function VotingFlow({ token, data }: Props) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
         <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
-        <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+        <h2 className="text-3xl font-bold text-gray-900 mb-3">
           Ačiū, {vocative(data.member.first_name)}!
         </h2>
-        <p className="text-gray-600 mb-2">Jūsų balsas sėkmingai užregistruotas.</p>
+        <p className="text-lg text-gray-700 mb-3">Jūsų balsas sėkmingai užregistruotas.</p>
         {finalEmail ? (
-          <p className="text-sm text-gray-600 mb-6 inline-flex items-center gap-1.5">
-            <Mail className="h-4 w-4" />
+          <p className="text-base text-gray-700 mb-6 inline-flex items-center gap-1.5">
+            <Mail className="h-5 w-5" />
             Patvirtinimas su balsų suvestine išsiųstas į{" "}
-            <span className="font-medium">{finalEmail}</span>
+            <span className="font-semibold">{finalEmail}</span>
           </p>
         ) : (
-          <p className="text-sm text-gray-600 mb-6">
+          <p className="text-base text-gray-700 mb-6">
             El. pašto nepateikėte – balsavimo suvestinės nesiunčiame.
           </p>
         )}
         <a
           href={`/susirinkimai/${data.meeting.id}`}
-          className="inline-flex items-center gap-1.5 text-sm text-green-700 hover:text-green-800 hover:underline mb-3"
+          className="inline-flex items-center gap-1.5 text-base text-green-700 hover:text-green-800 hover:underline mb-3 font-medium"
         >
-          <FileText className="h-4 w-4" />
+          <FileText className="h-5 w-5" />
           Visi susirinkimo dokumentai ir rezultatai
         </a>
-        <p className="text-xs text-gray-400">
+        <p className="text-sm text-gray-500 mt-2">
           Šią nuorodą galite uždaryti – pakartotinai balsuoti nebegalėsite.
         </p>
       </div>
@@ -204,16 +204,16 @@ export function VotingFlow({ token, data }: Props) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
         <Users className="h-16 w-16 text-green-600 mx-auto mb-4" />
-        <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+        <h2 className="text-3xl font-bold text-gray-900 mb-3">
           Lauksime jūsų, {vocative(data.member.first_name)}!
         </h2>
-        <p className="text-gray-700 mb-2">
+        <p className="text-lg text-gray-700 mb-3">
           Pažymėjote, kad dalyvausite susirinkime <strong>gyvai</strong>.
         </p>
-        <div className="bg-green-50 border border-green-100 rounded-lg p-4 my-5 text-sm text-gray-700">
+        <div className="bg-green-50 border border-green-100 rounded-lg p-4 my-5 text-base text-gray-800">
           <div className="flex items-center justify-center gap-1.5 mb-1">
-            <Calendar className="h-4 w-4 text-green-700" />
-            <span className="font-medium">
+            <Calendar className="h-5 w-5 text-green-700" />
+            <span className="font-semibold">
               {formatDateLong(data.meeting.meeting_date)}{" "}
               {new Date(data.meeting.meeting_date).toLocaleTimeString("lt-LT", {
                 hour: "2-digit",
@@ -222,18 +222,18 @@ export function VotingFlow({ token, data }: Props) {
             </span>
           </div>
           <div className="flex items-center justify-center gap-1.5">
-            <MapPin className="h-4 w-4 text-green-700" />
+            <MapPin className="h-5 w-5 text-green-700" />
             {data.meeting.location}
           </div>
         </div>
         <a
           href={`/susirinkimai/${data.meeting.id}`}
-          className="inline-flex items-center gap-1.5 text-sm text-green-700 hover:text-green-800 hover:underline mb-3"
+          className="inline-flex items-center gap-1.5 text-base text-green-700 hover:text-green-800 hover:underline mb-3 font-medium"
         >
-          <FileText className="h-4 w-4" />
+          <FileText className="h-5 w-5" />
           Visi susirinkimo dokumentai
         </a>
-        <p className="text-xs text-gray-400 mt-2">
+        <p className="text-sm text-gray-500 mt-2">
           Jei persigalvosite – galite grįžti per tą pačią SMS nuorodą ir balsuoti nuotoliu.
         </p>
       </div>
@@ -246,6 +246,9 @@ export function VotingFlow({ token, data }: Props) {
 
       {step === "contacts" && (
         <>
+          {/* Pirmiausia – susirinkimas + darbotvarkė, kad narys žinotų dėl ko sprendžia */}
+          <MeetingHeader meeting={data.meeting} resolutions={data.resolutions} />
+          {/* Tada – pasirinkimas: gyvai ar nuotoliu */}
           <ContactsStep
             firstNameVocative={vocative(data.member.first_name)}
             email={email}
@@ -260,8 +263,6 @@ export function VotingFlow({ token, data }: Props) {
             registeringLive={registeringLive}
             alreadyChoseLive={!!data.live_intent_at}
           />
-          {/* Susirinkimo informacija + darbotvarkė pasisveikinimo žingsnyje apačioje */}
-          <MeetingHeader meeting={data.meeting} resolutions={data.resolutions} />
         </>
       )}
 
@@ -364,15 +365,15 @@ function ProgressIndicator({ step }: { step: Step }) {
       {steps.map((s, i) => (
         <div key={s.key} className="flex items-center flex-1">
           <div
-            className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-semibold ${
+            className={`flex items-center justify-center w-10 h-10 rounded-full text-base font-bold ${
               i <= currentIdx ? "bg-green-700 text-white" : "bg-gray-200 text-gray-500"
             }`}
           >
             {i + 1}
           </div>
           <span
-            className={`ml-2 text-sm ${
-              i <= currentIdx ? "text-gray-900 font-medium" : "text-gray-400"
+            className={`ml-2 text-base ${
+              i <= currentIdx ? "text-gray-900 font-semibold" : "text-gray-400"
             }`}
           >
             {s.label}
@@ -397,10 +398,10 @@ function MeetingHeader({
 }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-      <h2 className="text-xl font-semibold text-gray-900 mb-3">{meeting.title}</h2>
-      <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+      <h2 className="text-2xl font-bold text-gray-900 mb-3">{meeting.title}</h2>
+      <div className="flex flex-wrap gap-4 text-base text-gray-700">
         <span className="flex items-center gap-1.5">
-          <Calendar className="h-4 w-4" />
+          <Calendar className="h-5 w-5" />
           {formatDateLong(meeting.meeting_date)}{" "}
           {new Date(meeting.meeting_date).toLocaleTimeString("lt-LT", {
             hour: "2-digit",
@@ -408,26 +409,26 @@ function MeetingHeader({
           })}
         </span>
         <span className="flex items-center gap-1.5">
-          <MapPin className="h-4 w-4" />
+          <MapPin className="h-5 w-5" />
           {meeting.location}
         </span>
       </div>
       {meeting.description && (
-        <p className="mt-4 text-sm text-gray-700 whitespace-pre-wrap border-t border-gray-100 pt-4">
+        <p className="mt-4 text-base text-gray-700 whitespace-pre-wrap border-t border-gray-100 pt-4">
           {meeting.description}
         </p>
       )}
 
       {resolutions.length > 0 && (
         <div className="mt-5 pt-5 border-t border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-900 mb-2">Darbotvarkė</h3>
-          <ol className="space-y-1.5">
+          <h3 className="text-lg font-bold text-gray-900 mb-3">Darbotvarkė</h3>
+          <ol className="space-y-2.5">
             {resolutions.map((r) => (
-              <li key={r.id} className="flex items-start gap-2 text-sm text-gray-700">
-                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center mt-0.5">
+              <li key={r.id} className="flex items-start gap-3 text-base text-gray-800">
+                <span className="flex-shrink-0 w-7 h-7 rounded-full bg-green-100 text-green-800 text-sm font-bold flex items-center justify-center mt-0.5">
                   {r.resolution_number}
                 </span>
-                <span className="flex-1">{r.title}</span>
+                <span className="flex-1 leading-relaxed">{r.title}</span>
               </li>
             ))}
           </ol>
@@ -470,16 +471,17 @@ function ContactsStep({
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-1">
+      <h3 className="text-2xl font-bold text-gray-900 mb-2">
         Sveiki, {firstNameVocative}!
       </h3>
-      <p className="text-sm text-gray-600 mb-5">
-        Pasirinkite, kaip dalyvausite – galite ateiti į susirinkimą gyvai arba balsuoti nuotoliu jau dabar.
+      <p className="text-base text-gray-700 mb-6 leading-relaxed">
+        Susipažinote su darbotvarke aukščiau. Dabar pasirinkite, kaip dalyvausite susirinkime –
+        atvyksite gyvai ar balsuosite nuotoliu jau dabar.
       </p>
 
       {alreadyChoseLive && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-5 flex items-start gap-2 text-sm text-amber-900">
-          <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-5 flex items-start gap-2 text-base text-amber-900">
+          <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
           <span>
             Anksčiau pažymėjote, kad dalyvausite gyvai. Galite balsuoti nuotoliu, jei persigalvojote.
           </span>
@@ -487,28 +489,33 @@ function ContactsStep({
       )}
 
       {/* Variantas A: dalyvausiu gyvai */}
-      <div className="border border-gray-200 rounded-lg p-5 mb-4">
-        <h4 className="font-semibold text-gray-900 mb-1">A. Dalyvausiu gyvai</h4>
-        <p className="text-xs text-gray-500 mb-4">
+      <div className="border-2 border-gray-200 rounded-xl p-5 mb-4">
+        <h4 className="text-xl font-bold text-gray-900 mb-2">A. Dalyvausiu gyvai</h4>
+        <p className="text-base text-gray-700 mb-4 leading-relaxed">
           Atvyksiu į susirinkimą gegužės 23 d. ir balsuosiu vietoje. Jei persigalvosite, galėsite grįžti į šią
           nuorodą ir balsuoti nuotoliu.
         </p>
-        <Button variant="outline" onClick={onLive} loading={registeringLive} className="w-full">
-          <Users className="h-4 w-4" />
+        <Button
+          variant="outline"
+          onClick={onLive}
+          loading={registeringLive}
+          className="w-full text-lg py-3"
+        >
+          <Users className="h-5 w-5" />
           Dalyvausiu gyvai
         </Button>
       </div>
 
       {/* Variantas B: balsuoti nuotoliu */}
-      <div className="border border-gray-200 rounded-lg p-5">
-        <h4 className="font-semibold text-gray-900 mb-1">B. Balsuoti nuotoliu</h4>
-        <p className="text-xs text-gray-500 mb-4">
+      <div className="border-2 border-gray-200 rounded-xl p-5">
+        <h4 className="text-xl font-bold text-gray-900 mb-2">B. Balsuoti nuotoliu</h4>
+        <p className="text-base text-gray-700 mb-4 leading-relaxed">
           Jūsų balsas bus įskaičiuotas į susirinkimo rezultatus, o jūs gausite balsų suvestinę el. paštu.
         </p>
 
         {hasExistingEmail ? (
-          <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-4 flex items-start gap-2 text-sm text-blue-900">
-            <Mail className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-4 flex items-start gap-2 text-base text-blue-900">
+            <Mail className="h-5 w-5 flex-shrink-0 mt-0.5" />
             <span>
               Pilną balsavimo ataskaitą atsiųsime į{" "}
               <strong className="font-semibold">{existingEmail}</strong>
@@ -516,20 +523,20 @@ function ContactsStep({
           </div>
         ) : (
           <div className="space-y-1 mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              El. paštas <span className="text-gray-400 text-xs">(neprivalomas)</span>
+            <label className="block text-base font-semibold text-gray-800 mb-2">
+              El. paštas <span className="text-gray-500 text-sm font-normal">(neprivalomas)</span>
             </label>
             <Input
               type="email"
               placeholder="vardenis@email.com"
               value={email}
               onChange={(e) => onEmailChange(e.target.value)}
-              className={showError ? "border-red-300" : ""}
+              className={`text-base ${showError ? "border-red-300" : ""}`}
             />
             {showError ? (
-              <p className="text-xs text-red-600 mt-1">Patikrinkite el. pašto formatą</p>
+              <p className="text-sm text-red-600 mt-1.5">Patikrinkite el. pašto formatą</p>
             ) : (
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-sm text-gray-600 mt-1.5">
                 Įveskite, jei norite gauti pilną balsavimo ataskaitą į el. paštą. Balsuoti galima ir be jo.
               </p>
             )}
@@ -538,20 +545,21 @@ function ContactsStep({
 
         {!hasExistingEmail && (
           <div className="space-y-1 mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Telefonas <span className="text-gray-400 text-xs">(neprivalomas)</span>
+            <label className="block text-base font-semibold text-gray-800 mb-2">
+              Telefonas <span className="text-gray-500 text-sm font-normal">(neprivalomas)</span>
             </label>
             <Input
               type="tel"
               placeholder="+370 6XX XXXXX"
               value={phone}
               onChange={(e) => onPhoneChange(e.target.value)}
+              className="text-base"
             />
           </div>
         )}
 
-        <Button onClick={onNext} disabled={!canVote} className="w-full">
-          <ChevronRight className="h-4 w-4" />
+        <Button onClick={onNext} disabled={!canVote} className="w-full text-lg py-3">
+          <ChevronRight className="h-5 w-5" />
           Balsuoti
         </Button>
       </div>
@@ -584,18 +592,18 @@ function VotingStep({
     <div className="space-y-4">
       {resolutions.map((r) => (
         <div key={r.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-          <div className="flex items-start gap-3 mb-3">
-            <span className="flex-shrink-0 w-7 h-7 rounded-full bg-green-100 text-green-700 text-sm font-semibold flex items-center justify-center">
+          <div className="flex items-start gap-3 mb-4">
+            <span className="flex-shrink-0 w-9 h-9 rounded-full bg-green-100 text-green-800 text-base font-bold flex items-center justify-center">
               {r.resolution_number}
             </span>
             <div className="flex-1">
-              <h3 className="font-semibold text-gray-900">{r.title}</h3>
+              <h3 className="text-lg font-bold text-gray-900 leading-snug">{r.title}</h3>
               {r.description && (
-                <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{r.description}</p>
+                <p className="text-base text-gray-700 mt-2 whitespace-pre-wrap leading-relaxed">{r.description}</p>
               )}
               {r.requires_qualified_majority && (
-                <p className="text-xs text-amber-700 mt-2 flex items-center gap-1">
-                  <AlertCircle className="h-3.5 w-3.5" />
+                <p className="text-sm text-amber-700 mt-2 flex items-center gap-1.5 font-medium">
+                  <AlertCircle className="h-4 w-4" />
                   Reikia 2/3 balsų daugumos
                 </p>
               )}
@@ -603,22 +611,22 @@ function VotingStep({
           </div>
 
           {r.documents && r.documents.length > 0 && (
-            <div className="mb-4 bg-gray-50 border border-gray-100 rounded-lg p-3">
-              <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+            <div className="mb-5 bg-blue-50 border border-blue-100 rounded-lg p-4">
+              <p className="text-sm font-bold text-blue-900 uppercase tracking-wide mb-2">
                 Susipažinkite prieš balsuojant
               </p>
-              <ul className="space-y-1.5">
+              <ul className="space-y-2">
                 {r.documents.map((doc) => (
                   <li key={doc.id}>
                     <button
                       type="button"
                       onClick={() => onPreviewDoc(doc)}
-                      className="w-full flex items-center gap-2 text-sm text-green-700 hover:text-green-800 hover:underline text-left"
+                      className="w-full flex items-center gap-2 text-base text-blue-800 hover:text-blue-900 hover:underline text-left font-medium"
                     >
-                      <FileText className="h-4 w-4 flex-shrink-0" />
+                      <FileText className="h-5 w-5 flex-shrink-0" />
                       <span className="flex-1">{doc.title}</span>
                       {doc.file_size && (
-                        <span className="text-xs text-gray-500">{formatFileSize(doc.file_size)}</span>
+                        <span className="text-sm text-gray-500">{formatFileSize(doc.file_size)}</span>
                       )}
                     </button>
                   </li>
@@ -647,7 +655,7 @@ function VotingStep({
                   key={choice}
                   type="button"
                   onClick={() => onVote(r.id, choice)}
-                  className={`px-4 py-3 rounded-lg border-2 font-semibold text-sm transition-all ${colors[choice]}`}
+                  className={`px-4 py-4 rounded-lg border-2 font-bold text-base transition-all ${colors[choice]}`}
                 >
                   {VOTE_LABELS[choice]}
                 </button>
@@ -656,33 +664,33 @@ function VotingStep({
           </div>
 
           {/* Komentaras / pasisakymas prie balso (neprivalomas) */}
-          <div className="mt-3">
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              Komentaras / pasisakymas <span className="text-gray-400">(neprivaloma)</span>
+          <div className="mt-4">
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Komentaras / pasisakymas <span className="text-gray-500 font-normal">(neprivaloma)</span>
             </label>
             <Textarea
               rows={2}
               placeholder="Pridėkite trumpą nuomonę, jei norite, kad ji būtų užfiksuota protokole..."
               value={comments[r.id] || ""}
               onChange={(e) => onComment(r.id, e.target.value)}
-              className="text-sm"
+              className="text-base"
             />
           </div>
         </div>
       ))}
 
-      <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack}>
-          <ChevronLeft className="h-4 w-4" />
+      <div className="flex justify-between gap-3">
+        <Button variant="outline" onClick={onBack} className="text-base py-3">
+          <ChevronLeft className="h-5 w-5" />
           Atgal
         </Button>
-        <Button onClick={onNext} disabled={!allVoted}>
+        <Button onClick={onNext} disabled={!allVoted} className="text-base py-3">
           Peržiūrėti
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-5 w-5" />
         </Button>
       </div>
       {!allVoted && (
-        <p className="text-sm text-amber-700 text-right">
+        <p className="text-base text-amber-700 text-right font-medium">
           Pasirinkite po atsakymą kiekvienam klausimui
         </p>
       )}
@@ -715,11 +723,11 @@ function ReviewStep({
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-1">Peržiūrėkite ir patvirtinkite</h3>
-      <p className="text-sm text-gray-500 mb-5">
+      <h3 className="text-2xl font-bold text-gray-900 mb-2">Peržiūrėkite ir patvirtinkite</h3>
+      <p className="text-base text-gray-700 mb-6 leading-relaxed">
         Patvirtinę balsą, jo pakeisti nebegalėsite.
         {email
-          ? <> Balsavimo suvestinė bus atsiųsta į <span className="font-medium text-gray-700">{email}</span>.</>
+          ? <> Balsavimo suvestinė bus atsiųsta į <span className="font-semibold text-gray-900">{email}</span>.</>
           : " El. pašto nepateikėte – suvestinė nebus siunčiama."}
       </p>
 
@@ -727,16 +735,16 @@ function ReviewStep({
         {resolutions.map((r) => {
           const comment = (comments[r.id] || "").trim();
           return (
-            <div key={r.id} className="p-3 border border-gray-100 rounded-lg">
+            <div key={r.id} className="p-4 border border-gray-200 rounded-lg">
               <div className="flex items-start gap-3">
-                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-700 text-xs font-semibold flex items-center justify-center">
+                <span className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 text-gray-700 text-sm font-bold flex items-center justify-center">
                   {r.resolution_number}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-900 font-medium">{r.title}</p>
+                  <p className="text-base text-gray-900 font-semibold leading-snug">{r.title}</p>
                 </div>
                 <span
-                  className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold ${
+                  className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-bold ${
                     colors[votes[r.id]]
                   }`}
                 >
@@ -744,7 +752,7 @@ function ReviewStep({
                 </span>
               </div>
               {comment && (
-                <div className="mt-2 ml-9 text-xs text-gray-600 italic bg-gray-50 px-3 py-1.5 rounded border-l-2 border-gray-300">
+                <div className="mt-3 ml-11 text-sm text-gray-700 italic bg-gray-50 px-3 py-2 rounded border-l-2 border-gray-300">
                   &bdquo;{comment}&ldquo;
                 </div>
               )}
@@ -754,12 +762,12 @@ function ReviewStep({
       </div>
 
       <div className="flex justify-between gap-3">
-        <Button variant="outline" onClick={onBack} disabled={submitting}>
-          <ChevronLeft className="h-4 w-4" />
+        <Button variant="outline" onClick={onBack} disabled={submitting} className="text-base py-3">
+          <ChevronLeft className="h-5 w-5" />
           Keisti
         </Button>
-        <Button variant="success" onClick={onSubmit} loading={submitting}>
-          <CheckCircle2 className="h-4 w-4" />
+        <Button variant="success" onClick={onSubmit} loading={submitting} className="text-base py-3">
+          <CheckCircle2 className="h-5 w-5" />
           Patvirtinti balsavimą
         </Button>
       </div>

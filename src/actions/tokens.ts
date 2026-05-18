@@ -95,7 +95,7 @@ export async function generateAndSendVotingTokens(meetingId: string) {
 
     // SMS be lt diakritikos (GSM-7 = 160 simb./SMS), su trumpu tokenu telpa i 1 SMS.
     const url = `${baseUrl}/balsuoti/${token}`;
-    const text = `KKB visuotinis susirinkimas 2026-05-23 18:00. Balsuokite: ${url}`;
+    const text = `Visuotinis susirinkimas 2026-05-23 18:00. Balsuokite: ${url}`;
 
     const result = await sendSms(m.phone, text);
     await logNotification(supabase, {
@@ -165,7 +165,7 @@ export async function resendVotingSms(meetingId: string) {
     if (!member?.phone) continue;
 
     const url = `${baseUrl}/balsuoti/${t.token}`;
-    const text = `Priminimas: KKB balsavimas 2026-05-23 18:00. Balsuokite: ${url}`;
+    const text = `Priminimas: balsavimas 2026-05-23 18:00. Balsuokite: ${url}`;
 
     const result = await sendSms(member.phone, text);
     await logNotification(supabase, {
