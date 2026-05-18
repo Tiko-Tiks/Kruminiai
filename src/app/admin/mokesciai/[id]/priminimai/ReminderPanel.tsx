@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
-import { sendPaymentReminders, type ChannelChoice } from "@/actions/reminders";
-import { Mail, MessageSquare, AlertCircle, CheckCircle2, User, Phone } from "lucide-react";
+import { sendOverdueDeclarationReminders } from "@/actions/declarations";
+import type { ChannelChoice } from "@/actions/reminders";
+import { Mail, MessageSquare, AlertCircle, CheckCircle2, User, Phone, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 
 interface UnpaidMember {
@@ -36,40 +37,83 @@ interface Props {
   };
 }
 
-export function ReminderPanel({ feePeriodId, period, unpaid, counts }: Props) {
+export function ReminderPanel({ period, unpaid, counts }: Props) {
   const router = useRouter();
   const [channel, setChannel] = useState<ChannelChoice>("both");
   const [sending, setSending] = useState(false);
 
-  // Skaičiavimai pagal pasirinkta kanala
+  // Pradinis pasirinkimas – visi pasiekiami nariai (turi email arba telefoną)
+  const reachableIds = useMemo(
+    () =>
+      unpaid
+        .filter((m) => (m.email && m.email.trim()) || (m.phone && m.phone.trim()))
+        .map((m) => m.id),
+    [unpaid]
+  );
+
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(reachableIds));
+
+  const toggleOne = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => setSelected(new Set(reachableIds));
+  const deselectAll = () => setSelected(new Set());
+  const selectMultiYear = () =>
+    setSelected(
+      new Set(
+        unpaid
+          .filter((m) => (m.yearsUnpaid ?? 1) > 1 && reachableIds.includes(m.id))
+          .map((m) => m.id)
+      )
+    );
+
+  // Skaičiavimai pagal pasirinkimą + kanalą
+  const selectedMembers = useMemo(
+    () => unpaid.filter((m) => selected.has(m.id)),
+    [unpaid, selected]
+  );
+
+  const willEmail = selectedMembers.filter((m) => m.email && m.email.trim()).length;
+  const willSms = selectedMembers.filter((m) => m.phone && m.phone.trim()).length;
   const willSend = (() => {
-    if (channel === "email") return counts.withEmail;
-    if (channel === "sms") return counts.withPhone;
-    return unpaid.filter((m) => m.email || m.phone).length;
+    if (channel === "email") return willEmail;
+    if (channel === "sms") return willSms;
+    return selectedMembers.filter((m) => (m.email && m.email.trim()) || (m.phone && m.phone.trim())).length;
   })();
 
-  const estimatedSmsCount = channel === "sms" ? counts.withPhone : channel === "both" ? counts.withPhone : 0;
-  const estimatedCost = (estimatedSmsCount * 0.03).toFixed(2);
+  const smsToSend = channel === "email" ? 0 : willSms;
+  const estimatedCost = (smsToSend * 0.03).toFixed(2);
 
   async function handleSend() {
+    if (selected.size === 0) {
+      toast.error("Pasirinkite bent vieną narį");
+      return;
+    }
     const channelLabel =
       channel === "both" ? "el. paštu + SMS" : channel === "email" ? "tik el. paštu" : "tik SMS";
     if (
       !confirm(
-        `Siųsti priminimą ${willSend} nariams ${channelLabel}?\n\nApytikslė SMS kaina: ${estimatedCost} EUR.`
+        `Siųsti priminimą su patvirtinimo nuoroda ${willSend} nariams ${channelLabel}?\n\nApytikslė SMS kaina: ${estimatedCost} EUR.`
       )
     )
       return;
 
     setSending(true);
-    const result = await sendPaymentReminders(feePeriodId, channel);
+    const result = await sendOverdueDeclarationReminders(Array.from(selected), channel);
     setSending(false);
 
-    if (!result.success) {
-      toast.error("Klaida siunčiant priminimus");
+    if (!("success" in result) || !result.success) {
+      const msg = "error" in result ? result.error : "Nežinoma klaida";
+      toast.error(typeof msg === "string" ? msg : "Klaida siunčiant priminimus");
       return;
     }
-    toast.success(`Priminimai išsiųsti: ${result.emailsSent} email + ${result.smsSent} SMS`);
+    toast.success(`Išsiųsta: ${result.emailsSent} email + ${result.smsSent} SMS`);
     if (result.errors.length > 0) {
       console.warn("Klaidos:", result.errors);
       toast.warning(`${result.errors.length} klaidų – patikrinkite konsolę`);
@@ -94,28 +138,22 @@ export function ReminderPanel({ feePeriodId, period, unpaid, counts }: Props) {
   return (
     <div className="space-y-6">
       <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-blue-900">
-        <p className="font-medium mb-1">📋 Kaip veikia priminimas</p>
+        <p className="font-medium mb-1 flex items-center gap-1.5">
+          <LinkIcon className="h-4 w-4" /> Kaip veikia priminimas su nuoroda
+        </p>
         <p className="text-blue-800">
-          Siunčiama <strong>visiems aktyviems nariams su bet kokia skola</strong> (ne tik šio
-          periodo). Priminime nurodoma pilna skolos suma už visus pradelstus metus, taip pat
-          paaiškinama, kad nesumokėjus narystė gali būti nutraukta visuotinio susirinkimo
-          sprendimu, o naujam stojimui reiks 20 EUR stojamojo mokesčio.
+          Kiekvienam pasirinktam nariui sukuriama (arba pakartotinai panaudojama) asmeninė
+          deklaracijos nuoroda <code className="text-xs bg-blue-100 px-1 rounded">kruminiai.lt/deklaracija/[token]</code>.
+          Email ir SMS turės šią nuorodą – narys gali patvirtinti narystę, pasirinkti
+          mokėjimo būdą (grynais / pavedimu) arba pranešti apie išstojimą.
         </p>
       </div>
 
       {/* Statistikos kortelės */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard label="Iš viso skolingų" value={counts.total} accent="amber" />
-        <StatCard
-          label="Turi el. paštą"
-          value={counts.withEmail}
-          icon={<Mail className="h-4 w-4" />}
-        />
-        <StatCard
-          label="Turi telefoną"
-          value={counts.withPhone}
-          icon={<Phone className="h-4 w-4" />}
-        />
+        <StatCard label="Turi el. paštą" value={counts.withEmail} icon={<Mail className="h-4 w-4" />} />
+        <StatCard label="Turi telefoną" value={counts.withPhone} icon={<Phone className="h-4 w-4" />} />
         <StatCard
           label="Be kontaktų"
           value={counts.withNothing}
@@ -127,9 +165,7 @@ export function ReminderPanel({ feePeriodId, period, unpaid, counts }: Props) {
       <Card>
         <CardHeader>
           <h2 className="text-base font-semibold text-gray-900">Kanalas</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Email - nemokama. SMS – ~0,03 EUR/žinutei.
-          </p>
+          <p className="text-xs text-gray-500 mt-0.5">Email – nemokama. SMS – ~0,03 EUR/žinutei.</p>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -157,52 +193,59 @@ export function ReminderPanel({ feePeriodId, period, unpaid, counts }: Props) {
               onClick={() => setChannel("sms")}
               icon={<MessageSquare className="h-5 w-5" />}
               title="Tik SMS"
-              desc={`~${estimatedCost} EUR`}
+              desc={`~${(reachableIds.length * 0.03).toFixed(2)} EUR maks`}
             />
-          </div>
-
-          <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3">
-            <div className="text-sm text-gray-600">
-              Bus išsiųsta <strong className="text-gray-900">{willSend}</strong> priminimų
-              {counts.withNothing > 0 && (
-                <span className="text-amber-700">
-                  {" "}
-                  · {counts.withNothing} be kontaktų – nepasiekiami
-                </span>
-              )}
-            </div>
-            <Button
-              variant="primary"
-              onClick={handleSend}
-              loading={sending}
-              disabled={willSend === 0}
-            >
-              Siųsti priminimus
-            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Skolingų narių sąrašas */}
+      {/* Greitos pasirinkimo komandos + sąrašas su checkbox'ais */}
       <Card>
         <CardHeader>
-          <h2 className="text-base font-semibold text-gray-900">
-            Skolingi nariai ({counts.total})
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">
+                Skolingi nariai ({counts.total})
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Pažymėkit, kam siųsti priminimą. Be kontaktų nariai – išjungti.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <QuickBtn onClick={selectAll}>Pažymėti visus</QuickBtn>
+              <QuickBtn onClick={deselectAll}>Atžymėti visus</QuickBtn>
+              <QuickBtn onClick={selectMultiYear}>Tik daugiamečiai</QuickBtn>
+            </div>
+          </div>
         </CardHeader>
         <div className="divide-y divide-gray-100">
           {unpaid.map((m) => {
-            const hasEmail = m.email && m.email.trim();
-            const hasPhone = m.phone && m.phone.trim();
+            const hasEmail = !!(m.email && m.email.trim());
+            const hasPhone = !!(m.phone && m.phone.trim());
+            const reachable = hasEmail || hasPhone;
+            const isSelected = selected.has(m.id);
             const willReceive =
-              (channel === "both" && (hasEmail || hasPhone)) ||
-              (channel === "email" && hasEmail) ||
-              (channel === "sms" && hasPhone);
+              isSelected &&
+              ((channel === "both" && reachable) ||
+                (channel === "email" && hasEmail) ||
+                (channel === "sms" && hasPhone));
             const totalEur = ((m.totalCents ?? 0) / 100).toFixed(2);
             const multiYear = (m.yearsUnpaid ?? 1) > 1;
 
             return (
-              <div key={m.id} className="flex items-center gap-3 px-5 py-3">
+              <label
+                key={m.id}
+                className={`flex items-center gap-3 px-5 py-3 cursor-pointer select-none ${
+                  !reachable ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  disabled={!reachable}
+                  onChange={() => reachable && toggleOne(m.id)}
+                  className="h-4 w-4 rounded border-gray-300 text-green-700 focus:ring-green-500"
+                />
                 <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -234,7 +277,7 @@ export function ReminderPanel({ feePeriodId, period, unpaid, counts }: Props) {
                         {m.phone}
                       </span>
                     )}
-                    {!hasEmail && !hasPhone && (
+                    {!reachable && (
                       <span className="flex items-center gap-1 text-red-600">
                         <AlertCircle className="h-3 w-3" />
                         Nėra kontaktų
@@ -247,16 +290,41 @@ export function ReminderPanel({ feePeriodId, period, unpaid, counts }: Props) {
                     <CheckCircle2 className="h-3 w-3" />
                     Bus išsiųsta
                   </span>
-                ) : (
+                ) : isSelected && !reachable ? (
                   <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
                     Nepasiekiamas
                   </span>
+                ) : !isSelected ? (
+                  <span className="text-xs text-gray-400">Praleista</span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
+                    Be šio kanalo
+                  </span>
                 )}
-              </div>
+              </label>
             );
           })}
         </div>
       </Card>
+
+      {/* Sticky siuntimo juosta */}
+      <div className="sticky bottom-0 -mx-4 sm:mx-0 bg-white border-t border-gray-200 px-4 sm:px-6 py-4 shadow-lg sm:rounded-xl sm:border">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm text-gray-700">
+            Pasirinkta: <strong className="text-gray-900">{selected.size}</strong> · Bus
+            išsiųsta: <strong className="text-green-700">{willSend}</strong>{" "}
+            <span className="text-gray-500">
+              ({willEmail} email, {willSms} SMS)
+            </span>
+            {smsToSend > 0 && (
+              <span className="text-gray-500"> · ~{estimatedCost} EUR</span>
+            )}
+          </div>
+          <Button onClick={handleSend} loading={sending} disabled={willSend === 0}>
+            Siųsti priminimus
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -315,14 +383,30 @@ function ChannelOption({
       type="button"
       onClick={onClick}
       className={`text-left p-4 rounded-lg border-2 transition-all ${
-        active
-          ? "border-green-600 bg-green-50"
-          : "border-gray-200 bg-white hover:border-gray-300"
+        active ? "border-green-600 bg-green-50" : "border-gray-200 bg-white hover:border-gray-300"
       }`}
     >
       <div className={`mb-2 ${active ? "text-green-700" : "text-gray-500"}`}>{icon}</div>
       <p className="font-semibold text-sm text-gray-900">{title}</p>
       <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+    </button>
+  );
+}
+
+function QuickBtn({
+  onClick,
+  children,
+}: {
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-xs px-2.5 py-1 rounded-full font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+    >
+      {children}
     </button>
   );
 }
