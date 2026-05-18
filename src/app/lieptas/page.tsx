@@ -59,8 +59,10 @@ export default async function LieptasPage() {
   const percent = goalCents > 0 ? Math.min(100, Math.round((totalCents / goalCents) * 100)) : 0;
   const donorCount = (donations || []).length;
 
-  // SEPA QR kodas
+  // SEPA QR kodas. BIC pridedamas (nors v002 leidžia tuščią), kad senesni
+  // bankų aplikacijų variantai apdorotų korektiškai.
   const qrSvg = await generateSepaQrSvg({
+    bic: project.bic || undefined,
     recipient: project.recipient,
     iban: project.iban,
     remittance: project.purpose_text,

@@ -42,10 +42,15 @@ export function buildSepaQrPayload(p: SepaPayment): string {
 
 /**
  * Sugeneruoja SEPA QR kaip SVG eilutę (server-side, be jokio extra fetch'o).
+ *
+ * SVARBU: payload'as perduodamas KAIP VIENAS „byte" segmentas. Default'inis
+ * qrcode autodetect'as padalintų jį į Byte/Numeric/Byte (nes IBAN ir bank
+ * kodai yra skaitiniai) – tokio mišraus encoding'o kai kurios bankų
+ * aplikacijos neapdoroja kaip EPC SEPA QR ir grąžina „negaliojantis".
  */
 export async function generateSepaQrSvg(p: SepaPayment): Promise<string> {
   const payload = buildSepaQrPayload(p);
-  return QRCode.toString(payload, {
+  return QRCode.toString([{ data: payload, mode: "byte" }], {
     type: "svg",
     errorCorrectionLevel: "M",
     margin: 1,
@@ -62,7 +67,7 @@ export async function generateSepaQrSvg(p: SepaPayment): Promise<string> {
  */
 export async function generateSepaQrDataUrl(p: SepaPayment): Promise<string> {
   const payload = buildSepaQrPayload(p);
-  return QRCode.toDataURL(payload, {
+  return QRCode.toDataURL([{ data: payload, mode: "byte" }], {
     errorCorrectionLevel: "M",
     margin: 1,
     width: 512,

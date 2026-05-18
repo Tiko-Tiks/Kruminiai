@@ -20,6 +20,7 @@ export default async function LieptasPrintPage() {
   if (!project) return <div style={{ padding: 40 }}>Projektas nerastas</div>;
 
   const qrSvg = await generateSepaQrSvg({
+    bic: project.bic || undefined,
     recipient: project.recipient,
     iban: project.iban,
     remittance: project.purpose_text,
