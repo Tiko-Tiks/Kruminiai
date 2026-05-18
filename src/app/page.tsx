@@ -354,8 +354,8 @@ export default async function HomePage() {
               },
               {
                 icon: TrendingUp,
-                title: "Socialinis verslas",
-                desc: "Visos pajamos reinvestuojamos į bendruomenės gerovę – nuo SPA centro iki pavežimo paslaugų",
+                title: "Investicijos į bendruomenę",
+                desc: "Surenkamos lėšos skirtos paplūdimio, žaidimų aikštelės ir bendros teritorijos priežiūrai",
               },
             ].map((item) => (
               <div key={item.title} className="text-center">

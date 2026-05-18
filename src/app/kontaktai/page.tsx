@@ -1,11 +1,11 @@
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
-import { Eye, MapPin, Briefcase, Heart, Sparkles, Bus, Home, Users } from "lucide-react";
+import { Eye, MapPin, Briefcase, Heart, Sparkles, Home, Users } from "lucide-react";
 
 export const metadata = {
   title: "Apie mus",
   description:
-    "Krūminių kaimo bendruomenės vizija, misija, vertybės ir socialinio verslo modelis. Telkiame Krūminių, Valkininkų, Užuperkasio, Bucivonių, Urkionių, Jakėnų ir Paversekio gyventojus.",
+    "Krūminių kaimo bendruomenės vizija, misija, vertybės ir veikla. Telkiame Krūminių, Valkininkų, Užuperkasio, Bucivonių, Urkionių, Jakėnų ir Paversekio gyventojus.",
   alternates: { canonical: "/kontaktai" },
   openGraph: {
     title: "Apie mus",
@@ -68,11 +68,12 @@ export default function AboutPage() {
               <div className="w-10 h-10 rounded-full bg-green-800 flex items-center justify-center flex-shrink-0">
                 <Briefcase className="h-5 w-5 text-white" />
               </div>
-              <h2 className="text-lg font-bold text-gray-900">Socialinio verslo modelis</h2>
+              <h2 className="text-lg font-bold text-gray-900">Veiklos finansavimas</h2>
             </div>
             <p className="text-sm text-gray-600 leading-relaxed mb-5">
-              Krūminių bendruomenė veikia pagal socialinio verslo principus – visos gautos
-              pajamos reinvestuojamos į bendruomenės gerovę ir socialinę misiją.
+              Krūminių bendruomenė veikia ne pelno principu – visos gautos
+              pajamos reinvestuojamos į bendruomenės gerovę: teritorijos priežiūrą,
+              renginius ir bendros infrastruktūros gerinimą.
             </p>
 
             <div className="space-y-4 ml-1">
@@ -84,26 +85,24 @@ export default function AboutPage() {
                 </p>
               </div>
               <div className="border-l-2 border-green-700 pl-4">
-                <p className="font-semibold text-gray-900 text-sm mb-1">Sveikatinimo paslaugos</p>
+                <p className="font-semibold text-gray-900 text-sm mb-1">Teritorijos priežiūra</p>
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  Planuojamas &bdquo;Krūminių viešosios pirties SPA&ldquo; centras – malkinė pirtis,
-                  haloterapija, joga ir kvėpavimo užsiėmimai, relaksacijos zonos, vantų
-                  edukacijos ir pirties ritualai.
+                  Lėšos skiriamos paplūdimio (smėlio užvežimas), žaidimų aikštelės remontui
+                  ir bendrosios teritorijos priežiūrai (žolės pjovimas, kuras, elektra).
                 </p>
               </div>
               <div className="border-l-2 border-green-700 pl-4">
-                <p className="font-semibold text-gray-900 text-sm mb-1">Turizmo paketai</p>
+                <p className="font-semibold text-gray-900 text-sm mb-1">Paplūdimio liepto restauravimas</p>
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  Bendradarbiaujame su vietos partneriais kuriant integruotus turizmo
-                  paketus – plytų gamybos ir keramikos edukacijos, šaudymo turnyrai,
-                  slidinėjimo trasos, apgyvendinimas.
+                  Pilotinis projektas: lėšų rinkimas iš kaimiečių, lankytojų, turistų,
+                  galimo savivaldybės prisidėjimo (planuojama surinkti 4 000 EUR).
                 </p>
               </div>
               <div className="border-l-2 border-green-700 pl-4">
-                <p className="font-semibold text-gray-900 text-sm mb-1">Pavežimo paslaugos</p>
+                <p className="font-semibold text-gray-900 text-sm mb-1">Renginiai</p>
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  Planuojamos pavežimo paslaugos tikslinėms grupėms – senjoramas, vaikų
-                  grupėms, asmenims su negalia – gerinant paslaugų prieinamumą kaimo vietovėje.
+                  Mindauginės (liepos 6 d.) ir Eglutės puošimas (gruodis) – tradicinės
+                  kasmetinės bendruomenės šventės. Papildomi renginiai pagal narių iniciatyvą.
                 </p>
               </div>
               <div className="border-l-2 border-green-700 pl-4">
@@ -128,42 +127,42 @@ export default function AboutPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-green-50 rounded-xl p-4">
                 <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mb-2">
-                  <Sparkles className="h-4 w-4 text-green-700" />
-                </div>
-                <p className="font-semibold text-gray-900 text-sm mb-1">Sveikata ir gerovė</p>
-                <p className="text-xs text-gray-500 leading-relaxed">
-                  Prieinamos sveikatinimo paslaugos kaimo gyventojams, gerinančios fizinę
-                  ir emocinę sveikatą.
-                </p>
-              </div>
-              <div className="bg-green-50 rounded-xl p-4">
-                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mb-2">
                   <Users className="h-4 w-4 text-green-700" />
                 </div>
-                <p className="font-semibold text-gray-900 text-sm mb-1">Socialinė integracija</p>
+                <p className="font-semibold text-gray-900 text-sm mb-1">Bendruomeniškumas</p>
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  Mažiname socialinę atskirtį suteikdami lengvatines paslaugas
-                  pažeidžiamiausiems visuomenės nariams.
+                  Telkiame kaimo gyventojus bendriems projektams ir renginiams,
+                  stipriname kaimyniškus ryšius.
                 </p>
               </div>
               <div className="bg-green-50 rounded-xl p-4">
                 <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mb-2">
                   <Home className="h-4 w-4 text-green-700" />
                 </div>
-                <p className="font-semibold text-gray-900 text-sm mb-1">Turizmas ir ekonomika</p>
+                <p className="font-semibold text-gray-900 text-sm mb-1">Gyvenamoji aplinka</p>
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  Skatiname vietos turizmą ir kuriame naujas pajamas regiono verslams,
-                  stipriname Krūminių kaimo patrauklumą.
+                  Prižiūrime paplūdimį, žaidimų aikštelę ir bendrąją teritoriją –
+                  gerinama gyvenimo kokybė kaime.
                 </p>
               </div>
               <div className="bg-green-50 rounded-xl p-4">
                 <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mb-2">
-                  <Bus className="h-4 w-4 text-green-700" />
+                  <Sparkles className="h-4 w-4 text-green-700" />
                 </div>
-                <p className="font-semibold text-gray-900 text-sm mb-1">Prieinamumas</p>
+                <p className="font-semibold text-gray-900 text-sm mb-1">Tradicijos</p>
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  Pavežimo paslaugos užtikrina fizinį prieinamumą paslaugoms
-                  kaimo vietovėje gyvenantiems žmonėms.
+                  Mindauginės, Eglutės puošimas ir kiti bendruomenės renginiai
+                  puoselėja kaimo tradicijas.
+                </p>
+              </div>
+              <div className="bg-green-50 rounded-xl p-4">
+                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mb-2">
+                  <Eye className="h-4 w-4 text-green-700" />
+                </div>
+                <p className="font-semibold text-gray-900 text-sm mb-1">Skaidrumas</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Visi finansiniai srautai ir veiklos sprendimai yra atviri –
+                  pasitikėjimas ir atskaitomybė nariams.
                 </p>
               </div>
             </div>
