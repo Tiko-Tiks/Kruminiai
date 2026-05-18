@@ -357,9 +357,9 @@ export default async function HomePage() {
               },
               {
                 icon: Heart,
-                title: "Lieptas",
-                desc: "Liepto atsinaujinimo projektas – paaukok per QR kodą",
-                href: "/lieptas",
+                title: "Projektai",
+                desc: "Aukų rinkimo projektai su skaidria lėšų istorija",
+                href: "/projektai",
               },
               {
                 icon: Users,

@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin", "latin-ext"] });
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-sans",
+  display: "swap",
+});
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://kruminiai.lt";
 
@@ -85,7 +89,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="lt">
-      <body className={`${inter.className} antialiased`}>
+      <body className={`${jakarta.variable} font-sans antialiased`}>
         {children}
         <Toaster position="top-right" richColors />
       </body>

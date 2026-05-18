@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import defaultTheme from "tailwindcss/defaultTheme";
 
 const config: Config = {
   content: [
@@ -11,6 +12,11 @@ const config: Config = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+      },
+      fontFamily: {
+        // --font-sans = Plus Jakarta Sans (deklaruota src/app/layout.tsx).
+        // Fallback'as – sistemos sans-serif šriftai (Tailwind default'as).
+        sans: ["var(--font-sans)", ...defaultTheme.fontFamily.sans],
       },
     },
   },
