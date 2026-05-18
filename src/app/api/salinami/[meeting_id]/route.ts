@@ -77,6 +77,25 @@ export async function GET(
     .select("member_id, sent_at, viewed_at, view_count, submitted_at, intent")
     .in("member_id", memberIds.length > 0 ? memberIds : ["00000000-0000-0000-0000-000000000000"]);
 
+  // Valdymo organų pareigos (kad pažymėtume narius, kurie yra Taryboje ir pan.)
+  const { data: managementRoles } = await supabase
+    .from("community_management")
+    .select("member_id, role")
+    .eq("is_current", true)
+    .in("member_id", memberIds.length > 0 ? memberIds : ["00000000-0000-0000-0000-000000000000"]);
+
+  const roleLabels: Record<string, string> = {
+    pirmininkas: "Pirmininkas",
+    tarybos_narys: "Tarybos narys/narė",
+    revizorius: "Revizorius/-ė",
+  };
+  const rolesByMember = new Map<string, string[]>();
+  for (const r of (managementRoles || []) as { member_id: string; role: string }[]) {
+    const arr = rolesByMember.get(r.member_id) || [];
+    arr.push(roleLabels[r.role] || r.role);
+    rolesByMember.set(r.member_id, arr);
+  }
+
   // Grupavimas pagal member_id
   const eventsByMember = new Map<string, ContactEvent[]>();
   for (const n of notifications || []) {
@@ -180,6 +199,12 @@ export async function GET(
       if (!m?.phone && !m?.email) justifications.push("neturi kontaktinių duomenų – nepasiekiamas");
       const justificationText = justifications.join("; ") || "—";
 
+      const memberRoles = rolesByMember.get(r.member_id as string) || [];
+      const roleBadge =
+        memberRoles.length > 0
+          ? `<div class="role-badge"><strong>⚠ Pastaba:</strong> šis narys šiuo metu eina <strong>${memberRoles.join(", ")}</strong> pareigas valdymo organe. Prieš narystės nutraukimą rekomenduojama svarstyti atsistatydinimą iš pareigų arba atskirą Tarybos sprendimą dėl pareigybės sustabdymo.</div>`
+          : "";
+
       return `
   <div class="candidate">
     <div class="cand-head">
@@ -189,6 +214,8 @@ export async function GET(
         <div class="cand-meta">Skola: <strong>${debtEur} EUR</strong> · Neapmokėti metai: ${years}${contactLines ? ` · ${contactLines}` : ""}</div>
       </div>
     </div>
+
+    ${roleBadge}
 
     <div class="cand-section">
       <h4>Bendravimo istorija (${meetingDate.getFullYear()} m.)</h4>
@@ -298,6 +325,16 @@ export async function GET(
       letter-spacing: 0.04em;
     }
     .cand-section.justification { background: #fffbeb; padding: 10px 12px; border-radius: 4px; }
+    .role-badge {
+      margin: 10px 0 14px;
+      padding: 10px 14px;
+      background: #fef2f2;
+      border-left: 4px solid #dc2626;
+      border-radius: 4px;
+      font-size: 10.5pt;
+      color: #7f1d1d;
+    }
+    .role-badge strong { color: #991b1b; }
     table.events {
       width: 100%;
       border-collapse: collapse;
