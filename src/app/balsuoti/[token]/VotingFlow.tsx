@@ -308,8 +308,11 @@ function DocPreviewModal({
   const isHtml = isServerGeneratedDoc(doc.file_path);
   return (
     <div
-      // fullscreen overlay – fixed pozicija dengia visą viewport'ą
-      className="fixed inset-0 z-50 bg-white flex flex-col"
+      // fullscreen overlay. 100dvh = dynamic viewport height – atsižvelgia
+      // į mobiliuose įrenginiuose besislepiančią adresų juostą; flex col +
+      // min-h-0 vidiniam fragmentui užtikrina, kad iframe niekada
+      // neperauga viewport'o ir neišstumia apatinės juostos žemyn.
+      className="fixed inset-0 z-50 bg-white flex flex-col h-[100dvh]"
     >
       {/* Antraštė: visada matomas didelis „Grįžti atgal" mygtukas */}
       <div className="flex items-center justify-between gap-3 px-4 py-3 bg-green-700 text-white shadow-md flex-shrink-0">
@@ -338,12 +341,14 @@ function DocPreviewModal({
         </button>
       </div>
 
-      {/* Pats dokumentas – visas likęs aukštis */}
-      <div className="flex-1 bg-gray-100 overflow-hidden">
+      {/* Pats dokumentas – visas likęs aukštis. min-h-0 yra KRITIŠKAS:
+          be jo flex-1 vaikas leistų iframe'ui auginti aukštį iki content
+          dydžio ir tada apatinė juosta pasislinktų už ekrano ribų. */}
+      <div className="flex-1 min-h-0 bg-gray-100 overflow-hidden">
         {isHtml ? (
           <iframe
             src={url}
-            className="w-full h-full bg-white"
+            className="block w-full h-full bg-white"
             title={doc.title}
           />
         ) : (
@@ -351,8 +356,13 @@ function DocPreviewModal({
         )}
       </div>
 
-      {/* Apatinė juostelė – dar vienas didelis mygtukas grįžti į balsavimą */}
-      <div className="flex-shrink-0 bg-white border-t border-gray-200 px-4 py-3 shadow-[0_-2px_6px_rgba(0,0,0,0.06)]">
+      {/* Apatinė juostelė – dar vienas didelis mygtukas grįžti į balsavimą.
+          Su pb-[env(safe-area-inset-bottom)] kad iOS „home indicator" zonoje
+          mygtukas neliktų po sistemos juosta. */}
+      <div
+        className="flex-shrink-0 bg-white border-t border-gray-200 px-4 py-3 shadow-[0_-2px_6px_rgba(0,0,0,0.06)]"
+        style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
+      >
         <button
           type="button"
           onClick={onClose}
