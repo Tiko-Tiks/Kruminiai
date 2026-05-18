@@ -6,7 +6,7 @@ import { updateMeetingStatus, deleteMeeting } from "@/actions/meetings";
 import { Button } from "@/components/ui/Button";
 import { Meeting } from "@/lib/types";
 import { toast } from "sonner";
-import { Play, Square, Trash2, FileText, UserCheck } from "lucide-react";
+import { Play, Square, Trash2, FileText, UserCheck, UserMinus } from "lucide-react";
 import Link from "next/link";
 
 export function MeetingControls({ meeting }: { meeting: Meeting }) {
@@ -40,6 +40,13 @@ export function MeetingControls({ meeting }: { meeting: Meeting }) {
 
   return (
     <div className="flex items-center gap-2 flex-shrink-0">
+      <Link href={`/admin/susirinkimai/${meeting.id}/salinami`}>
+        <Button size="sm" variant="outline">
+          <UserMinus className="h-4 w-4" />
+          Šalinami nariai
+        </Button>
+      </Link>
+
       {meeting.status === "planuojamas" && (
         <>
           <Button

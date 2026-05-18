@@ -171,6 +171,7 @@ export function SearchableSelect({
           type="button"
           id={id}
           disabled={disabled}
+          // eslint-disable-next-line jsx-a11y/role-supports-aria-props
           aria-required={required || undefined}
           onClick={() => {
             setOpen((o) => !o);
