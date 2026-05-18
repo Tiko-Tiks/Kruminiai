@@ -21,6 +21,65 @@ export async function GET(
   const generatedAt = new Date();
   const year = meetingDate.getFullYear();
 
+  // Dabartinė finansinė padėtis – kiek surinkta einamiems metams, kiek skolų
+  const { data: currentFeePeriod } = await supabase
+    .from("fee_periods")
+    .select("id, amount_cents")
+    .eq("fee_type", "metinis")
+    .eq("year", year)
+    .maybeSingle();
+
+  let collectedEur = 0;
+  let paidCount = 0;
+  if (currentFeePeriod) {
+    const { data: payments } = await supabase
+      .from("payments")
+      .select("amount_cents")
+      .eq("fee_period_id", currentFeePeriod.id);
+    collectedEur = (payments || []).reduce((s, p) => s + (p.amount_cents as number), 0) / 100;
+    paidCount = (payments || []).length;
+  }
+
+  // Bendras narių skaičius (aktyvūs + pasyvūs)
+  const { count: memberCount } = await supabase
+    .from("members")
+    .select("id", { count: "exact", head: true })
+    .in("status", ["aktyvus", "pasyvus"]);
+
+  // Skolų suvestinė pagal metus
+  const { data: periods } = await supabase
+    .from("fee_periods")
+    .select("id, year, amount_cents")
+    .eq("fee_type", "metinis");
+  const { data: members } = await supabase
+    .from("members")
+    .select("id, join_date")
+    .in("status", ["aktyvus", "pasyvus"]);
+  const { data: allPayments } = await supabase
+    .from("payments")
+    .select("member_id, fee_period_id");
+
+  const paidSet = new Set(
+    (allPayments || []).map((p) => `${p.member_id}|${p.fee_period_id}`)
+  );
+
+  type DebtRow = { year: number; count: number; eur: number };
+  const debtsByYear = new Map<number, DebtRow>();
+  for (const m of members || []) {
+    const joinYear = m.join_date ? new Date(m.join_date).getFullYear() : 2012;
+    for (const fp of periods || []) {
+      if (fp.year < joinYear) continue;
+      if (paidSet.has(`${m.id}|${fp.id}`)) continue;
+      const row = debtsByYear.get(fp.year) || { year: fp.year, count: 0, eur: 0 };
+      row.count += 1;
+      row.eur += (fp.amount_cents as number) / 100;
+      debtsByYear.set(fp.year, row);
+    }
+  }
+  const debtRows = Array.from(debtsByYear.values()).sort((a, b) => a.year - b.year);
+  const totalDebt = debtRows.reduce((s, r) => s + r.eur, 0);
+  const totalUnpaidMembers = debtRows.reduce((s, r) => s + r.count, 0);
+
   const html = `<!DOCTYPE html>
 <html lang="lt">
 <head>
@@ -153,7 +212,41 @@ export async function GET(
     administracinė rutina (ši aprašyta ${year - 1} m. veiklos ataskaitoje).
   </p>
 
-  <h3>1. ${year} m. biudžeto paskirstymas</h3>
+  <h3>1. Dabartinė finansinė padėtis</h3>
+  <p>Susirinkimo metu (${meetingDate.toLocaleDateString("lt-LT", { year: "numeric", month: "long", day: "numeric" })}):</p>
+  <table class="budget">
+    <thead>
+      <tr><th>Rodiklis</th><th style="text-align:right">Reikšmė</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>${year} m. nario mokesčio surinkta</td>
+        <td class="amount">${collectedEur.toFixed(0)} EUR</td>
+      </tr>
+      <tr>
+        <td>Sumokėjusių narių skaičius</td>
+        <td class="amount" style="font-weight:normal">${paidCount} iš ${memberCount || 0}</td>
+      </tr>
+      <tr>
+        <td>Skolingų narių (visi metai)</td>
+        <td class="amount" style="font-weight:normal">${totalUnpaidMembers}</td>
+      </tr>
+      <tr class="total">
+        <td>Bendra likusi skola (${debtRows.map((r) => r.year).join(", ") || "—"} m.)</td>
+        <td class="amount" style="color:#991b1b">${totalDebt.toFixed(0)} EUR</td>
+      </tr>
+    </tbody>
+  </table>
+  ${
+    debtRows.length > 0
+      ? `<p style="font-size:10.5pt;color:#555;font-style:italic;">
+    Skolos suskirstymas: ${debtRows.map((r) => `${r.year} m. – ${r.count} narių (${r.eur.toFixed(0)} EUR)`).join("; ")}.
+    Skolininkams išsiųsti pranešimai dėl mokesčio sumokėjimo arba narystės nutraukimo.
+  </p>`
+      : ""
+  }
+
+  <h3>2. ${year} m. biudžeto paskirstymas</h3>
   <p>Konkrečios investicijos į bendruomenės teritoriją:</p>
   <table class="budget">
     <thead>
@@ -183,7 +276,7 @@ export async function GET(
     savivaldybės lėšų.
   </p>
 
-  <h3>2. Krūminių kaimo paplūdimio liepto restauravimo projektas</h3>
+  <h3>3. Krūminių kaimo paplūdimio liepto restauravimo projektas</h3>
   <p>
     <strong>Pilotinis projektas</strong> – atstatyti paplūdimio lieptą, kuris
     yra svarbi bendruomenės infrastruktūros dalis. Įgyvendinama mažais
@@ -205,7 +298,22 @@ export async function GET(
     teikiama nariams – per visuotinį susirinkimą ir bendruomenės svetainę.
   </p>
 
-  <h3>3. Tradiciniai bendruomenės renginiai</h3>
+  <h3>4. Savivaldybės projektas ir galima turistinė išvyka</h3>
+  <p>
+    ${year} m. eigoje Varėnos rajono savivaldybė skelbia projektą, į kurį
+    bendruomenė galimai pretenduos. Jei pavyks gauti finansavimą:
+  </p>
+  <ul>
+    <li>papildomos lėšos bus skirtos teritorijos gerinimui ir/arba liepto projektui;</li>
+    <li>iš dalies sutaupytas bendruomenės biudžetas bus skirtas <strong>turistinei išvykai bendruomenės nariams</strong> (savanoriškas dalyvavimas – kas norės);</li>
+    <li>apie projekto eigą ir rezultatus bus reguliariai informuojama nariai per SMS, el. paštą bei bendruomenės svetainę.</li>
+  </ul>
+  <p style="font-size:10.5pt;color:#555;font-style:italic;">
+    Projektas dar nepatvirtintas – ši dalis priklauso nuo savivaldybės sprendimo
+    bei mūsų pateikto paraiškos rezultato.
+  </p>
+
+  <h3>5. Tradiciniai bendruomenės renginiai</h3>
   <ul>
     <li>
       <strong>Mindauginės</strong> – tradicinė kasmetinė bendruomenės šventė
@@ -220,7 +328,7 @@ export async function GET(
     </li>
   </ul>
 
-  <h3>4. Bendros lėšų panaudojimo gairės</h3>
+  <h3>6. Bendros lėšų panaudojimo gairės</h3>
   <table class="budget">
     <thead>
       <tr><th>Veiklos sritis</th><th style="text-align:right">Lėšų šaltinis</th></tr>
