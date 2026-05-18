@@ -3,7 +3,8 @@ import { generateSepaQrSvg } from "@/lib/sepa-qr";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { formatDate } from "@/lib/utils";
-import { Heart, Copy, Phone, Mail } from "lucide-react";
+import { Heart, Phone, Mail, AlertCircle } from "lucide-react";
+import { CopyIbanButton } from "./CopyIbanButton";
 import Link from "next/link";
 import type { Metadata } from "next";
 
@@ -142,14 +143,15 @@ export default async function LieptasPage() {
               {/* QR */}
               <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 text-center border border-green-100">
                 <div
-                  className="bg-white rounded-lg p-4 shadow-sm mx-auto max-w-[260px] [&_svg]:w-full [&_svg]:h-auto [&_svg]:block"
+                  className="bg-white rounded-lg p-4 shadow-sm mx-auto max-w-[320px] [&_svg]:w-full [&_svg]:h-auto [&_svg]:block"
                   dangerouslySetInnerHTML={{ __html: qrSvg }}
                 />
-                <p className="text-xs text-gray-600 mt-3 font-medium">
-                  📱 Nuskenuokite banko aplikacija
+                <p className="text-sm text-gray-700 mt-3 font-semibold">
+                  📱 Atidarykite banko aplikaciją → „Naujas pavedimas" → „Skenuoti QR"
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Veikia su Swedbank, SEB, Luminor, Revolut ir kitomis LT bankų aplikacijomis.
+                <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                  Geriausiai veikia Swedbank, SEB, Luminor, Šiaulių/Artea aplikacijose.
+                  Jei jūsų app'as nepalaiko – pavedimą įveskite rankomis (rekvizitai dešinėje).
                 </p>
               </div>
 
@@ -164,9 +166,12 @@ export default async function LieptasPage() {
                       <span className="text-gray-500">Gavėjas:</span>
                       <span className="font-medium text-gray-900 text-right">{project.recipient}</span>
                     </div>
-                    <div className="flex justify-between gap-2">
+                    <div className="flex justify-between gap-2 items-center">
                       <span className="text-gray-500">IBAN:</span>
-                      <span className="font-mono font-medium text-gray-900 text-right text-xs sm:text-sm">{project.iban}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="font-mono font-medium text-gray-900 text-right text-xs sm:text-sm">{project.iban}</span>
+                        <CopyIbanButton iban={project.iban} />
+                      </span>
                     </div>
                     <div className="flex justify-between gap-2">
                       <span className="text-gray-500">Bankas:</span>

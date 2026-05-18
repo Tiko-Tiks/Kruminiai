@@ -83,11 +83,13 @@ export async function generateSepaQrSvg(p: SepaPayment): Promise<string> {
   ];
   return QRCode.toString(segments, {
     type: "svg",
-    errorCorrectionLevel: "M",
-    margin: 1,
-    width: 400,
+    // „Q" lygis duoda 25% redundanciją – atsparesnis prastam apšvietimui,
+    // ekrano blizgesiui ir kameros judesiui mobiliame.
+    errorCorrectionLevel: "Q",
+    margin: 4,                          // standartinis EPC „quiet zone" reikalavimas
+    width: 512,
     color: {
-      dark: "#0f3d20",
+      dark: "#000000",                  // pure juodas – maksimalus skenerio kontrastas
       light: "#ffffff",
     },
   });
@@ -102,11 +104,11 @@ export async function generateSepaQrDataUrl(p: SepaPayment): Promise<string> {
     { data: new TextEncoder().encode(payload), mode: "byte" },
   ];
   return QRCode.toDataURL(segments, {
-    errorCorrectionLevel: "M",
-    margin: 1,
+    errorCorrectionLevel: "Q",
+    margin: 4,
     width: 512,
     color: {
-      dark: "#0f3d20",
+      dark: "#000000",
       light: "#ffffff",
     },
   });
