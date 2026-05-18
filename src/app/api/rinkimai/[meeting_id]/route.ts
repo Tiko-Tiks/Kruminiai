@@ -8,37 +8,45 @@ export async function GET(
 ) {
   const supabase = createServerSupabaseClient();
 
-  const { data: meeting } = await supabase
-    .from("meetings")
-    .select("id, title, meeting_date, chairperson_name")
-    .eq("id", params.meeting_id)
-    .single();
-  if (!meeting) {
-    return NextResponse.json({ error: "Susirinkimas nerastas" }, { status: 404 });
-  }
-
-  const meetingDate = new Date(meeting.meeting_date);
-  const generatedAt = new Date();
-
-  // Esami valdymo organai iš DB
-  const { data: roles } = await supabase
-    .from("community_management")
-    .select("role, term_start, term_end, sort_order, member:members(first_name, last_name)")
-    .eq("is_current", true)
-    .order("role", { ascending: true })
-    .order("sort_order", { ascending: true });
-
+  // Naudojam SECURITY DEFINER RPC – veikia ir anonymous kontekste (kai iframe
+  // atidaromas iš /balsuoti/[token] anon srauto, RLS blokuotų tiesiogines užklausas)
   type RoleRow = {
     role: string;
     term_start: string | null;
     term_end: string | null;
     sort_order: number;
-    member: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null;
+    first_name: string | null;
+    last_name: string | null;
   };
-  const allRoles = (roles || []) as RoleRow[];
+  type ElectionsData = {
+    error?: string;
+    meeting_title?: string;
+    meeting_date?: string;
+    chairperson_name?: string | null;
+    roles?: RoleRow[];
+  };
+  const { data: electionsData } = await supabase.rpc("get_meeting_elections_data", {
+    p_meeting_id: params.meeting_id,
+  });
+  const data = (electionsData ?? {}) as ElectionsData;
+
+  if (!data.meeting_title || data.error) {
+    return NextResponse.json({ error: "Susirinkimas nerastas" }, { status: 404 });
+  }
+
+  const meeting = {
+    id: params.meeting_id,
+    title: data.meeting_title,
+    meeting_date: data.meeting_date!,
+    chairperson_name: data.chairperson_name ?? null,
+  };
+
+  const meetingDate = new Date(meeting.meeting_date);
+  const generatedAt = new Date();
+
+  const allRoles = data.roles ?? [];
   const memberName = (r: RoleRow) => {
-    const m = Array.isArray(r.member) ? r.member[0] : r.member;
-    return m ? `${m.first_name} ${m.last_name}` : "—";
+    return r.first_name && r.last_name ? `${r.first_name} ${r.last_name}` : "—";
   };
   const fmtTermYears = (r: RoleRow) => {
     const start = r.term_start ? new Date(r.term_start).getFullYear() : "—";

@@ -42,98 +42,82 @@ export async function GET(
 ) {
   const supabase = createServerSupabaseClient();
 
-  const { data: meeting } = await supabase
-    .from("meetings")
-    .select("id, title, meeting_date")
-    .eq("id", params.meeting_id)
-    .single();
-  if (!meeting) {
-    return NextResponse.json({ error: "Susirinkimas nerastas" }, { status: 404 });
-  }
-
-  // Šalinamų narių sąrašas
-  const { data: rows } = await supabase
-    .from("meeting_expulsions")
-    .select(
-      "id, member_id, debt_cents, debt_years, reason, sort_order, member:members(first_name, last_name, phone, email)"
-    )
-    .eq("meeting_id", params.meeting_id)
-    .order("sort_order", { ascending: true });
-
-  const memberIds = (rows || []).map((r) => r.member_id as string);
-
-  // Šių metų visa bendravimo istorija per notification_log
-  const yearStart = new Date(new Date(meeting.meeting_date).getFullYear(), 0, 1).toISOString();
-  const { data: notifications } = await supabase
-    .from("notification_log")
-    .select("member_id, channel, kind, status, sent_at")
-    .in("member_id", memberIds.length > 0 ? memberIds : ["00000000-0000-0000-0000-000000000000"])
-    .gte("sent_at", yearStart)
-    .order("sent_at", { ascending: true });
-
-  // Deklaracijos atsakymas (jei yra)
-  const { data: declarations } = await supabase
-    .from("membership_declarations")
-    .select("member_id, sent_at, viewed_at, view_count, submitted_at, intent")
-    .in("member_id", memberIds.length > 0 ? memberIds : ["00000000-0000-0000-0000-000000000000"]);
-
-  // Valdymo organų pareigos (kad pažymėtume narius, kurie yra Taryboje ir pan.)
-  const { data: managementRoles } = await supabase
-    .from("community_management")
-    .select("member_id, role")
-    .eq("is_current", true)
-    .in("member_id", memberIds.length > 0 ? memberIds : ["00000000-0000-0000-0000-000000000000"]);
-
-  const roleLabels: Record<string, string> = {
-    pirmininkas: "Pirmininkas",
-    tarybos_narys: "Tarybos narys/narė",
-    revizorius: "Revizorius/-ė",
-  };
-  const rolesByMember = new Map<string, string[]>();
-  for (const r of (managementRoles || []) as { member_id: string; role: string }[]) {
-    const arr = rolesByMember.get(r.member_id) || [];
-    arr.push(roleLabels[r.role] || r.role);
-    rolesByMember.set(r.member_id, arr);
-  }
-
-  // Grupavimas pagal member_id
-  const eventsByMember = new Map<string, ContactEvent[]>();
-  for (const n of notifications || []) {
-    const arr = eventsByMember.get(n.member_id as string) || [];
-    arr.push({
-      when: new Date(n.sent_at as string),
-      channel: (n.channel as string).toUpperCase(),
-      kind: KIND_LABELS[n.kind as string] || (n.kind as string),
-      status: n.status as string,
-    });
-    eventsByMember.set(n.member_id as string, arr);
-  }
+  // Naudojam SECURITY DEFINER RPC – veikia ir anonymous kontekste (kai iframe
+  // atidaromas iš /balsuoti/[token] anon srauto, RLS blokuotų tiesiogines užklausas)
   type DeclRow = {
-    member_id: string;
     sent_at: string | null;
     viewed_at: string | null;
     view_count: number | null;
     submitted_at: string | null;
     intent: string | null;
   };
-  const declByMember = new Map<string, DeclRow>();
-  for (const d of (declarations || []) as DeclRow[]) declByMember.set(d.member_id, d);
+  type NotifRow = {
+    sent_at: string;
+    channel: string;
+    kind: string;
+    status: string;
+  };
+  type Candidate = {
+    id: string;
+    member_id: string;
+    debt_cents: number;
+    debt_years: string;
+    reason: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    phone: string | null;
+    email: string | null;
+    events: NotifRow[];
+    declaration: DeclRow | null;
+    roles: string[];
+  };
+  type ExpulsionsData = {
+    error?: string;
+    meeting_title?: string;
+    meeting_date?: string;
+    year?: number;
+    candidates?: Candidate[];
+  };
+  const { data: expulsionsData } = await supabase.rpc("get_meeting_expulsions_data", {
+    p_meeting_id: params.meeting_id,
+  });
+  const data = (expulsionsData ?? {}) as ExpulsionsData;
+
+  if (!data.meeting_title || data.error) {
+    return NextResponse.json({ error: "Susirinkimas nerastas" }, { status: 404 });
+  }
+
+  const meeting = {
+    id: params.meeting_id,
+    title: data.meeting_title,
+    meeting_date: data.meeting_date!,
+  };
+
+  const roleLabels: Record<string, string> = {
+    pirmininkas: "Pirmininkas",
+    tarybos_narys: "Tarybos narys/narė",
+    revizorius: "Revizorius/-ė",
+  };
+
+  const candidates = data.candidates ?? [];
 
   // Statistika
-  const totalDebt = (rows || []).reduce((s, r) => s + (r.debt_cents as number), 0) / 100;
+  const totalDebt = candidates.reduce((s, c) => s + (c.debt_cents || 0), 0) / 100;
   const meetingDate = new Date(meeting.meeting_date);
   const generatedAt = new Date();
 
-  const candidateBlocks = (rows || [])
+  const candidateBlocks = candidates
     .map((r, i) => {
-      const m = (Array.isArray(r.member) ? r.member[0] : r.member) as
-        | { first_name: string; last_name: string; phone: string | null; email: string | null }
-        | null;
-      const name = m ? `${m.first_name} ${m.last_name}` : "—";
-      const debtEur = ((r.debt_cents as number) / 100).toFixed(0);
-      const years = r.debt_years as string;
-      const events = eventsByMember.get(r.member_id as string) || [];
-      const decl = declByMember.get(r.member_id as string);
+      const name = r.first_name && r.last_name ? `${r.first_name} ${r.last_name}` : "—";
+      const debtEur = ((r.debt_cents || 0) / 100).toFixed(0);
+      const years = r.debt_years || "";
+      const events: ContactEvent[] = (r.events || []).map((n) => ({
+        when: new Date(n.sent_at),
+        channel: (n.channel || "").toUpperCase(),
+        kind: KIND_LABELS[n.kind] || n.kind,
+        status: n.status,
+      }));
+      const decl = r.declaration;
 
       const contactRows = events
         .map(
@@ -176,11 +160,10 @@ export async function GET(
         declSummary = parts.join("<br>");
       }
 
-      const contactLines = m
-        ? [m.phone ? `Tel.: ${m.phone}` : null, m.email ? `El. paštas: ${m.email}` : null]
-            .filter(Boolean)
-            .join(" · ") || "Be kontaktų"
-        : "";
+      const contactLines =
+        [r.phone ? `Tel.: ${r.phone}` : null, r.email ? `El. paštas: ${r.email}` : null]
+          .filter(Boolean)
+          .join(" · ") || "Be kontaktų";
 
       // Pagrindimas
       const sentCount = events.filter((e) => e.status === "sent").length;
@@ -196,10 +179,10 @@ export async function GET(
         );
       if (decl && !decl.viewed_at && decl.sent_at)
         justifications.push("į pranešimus nereagavo");
-      if (!m?.phone && !m?.email) justifications.push("neturi kontaktinių duomenų – nepasiekiamas");
+      if (!r.phone && !r.email) justifications.push("neturi kontaktinių duomenų – nepasiekiamas");
       const justificationText = justifications.join("; ") || "—";
 
-      const memberRoles = rolesByMember.get(r.member_id as string) || [];
+      const memberRoles = (r.roles || []).map((role) => roleLabels[role] || role);
       const roleBadge =
         memberRoles.length > 0
           ? `<div class="role-badge"><strong>⚠ Pastaba:</strong> šis narys šiuo metu eina <strong>${memberRoles.join(", ")}</strong> pareigas valdymo organe. Prieš narystės nutraukimą rekomenduojama svarstyti atsistatydinimą iš pareigų arba atskirą Tarybos sprendimą dėl pareigybės sustabdymo.</div>`
@@ -421,12 +404,12 @@ export async function GET(
   </p>
 
   <div class="totals">
-    Iš viso kandidatų: <strong>${rows?.length || 0} narių</strong>. Bendra skola:
+    Iš viso kandidatų: <strong>${candidates.length} narių</strong>. Bendra skola:
     <strong>${totalDebt.toFixed(0)} EUR</strong>.
   </div>
 
   ${
-    (rows || []).length === 0
+    candidates.length === 0
       ? `<p style="margin:30px 0; text-align:center; color:#666;">Kandidatų sąrašas tuščias.</p>`
       : candidateBlocks
   }
