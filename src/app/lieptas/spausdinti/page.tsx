@@ -75,9 +75,15 @@ export default async function LieptasPrintPage() {
             text-align: center;
             margin: 30px 0;
           }
-          .qr-block svg {
+          .qr-block > div {
+            display: inline-block;
             width: 11cm;
-            height: 11cm;
+            max-width: 100%;
+          }
+          .qr-block svg {
+            width: 100% !important;
+            height: auto !important;
+            display: block;
           }
           .qr-label {
             font-family: Arial, sans-serif;
@@ -162,7 +168,9 @@ export default async function LieptasPrintPage() {
           </div>
 
           <div className="qr-block">
-            <div dangerouslySetInnerHTML={{ __html: qrSvg }} />
+            <div>
+              <div dangerouslySetInnerHTML={{ __html: qrSvg }} />
+            </div>
             <div className="qr-label">📱 Nuskenuokite banko aplikacija</div>
             <div className="qr-help">
               Atsidarys pavedimo forma su jau užpildytais duomenimis.<br/>

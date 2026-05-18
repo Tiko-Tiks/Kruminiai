@@ -140,7 +140,7 @@ export default async function LieptasPage() {
               {/* QR */}
               <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 text-center border border-green-100">
                 <div
-                  className="bg-white rounded-lg p-4 shadow-sm inline-block"
+                  className="bg-white rounded-lg p-4 shadow-sm mx-auto max-w-[260px] [&_svg]:w-full [&_svg]:h-auto [&_svg]:block"
                   dangerouslySetInnerHTML={{ __html: qrSvg }}
                 />
                 <p className="text-xs text-gray-600 mt-3 font-medium">
