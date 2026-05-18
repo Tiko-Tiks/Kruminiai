@@ -6,6 +6,22 @@ import { COMMUNITY_LEGAL } from "@/lib/constants";
 export const metadata = {
   title: "Balsavimas",
   robots: { index: false, follow: false, nocache: true },
+  // Visiškai pakeičiam tėvinį openGraph – be paveikslėlio, kad SMS / Messenger
+  // preview būtų kuklus (be didelio kvadratinio logotipo).
+  openGraph: {
+    type: "website" as const,
+    siteName: "Krūminių kaimo bendruomenė",
+    title: "Balsavimas",
+    description: "Krūminių kaimo bendruomenės visuotinio susirinkimo balsavimas.",
+    locale: "lt_LT",
+    images: [],
+  },
+  twitter: {
+    card: "summary" as const,
+    title: "Balsavimas",
+    description: "Krūminių kaimo bendruomenės visuotinio susirinkimo balsavimas.",
+    images: [],
+  },
 };
 
 export const dynamic = "force-dynamic";

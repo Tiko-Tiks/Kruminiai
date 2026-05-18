@@ -6,6 +6,20 @@ import { XCircle, Clock } from "lucide-react";
 export const metadata = {
   title: "Narystės patvirtinimas",
   robots: { index: false, follow: false, nocache: true },
+  openGraph: {
+    type: "website" as const,
+    siteName: "Krūminių kaimo bendruomenė",
+    title: "Narystės patvirtinimas",
+    description: "Krūminių kaimo bendruomenės narystės patvirtinimas.",
+    locale: "lt_LT",
+    images: [],
+  },
+  twitter: {
+    card: "summary" as const,
+    title: "Narystės patvirtinimas",
+    description: "Krūminių kaimo bendruomenės narystės patvirtinimas.",
+    images: [],
+  },
 };
 
 export const dynamic = "force-dynamic";
