@@ -3,7 +3,7 @@ import { generateSepaQrSvg } from "@/lib/sepa-qr";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { formatDate } from "@/lib/utils";
-import { Heart, Phone, Mail, AlertCircle } from "lucide-react";
+import { Heart, Phone, Mail, Copy } from "lucide-react";
 import { CopyIbanButton } from "./CopyIbanButton";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -147,11 +147,11 @@ export default async function LieptasPage() {
                   dangerouslySetInnerHTML={{ __html: qrSvg }}
                 />
                 <p className="text-sm text-gray-700 mt-3 font-semibold">
-                  📱 Atidarykite banko aplikaciją → „Naujas pavedimas" → „Skenuoti QR"
+                  📱 Atidarykite banko aplikaciją → &bdquo;Naujas pavedimas&ldquo; → &bdquo;Skenuoti QR&ldquo;
                 </p>
                 <p className="text-xs text-gray-500 mt-2 leading-relaxed">
                   Geriausiai veikia Swedbank, SEB, Luminor, Šiaulių/Artea aplikacijose.
-                  Jei jūsų app'as nepalaiko – pavedimą įveskite rankomis (rekvizitai dešinėje).
+                  Jei jūsų app&apos;as nepalaiko – pavedimą įveskite rankomis (rekvizitai dešinėje).
                 </p>
               </div>
 
