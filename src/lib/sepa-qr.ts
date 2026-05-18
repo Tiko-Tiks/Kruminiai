@@ -4,7 +4,7 @@
 // atidaroma pavedimo forma su jau užpildytais gavėjo duomenimis – naudotojui
 // tereikia įvesti sumą ir patvirtinti.
 
-import QRCode from "qrcode";
+import QRCode, { type QRCodeSegment } from "qrcode";
 
 export interface SepaPayment {
   /** Gavėjo banko BIC kodas (neprivalomas v2 specifikacijoje) */
@@ -50,7 +50,11 @@ export function buildSepaQrPayload(p: SepaPayment): string {
  */
 export async function generateSepaQrSvg(p: SepaPayment): Promise<string> {
   const payload = buildSepaQrPayload(p);
-  return QRCode.toString([{ data: payload, mode: "byte" }], {
+  // Byte mode reikalauja Uint8Array – konvertuojam payload'ą iš UTF-8.
+  const segments: QRCodeSegment[] = [
+    { data: new TextEncoder().encode(payload), mode: "byte" },
+  ];
+  return QRCode.toString(segments, {
     type: "svg",
     errorCorrectionLevel: "M",
     margin: 1,
@@ -67,7 +71,10 @@ export async function generateSepaQrSvg(p: SepaPayment): Promise<string> {
  */
 export async function generateSepaQrDataUrl(p: SepaPayment): Promise<string> {
   const payload = buildSepaQrPayload(p);
-  return QRCode.toDataURL([{ data: payload, mode: "byte" }], {
+  const segments: QRCodeSegment[] = [
+    { data: new TextEncoder().encode(payload), mode: "byte" },
+  ];
+  return QRCode.toDataURL(segments, {
     errorCorrectionLevel: "M",
     margin: 1,
     width: 512,
