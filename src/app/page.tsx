@@ -24,7 +24,6 @@ export const metadata: Metadata = {
 };
 import {
   ArrowRight,
-  FileText,
   Users,
   Newspaper,
   Phone,
@@ -37,6 +36,7 @@ import {
   MapPin,
   Vote,
   Clock,
+  Heart,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -65,8 +65,38 @@ async function getUpcomingMeeting() {
   return data;
 }
 
+async function getLieptasProject() {
+  const supabase = createServerSupabaseClient();
+  const { data: project } = await supabase
+    .from("fundraising_projects")
+    .select("id, title, slug, goal_cents")
+    .eq("slug", "lieptas")
+    .eq("is_public", true)
+    .maybeSingle();
+  if (!project) return null;
+  const { data: donations } = await supabase
+    .from("donations")
+    .select("amount_cents")
+    .eq("project_id", project.id);
+  const totalCents = (donations || []).reduce(
+    (s, d) => s + (d.amount_cents as number),
+    0
+  );
+  return {
+    title: project.title as string,
+    slug: project.slug as string,
+    goalCents: project.goal_cents as number,
+    totalCents,
+    donorCount: (donations || []).length,
+  };
+}
+
 export default async function HomePage() {
-  const [news, upcomingMeeting] = await Promise.all([getLatestNews(), getUpcomingMeeting()]);
+  const [news, upcomingMeeting, lieptas] = await Promise.all([
+    getLatestNews(),
+    getUpcomingMeeting(),
+    getLieptasProject(),
+  ]);
 
   const organizationLd = {
     "@context": "https://schema.org",
@@ -211,6 +241,70 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* Lieptas – pilotinis aukų rinkimo projektas */}
+      {lieptas && (
+        <section className="bg-white border-b border-gray-200">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+            <Link
+              href={`/${lieptas.slug}`}
+              className="block group bg-gradient-to-br from-amber-50 via-white to-amber-50/50 rounded-2xl border-2 border-amber-200 p-6 sm:p-8 hover:border-amber-300 hover:shadow-lg transition-all"
+            >
+              <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+                <div className="flex-shrink-0">
+                  <div className="w-16 h-16 rounded-2xl bg-amber-400 flex items-center justify-center shadow-md">
+                    <Heart className="h-8 w-8 text-white" />
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white uppercase tracking-wide">
+                      Pilotinis projektas
+                    </span>
+                    <span className="text-xs text-gray-500">Aukų rinkimas</span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 group-hover:text-amber-700 transition-colors">
+                    {lieptas.title}
+                  </h2>
+                  <p className="text-sm text-gray-600 mb-3 max-w-2xl">
+                    Renkame lėšas paplūdimio liepto atstatymui prie Krūminių užtvankos.
+                    Aukoti gali kiekvienas – kaimo gyventojai, vasaros lankytojai, turistai.
+                  </p>
+
+                  {/* Progresas */}
+                  <div className="space-y-1.5 max-w-xl">
+                    <div className="flex items-baseline justify-between gap-3 text-sm">
+                      <span className="font-semibold text-gray-900">
+                        {(lieptas.totalCents / 100).toFixed(0)} €
+                        <span className="text-gray-400 font-normal"> iš {(lieptas.goalCents / 100).toFixed(0)} €</span>
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {lieptas.donorCount} {lieptas.donorCount === 1 ? "aukotojas" : "aukotojai"}
+                      </span>
+                    </div>
+                    <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all"
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            Math.round((lieptas.totalCents / lieptas.goalCents) * 100)
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex-shrink-0 self-stretch md:self-center">
+                  <span className="inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-semibold group-hover:bg-amber-700 transition-colors whitespace-nowrap">
+                    Padėti <ArrowRight className="h-4 w-4" />
+                  </span>
+                </div>
+              </div>
+            </Link>
+          </div>
+        </section>
+      )}
+
       {/* Pinned announcement */}
       {news.filter((n) => n.is_pinned).length > 0 && (
         <section className="bg-white border-b border-gray-200">
@@ -262,15 +356,15 @@ export default async function HomePage() {
                 href: "/naujienos",
               },
               {
-                icon: FileText,
-                title: "Dokumentai",
-                desc: "Įstatai, protokolai, ataskaitos ir kiti svarbūs dokumentai",
-                href: "/dokumentai",
+                icon: Heart,
+                title: "Lieptas",
+                desc: "Pilotinis aukų rinkimo projektas paplūdimio liepto atstatymui",
+                href: "/lieptas",
               },
               {
                 icon: Users,
                 title: "Apie mus",
-                desc: "Vizija, misija ir socialinio verslo modelis",
+                desc: "Vizija, misija ir bendruomenės veiklos modelis",
                 href: "/kontaktai",
               },
               {
