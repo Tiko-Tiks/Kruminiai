@@ -77,7 +77,6 @@ export async function GET(
   }
   const debtRows = Array.from(debtsByYear.values()).sort((a, b) => a.year - b.year);
   const totalDebt = debtRows.reduce((s, r) => s + r.eur, 0);
-  const totalUnpaidMembers = debtRows.reduce((s, r) => s + r.count, 0);
 
   // Skaičiavimai biudžetui
   const potentialFeeRevenue = (memberCount || 0) * 12; // jei visi sumokėtų 2026 m.
@@ -239,7 +238,7 @@ export async function GET(
 
   <p>
     Šis veiklos planas teikiamas visuotinio susirinkimo balsavimui. Plane
-    nurodoma <strong>dabartinė finansinė padėtis</strong>, ${year} m.
+    nurodoma <strong>dabartinė ${year} m. finansinė padėtis</strong>, metinio
     <strong>biudžeto paskirstymas</strong>, planuojami nauji <strong>projektai
     bei renginiai</strong>. Nuolatinės kasmetinės veiklos (paplūdimio
     priežiūra, šiukšliadėžių aptarnavimas, žolės šienavimas, inventoriaus
@@ -247,7 +246,17 @@ export async function GET(
     ${year - 1} m. veiklos ataskaitoje.
   </p>
 
-  <h3>1. Dabartinė finansinė padėtis</h3>
+  <div class="callout blue">
+    <strong>🔔 Naujovė: gyva finansinė ataskaita nuo ${year} m.</strong><br>
+    Nuo ${year} m. bendruomenė pereina prie <strong>realiu laiku atnaujinamos
+    finansinės atskaitomybės</strong>. Aktyvūs nariai per portalą
+    <a href="https://kruminiai.lt/portalas/finansai" style="color:#15803d;font-weight:600">kruminiai.lt/portalas/finansai</a>
+    matys: surinktą nario mokestį, sąnaudas, banko likutį, liepto projekto lėšų
+    eigą. Tai užtikrina pilną skaidrumą ir leidžia nariams stebėti, kaip
+    naudojami bendruomenės pinigai.
+  </div>
+
+  <h3>1. ${year} m. nario mokesčio padėtis</h3>
   <p>Susirinkimo metu (${meetingDate.toLocaleDateString("lt-LT", { year: "numeric", month: "long", day: "numeric" })}):</p>
   <table class="summary">
     <tbody>
@@ -268,23 +277,14 @@ export async function GET(
         <td class="value"><strong>${remainingFee2026.toFixed(0)} EUR</strong> (jei visi sumokėtų)</td>
       </tr>
       <tr>
-        <td class="label">Bendra likusi skola (${debtRows.map((r) => `${r.year} m.`).join(", ") || "—"})</td>
-        <td class="value"><strong style="color:#991b1b">${totalDebt.toFixed(0)} EUR</strong> (${totalUnpaidMembers} skolingų narių)</td>
-      </tr>
-      <tr>
-        <td class="label">Pinigų likutis ${year - 1}-12-31 (pagal ${year - 1} m. ataskaitą)</td>
-        <td class="value"><strong>119 EUR</strong></td>
+        <td class="label">Skolos iš ankstesnių metų</td>
+        <td class="value"><strong style="color:#991b1b">${(totalDebt - (debtRows.find(r => r.year === year)?.eur || 0)).toFixed(0)} EUR</strong></td>
       </tr>
     </tbody>
   </table>
-  ${
-    debtRows.length > 0
-      ? `<p style="font-size:10.5pt;color:#555;font-style:italic;">
-    Skolos suskirstymas: ${debtRows.map((r) => `${r.year} m. – ${r.count} narių (${r.eur.toFixed(0)} EUR)`).join("; ")}.
-    Skolininkams išsiųsti pranešimai dėl mokesčio sumokėjimo arba narystės nutraukimo.
-  </p>`
-      : ""
-  }
+  <p style="font-size:10.5pt;color:#555;font-style:italic;">
+    ${year - 1} m. ir ankstesnių metų finansiniai duomenys pateikti ${year - 1} m. finansinių ataskaitų rinkinyje (atskira darbotvarkės klausimas).
+  </p>
 
   <h3>2. ${year} m. veiklos sąnaudų sąmata</h3>
   <p>Planuojamos metinės veiklos sąnaudos pagal kategorijas:</p>
@@ -408,7 +408,26 @@ export async function GET(
     </li>
   </ul>
 
-  <h3>7. Bendros lėšų panaudojimo gairės</h3>
+  <h3>7. Skaidrumas ir gyva finansinė ataskaita</h3>
+  <p>
+    Nuo ${year} m. <strong>kiekviena pajama ir kiekviena išlaida</strong>
+    – tiek bankiniais pavedimais, tiek grynaisiais – fiksuojama bendruomenės
+    apskaitos sistemoje. Aktyvūs nariai per portalą gali matyti:
+  </p>
+  <ul>
+    <li><strong>Surinktą nario mokestį</strong> ir kas dar nesumokėjo;</li>
+    <li><strong>Komunalines ir einamąsias išlaidas</strong> (atliekos, elektra, banko paslaugos);</li>
+    <li><strong>Investicijas į teritoriją</strong> (smėlis, žaidimų aikštelės remontas ir kt.);</li>
+    <li><strong>Liepto projekto aukas</strong> – atskirai stebimas lėšų rinkimas;</li>
+    <li><strong>Renginių išlaidas</strong> (Mindauginės, Eglutės puošimas).</li>
+  </ul>
+  <div class="callout">
+    <strong>Tikslas:</strong> kad bet kuris narys bet kuriuo metu galėtų
+    pasitikrinti, kaip naudojami bendruomenės pinigai – be būtinybės laukti
+    metinės ataskaitos.
+  </div>
+
+  <h3>8. Bendros lėšų panaudojimo gairės</h3>
   <table class="budget">
     <thead>
       <tr><th>Veiklos sritis</th><th>Lėšų šaltinis</th></tr>
