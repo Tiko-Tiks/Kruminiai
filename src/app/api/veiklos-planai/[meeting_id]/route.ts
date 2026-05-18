@@ -330,13 +330,14 @@ export async function GET(
   <h3>4. Krūminių kaimo paplūdimio liepto atnaujinimo projektas</h3>
   <p>
     <strong>Problema:</strong> betoninė konstrukcija stipri, bet paviršius
-    vietomis suiręs ir nesaugus.<br>
-    <strong>Sprendimas:</strong> apkalti terasinėmis lentomis, sumontuoti
-    nerūdijančio plieno kopėtėles ir turėklus.
+    vietomis suiręs ir tampa nesaugus.<br>
+    <strong>Sprendimas:</strong> apkalti viršų ir šonus terasinėmis lentomis,
+    įrengti nerūdijančio plieno kopėtėles užlipti iš vandens ir turėklus,
+    kurių galima prisilaikyti.
   </p>
   <p>
     Liepto laikas atsinaujinti – su bendruomenės ir svečių pagalba.
-    <strong>Kada jai ne dabar?</strong>
+    <strong>Jei ne dabar, tai kada?</strong>
   </p>
 
   <div class="callout">

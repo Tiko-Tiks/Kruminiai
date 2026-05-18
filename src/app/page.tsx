@@ -267,7 +267,7 @@ export default async function HomePage() {
                   </h2>
                   <p className="text-sm text-gray-600 mb-3 max-w-2xl">
                     Mūsų liepto laikas atsinaujinti – su bendruomenės ir svečių
-                    pagalba. Kada jai ne dabar?
+                    pagalba. Jei ne dabar, tai kada?
                   </p>
 
                   {/* Progresas */}
