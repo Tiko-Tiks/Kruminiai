@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Textarea } from "@/components/ui/Textarea";
 import { castVotesByToken, registerLiveIntentByToken } from "@/actions/tokens";
 import { VOTE_LABELS } from "@/lib/constants";
 
@@ -92,6 +93,7 @@ export function VotingFlow({ token, data }: Props) {
       return acc;
     }, {} as Record<string, VoteChoice>)
   );
+  const [comments, setComments] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [registeringLive, setRegisteringLive] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<ResolutionDocument | null>(null);
@@ -135,6 +137,7 @@ export function VotingFlow({ token, data }: Props) {
         resolution_number: r.resolution_number,
         title: r.title,
         vote: votes[r.id],
+        comment: (comments[r.id] || "").trim() || null,
         documents: r.documents?.map((d) => ({
           id: d.id,
           title: d.title,
@@ -265,7 +268,9 @@ export function VotingFlow({ token, data }: Props) {
         <VotingStep
           resolutions={data.resolutions}
           votes={votes}
+          comments={comments}
           onVote={(id, choice) => setVotes((prev) => ({ ...prev, [id]: choice }))}
+          onComment={(id, text) => setComments((prev) => ({ ...prev, [id]: text }))}
           onBack={() => setStep("contacts")}
           onNext={() => setStep("review")}
           allVoted={allVoted}
@@ -277,6 +282,7 @@ export function VotingFlow({ token, data }: Props) {
         <ReviewStep
           resolutions={data.resolutions}
           votes={votes}
+          comments={comments}
           email={(data.member.email || email.trim()) || null}
           onBack={() => setStep("voting")}
           onSubmit={handleSubmit}
@@ -557,7 +563,9 @@ function ContactsStep({
 function VotingStep({
   resolutions,
   votes,
+  comments,
   onVote,
+  onComment,
   onBack,
   onNext,
   allVoted,
@@ -565,7 +573,9 @@ function VotingStep({
 }: {
   resolutions: Resolution[];
   votes: Record<string, VoteChoice>;
+  comments: Record<string, string>;
   onVote: (id: string, choice: VoteChoice) => void;
+  onComment: (id: string, text: string) => void;
   onBack: () => void;
   onNext: () => void;
   allVoted: boolean;
@@ -645,6 +655,20 @@ function VotingStep({
               );
             })}
           </div>
+
+          {/* Komentaras / pasisakymas prie balso (neprivalomas) */}
+          <div className="mt-3">
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Komentaras / pasisakymas <span className="text-gray-400">(neprivaloma)</span>
+            </label>
+            <Textarea
+              rows={2}
+              placeholder="Pridėkite trumpą nuomonę, jei norite, kad ji būtų užfiksuota protokole..."
+              value={comments[r.id] || ""}
+              onChange={(e) => onComment(r.id, e.target.value)}
+              className="text-sm"
+            />
+          </div>
         </div>
       ))}
 
@@ -670,6 +694,7 @@ function VotingStep({
 function ReviewStep({
   resolutions,
   votes,
+  comments,
   email,
   onBack,
   onSubmit,
@@ -677,6 +702,7 @@ function ReviewStep({
 }: {
   resolutions: Resolution[];
   votes: Record<string, VoteChoice>;
+  comments: Record<string, string>;
   email: string | null;
   onBack: () => void;
   onSubmit: () => void;
@@ -699,23 +725,33 @@ function ReviewStep({
       </p>
 
       <div className="space-y-3 mb-6">
-        {resolutions.map((r) => (
-          <div key={r.id} className="flex items-start gap-3 p-3 border border-gray-100 rounded-lg">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-700 text-xs font-semibold flex items-center justify-center">
-              {r.resolution_number}
-            </span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-gray-900 font-medium">{r.title}</p>
+        {resolutions.map((r) => {
+          const comment = (comments[r.id] || "").trim();
+          return (
+            <div key={r.id} className="p-3 border border-gray-100 rounded-lg">
+              <div className="flex items-start gap-3">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-700 text-xs font-semibold flex items-center justify-center">
+                  {r.resolution_number}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-900 font-medium">{r.title}</p>
+                </div>
+                <span
+                  className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold ${
+                    colors[votes[r.id]]
+                  }`}
+                >
+                  {VOTE_LABELS[votes[r.id]]}
+                </span>
+              </div>
+              {comment && (
+                <div className="mt-2 ml-9 text-xs text-gray-600 italic bg-gray-50 px-3 py-1.5 rounded border-l-2 border-gray-300">
+                  &bdquo;{comment}&ldquo;
+                </div>
+              )}
             </div>
-            <span
-              className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold ${
-                colors[votes[r.id]]
-              }`}
-            >
-              {VOTE_LABELS[votes[r.id]]}
-            </span>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="flex justify-between gap-3">

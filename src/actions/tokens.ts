@@ -232,6 +232,7 @@ interface VoteWithDetails {
   resolution_number: number;
   title: string;
   vote: "uz" | "pries" | "susilaike";
+  comment?: string | null;
   documents?: { id: string; title: string; file_path: string }[];
 }
 
@@ -249,7 +250,11 @@ export async function castVotesByToken(
     p_token: token,
     p_email: email,
     p_phone: phone,
-    p_votes: votes.map((v) => ({ resolution_id: v.resolution_id, vote: v.vote })),
+    p_votes: votes.map((v) => ({
+      resolution_id: v.resolution_id,
+      vote: v.vote,
+      comment: v.comment ?? null,
+    })),
   });
 
   if (error) return { error: error.message };
@@ -293,6 +298,10 @@ export async function castVotesByToken(
               )
               .join(" &nbsp;·&nbsp; ")}</div>`
           : "";
+      const commentLine =
+        v.comment && v.comment.trim()
+          ? `<div style="margin-top:8px;padding:8px 10px;background:#f9fafb;border-left:2px solid #d1d5db;font-size:13px;color:#4b5563;font-style:italic;line-height:1.5;">„${v.comment.replace(/</g, "&lt;").replace(/>/g, "&gt;")}"</div>`
+          : "";
       return `
         <tr>
           <td style="padding:12px 8px 12px 0;border-bottom:1px solid #f3f4f6;vertical-align:top;width:32px;">
@@ -301,6 +310,7 @@ export async function castVotesByToken(
           <td style="padding:12px 8px;border-bottom:1px solid #f3f4f6;font-size:14px;color:#374151;line-height:1.5;">
             ${v.title}
             ${docsLine}
+            ${commentLine}
           </td>
           <td style="padding:12px 0 12px 8px;border-bottom:1px solid #f3f4f6;text-align:right;white-space:nowrap;vertical-align:top;">
             <span style="display:inline-block;padding:4px 12px;background:${style.bg};color:${style.color};font-size:12px;font-weight:600;border-radius:12px;">${style.label}</span>

@@ -19,7 +19,38 @@ export async function GET(
 
   const meetingDate = new Date(meeting.meeting_date);
   const generatedAt = new Date();
-  const chairman = "Mindaugas Mameniškis"; // dabartinis pirmininkas
+
+  // Esami valdymo organai iš DB
+  const { data: roles } = await supabase
+    .from("community_management")
+    .select("role, term_start, term_end, sort_order, member:members(first_name, last_name)")
+    .eq("is_current", true)
+    .order("role", { ascending: true })
+    .order("sort_order", { ascending: true });
+
+  type RoleRow = {
+    role: string;
+    term_start: string | null;
+    term_end: string | null;
+    sort_order: number;
+    member: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null;
+  };
+  const allRoles = (roles || []) as RoleRow[];
+  const memberName = (r: RoleRow) => {
+    const m = Array.isArray(r.member) ? r.member[0] : r.member;
+    return m ? `${m.first_name} ${m.last_name}` : "—";
+  };
+  const fmtTermYears = (r: RoleRow) => {
+    const start = r.term_start ? new Date(r.term_start).getFullYear() : "—";
+    const end = r.term_end ? new Date(r.term_end).getFullYear() : "—";
+    return `${start} – ${end}`;
+  };
+
+  const chairmanRow = allRoles.find((r) => r.role === "pirmininkas");
+  const councilRows = allRoles.filter((r) => r.role === "tarybos_narys");
+  const auditorRow = allRoles.find((r) => r.role === "revizorius");
+
+  const chairman = chairmanRow ? memberName(chairmanRow) : "Mindaugas Mameniškis";
 
   const html = `<!DOCTYPE html>
 <html lang="lt">
@@ -153,29 +184,51 @@ export async function GET(
     nariams pradėti svarstyti savo dalyvavimą valdyme ir teikti kandidatūras.
   </p>
 
-  <h3>1. Dabartinė situacija</h3>
+  <h3>1. Dabartiniai valdymo organai</h3>
+  <p>
+    Žemiau išvardyti šiuo metu einantys pareigas bendruomenės valdymo organų
+    nariai. Visiems kadencija baigiasi <strong>2027 m.</strong> – jų vietoje
+    bus renkami nauji.
+  </p>
   <table class="terms">
     <thead>
-      <tr><th>Organas</th><th>Asmuo / sudėtis</th><th>Kadencijos pabaiga</th></tr>
+      <tr><th>Organas</th><th>Asmuo</th><th>Kadencija</th></tr>
     </thead>
     <tbody>
       <tr>
         <td><strong>Pirmininkas</strong></td>
-        <td>${chairman}</td>
-        <td>2027 m.</td>
+        <td>${chairmanRow ? memberName(chairmanRow) : `<em style="color:#888">Neįvestas (numatomas ${chairman})</em>`}</td>
+        <td>${chairmanRow ? fmtTermYears(chairmanRow) : "2023 – 2027"}</td>
       </tr>
-      <tr>
-        <td><strong>Taryba</strong></td>
-        <td>Esama sudėtis (3–7 nariai)</td>
-        <td>2027 m.</td>
-      </tr>
+      ${
+        councilRows.length === 0
+          ? `<tr>
+        <td><strong>Tarybos nariai</strong></td>
+        <td colspan="2"><em style="color:#888">Tarybos sudėtis dar neįvesta sistemoje – bus atnaujinta artimiausiu metu.</em></td>
+      </tr>`
+          : councilRows
+              .map(
+                (r, i) =>
+                  `<tr>
+        <td>${i === 0 ? "<strong>Tarybos nariai</strong>" : ""}</td>
+        <td>${memberName(r)}</td>
+        <td>${fmtTermYears(r)}</td>
+      </tr>`
+              )
+              .join("")
+      }
       <tr>
         <td><strong>Revizorius</strong></td>
-        <td>Esamas</td>
-        <td>2027 m. (4 m. kadencija)</td>
+        <td>${auditorRow ? memberName(auditorRow) : `<em style="color:#888">Neįvestas</em>`}</td>
+        <td>${auditorRow ? fmtTermYears(auditorRow) : "—"}</td>
       </tr>
     </tbody>
   </table>
+
+  <div class="callout amber">
+    <strong>2027 m. rinkimuose</strong> bus renkami visi išvardyti valdymo
+    organai. Kiekvieno organo kadencija – 4 metai (įstatų 5.1, 5.5 ir 6.2 p.).
+  </div>
 
   <h3>2. Teisinis pagrindas</h3>
   <p>
