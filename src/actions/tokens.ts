@@ -199,7 +199,9 @@ export async function getVotingTokensStats(meetingId: string) {
 
   const { data: tokens } = await supabase
     .from("meeting_voting_tokens")
-    .select("id, sent_at, voted_at, live_intent_at, member:members(first_name, last_name, phone)")
+    .select(
+      "id, sent_at, viewed_at, view_count, voted_at, live_intent_at, member:members(first_name, last_name, phone)"
+    )
     .eq("meeting_id", meetingId)
     .order("voted_at", { ascending: false, nullsFirst: false });
 
@@ -207,6 +209,7 @@ export async function getVotingTokensStats(meetingId: string) {
   return {
     total: all.length,
     sent: all.filter((t) => t.sent_at).length,
+    viewed: all.filter((t) => t.viewed_at && !t.voted_at && !t.live_intent_at).length,
     voted: all.filter((t) => t.voted_at).length,
     liveIntent: all.filter((t) => t.live_intent_at && !t.voted_at).length,
     pending: all.filter((t) => t.sent_at && !t.voted_at && !t.live_intent_at).length,

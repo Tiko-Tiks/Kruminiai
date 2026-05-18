@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
-import { Send, RotateCcw, Users, CheckCircle2, Clock, Phone, UserCheck } from "lucide-react";
+import { Send, RotateCcw, Users, CheckCircle2, Clock, Phone, UserCheck, Eye } from "lucide-react";
 import { generateAndSendVotingTokens, resendVotingSms } from "@/actions/tokens";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -11,6 +11,8 @@ import { useRouter } from "next/navigation";
 interface TokenStat {
   id: string;
   sent_at: string | null;
+  viewed_at: string | null;
+  view_count: number | null;
   voted_at: string | null;
   live_intent_at: string | null;
   member:
@@ -24,6 +26,7 @@ interface Props {
   stats: {
     total: number;
     sent: number;
+    viewed: number;
     voted: number;
     liveIntent: number;
     pending: number;
@@ -100,7 +103,7 @@ export function RemoteVotingPanel({ meetingId, stats }: Props) {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <Stat
                 icon={<CheckCircle2 className="h-4 w-4 text-green-600" />}
                 label="Balsavo nuotoliu"
@@ -112,6 +115,12 @@ export function RemoteVotingPanel({ meetingId, stats }: Props) {
                 label="Atvyks gyvai"
                 value={stats.liveIntent}
                 color="text-blue-700"
+              />
+              <Stat
+                icon={<Eye className="h-4 w-4 text-purple-600" />}
+                label="Atidarė (be atsakymo)"
+                value={stats.viewed}
+                color="text-purple-700"
               />
               <Stat
                 icon={<Clock className="h-4 w-4 text-amber-600" />}
@@ -180,6 +189,12 @@ export function RemoteVotingPanel({ meetingId, stats }: Props) {
                           <span className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
                             <UserCheck className="h-3 w-3" />
                             Atvyks gyvai
+                          </span>
+                        ) : t.viewed_at ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-purple-700 bg-purple-50 px-2 py-0.5 rounded">
+                            <Eye className="h-3 w-3" />
+                            Atidarė
+                            {t.view_count && t.view_count > 1 ? ` ×${t.view_count}` : ""}
                           </span>
                         ) : t.sent_at ? (
                           <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded">
