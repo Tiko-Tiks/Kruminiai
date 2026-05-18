@@ -244,24 +244,25 @@ export function VotingFlow({ token, data }: Props) {
     <div className="space-y-6">
       <ProgressIndicator step={step} />
 
-      <MeetingHeader meeting={data.meeting} resolutions={data.resolutions} />
-
       {step === "contacts" && (
-        <ContactsStep
-          firstNameVocative={vocative(data.member.first_name)}
-          lastName={data.member.last_name}
-          email={email}
-          phone={phone}
-          emailValid={emailValid}
-          hasExistingEmail={!!data.member.email}
-          existingEmail={data.member.email}
-          onEmailChange={setEmail}
-          onPhoneChange={setPhone}
-          onNext={() => setStep("voting")}
-          onLive={handleRegisterLive}
-          registeringLive={registeringLive}
-          alreadyChoseLive={!!data.live_intent_at}
-        />
+        <>
+          <ContactsStep
+            firstNameVocative={vocative(data.member.first_name)}
+            email={email}
+            phone={phone}
+            emailValid={emailValid}
+            hasExistingEmail={!!data.member.email}
+            existingEmail={data.member.email}
+            onEmailChange={setEmail}
+            onPhoneChange={setPhone}
+            onNext={() => setStep("voting")}
+            onLive={handleRegisterLive}
+            registeringLive={registeringLive}
+            alreadyChoseLive={!!data.live_intent_at}
+          />
+          {/* Susirinkimo informacija + darbotvarkė pasisveikinimo žingsnyje apačioje */}
+          <MeetingHeader meeting={data.meeting} resolutions={data.resolutions} />
+        </>
       )}
 
       {step === "voting" && (
@@ -438,7 +439,6 @@ function MeetingHeader({
 
 function ContactsStep({
   firstNameVocative,
-  lastName,
   email,
   phone,
   emailValid,
@@ -452,7 +452,6 @@ function ContactsStep({
   alreadyChoseLive,
 }: {
   firstNameVocative: string;
-  lastName: string;
   email: string;
   phone: string;
   emailValid: boolean;
@@ -472,7 +471,7 @@ function ContactsStep({
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-1">
-        Sveiki, {firstNameVocative} {lastName}
+        Sveiki, {firstNameVocative}!
       </h3>
       <p className="text-sm text-gray-600 mb-5">
         Pasirinkite, kaip dalyvausite – galite ateiti į susirinkimą gyvai arba balsuoti nuotoliu jau dabar.
