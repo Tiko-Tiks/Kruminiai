@@ -301,20 +301,70 @@ async function syncResolutionDescription(meetingId: string) {
       "Šios darbotvarkės klausimo metu Taryba informuoja apie sprendimus dėl narių šalinimo. " +
       "Šiuo metu šalinamų narių sąrašas nesudarytas.";
   } else {
-    const lines = list.map(
-      (e, i) =>
-        `${i + 1}. ${e.name}${e.status === "pasyvus" ? " (pasyvus narys)" : ""} — ${e.debtEur.toFixed(0)} EUR skola (${e.years})`
-    );
     const totalEur = list.reduce((s, e) => s + e.debtEur, 0);
     description =
-      `Pagal įstatų 3.5 punktą ir 2025 m. naujos redakcijos 5.3.1 punktą, Taryba priėmė sprendimą šalinti šiuos narius dėl sistematinio nario mokesčio nemokėjimo:\n\n` +
-      lines.join("\n") +
-      `\n\nIš viso šalinama: **${list.length} narių**. Bendra skola: **${totalEur.toFixed(0)} EUR**.\n\n` +
-      `Pagal įstatų 3.6 punktą, šalinamas narys gali grąžinti narystę bendruomenėje sumokėjęs stojamąjį mokestį (20 EUR) ir einamųjų metų nario mokestį (12 EUR).`;
+      `Taryba priėmė sprendimą dėl narių šalinimo iš bendruomenės dėl sistematinio nario mokesčio nemokėjimo (įstatų 3.5 punktas).\n\n` +
+      `Iš viso šalinama **${list.length} narių**, bendra skola **${totalEur.toFixed(0)} EUR**.\n\n` +
+      `Konkretus narių sąrašas (vardai, pavardės, skolos sumos, neapmokėti metai) pateikiamas prikabintame dokumente.\n\n` +
+      `Pagal įstatų 3.6 punktą, šalinamas narys gali grąžinti narystę bendruomenėje sumokėjęs stojamąjį mokestį (20 EUR) ir einamųjų metų nario mokestį (12 EUR), jeigu skola padengta.`;
   }
 
   await supabase
     .from("resolutions")
     .update({ description })
     .eq("id", resolution.id);
+
+  // Užtikrinti, kad prikabintas šalinamų sąrašo dokumentas (auto-generated HTML)
+  await ensureExpulsionListDocAttached(meetingId, resolution.id);
+}
+
+// Užtikrinti, kad šalinamų narių sąrašo dokumentas yra prikabintas prie nutarimo.
+// Sukuria documents įrašą + resolution_documents jungtį, jei dar nėra.
+async function ensureExpulsionListDocAttached(meetingId: string, resolutionId: string) {
+  const supabase = createServerSupabaseClient();
+  const filePath = `__api__/salinami/${meetingId}`;
+
+  // Patikrinti, ar dokumentas jau egzistuoja
+  let { data: doc } = await supabase
+    .from("documents")
+    .select("id")
+    .eq("file_path", filePath)
+    .maybeSingle();
+
+  if (!doc) {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: newDoc, error } = await supabase
+      .from("documents")
+      .insert({
+        title: "Tarybos sprendimu šalinamų narių sąrašas",
+        category: "kita",
+        file_path: filePath,
+        file_name: `salinami-${meetingId}.html`,
+        file_size: null,
+        description:
+          "Automatiškai generuojamas dokumentas su šalinamų narių sąrašu, jų skolomis ir neapmokėtais metais.",
+        is_public: false,
+        created_by: user?.id ?? null,
+      })
+      .select("id")
+      .single();
+    if (error || !newDoc) return;
+    doc = newDoc;
+  }
+
+  // Patikrinti, ar jungtis su nutarimu jau yra
+  const { data: existing } = await supabase
+    .from("resolution_documents")
+    .select("id")
+    .eq("resolution_id", resolutionId)
+    .eq("document_id", doc.id)
+    .maybeSingle();
+
+  if (!existing) {
+    await supabase.from("resolution_documents").insert({
+      resolution_id: resolutionId,
+      document_id: doc.id,
+      sort_order: 0,
+    });
+  }
 }

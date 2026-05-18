@@ -26,10 +26,26 @@ export function formatFileSize(bytes: number | null | undefined): string {
   return `${(kb / 1024).toFixed(1)} MB`;
 }
 
-// Sukonstruoti viešą Supabase Storage URL pagal failo kelią
+// Sukonstruoti viešą URL dokumentui pagal file_path.
+// Palaiko kelis formatus:
+//   - __api__/X/Y    → /api/X/Y (server-rendered HTML, pvz. salinami sąrašas)
+//   - __public__/X   → /X (statinis viešas failas)
+//   - X.pdf (default) → Supabase Storage public URL
 export function getDocumentPublicUrl(filePath: string): string {
+  if (filePath.startsWith("__api__/")) {
+    return `/api/${filePath.replace("__api__/", "")}`;
+  }
+  if (filePath.startsWith("__public__/")) {
+    return `/${filePath.replace("__public__/", "")}`;
+  }
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   return `${base}/storage/v1/object/public/documents/${filePath}`;
+}
+
+// Ar dokumentas yra server-generuojamas HTML (ne PDF failas)?
+// Naudojama nuspręsti, ar peržiūrai naudoti iframe ar PdfViewer.
+export function isServerGeneratedDoc(filePath: string): boolean {
+  return filePath.startsWith("__api__/");
 }
 
 // Lietuviškas šauksmininkas (vocative case) – kreipiniams.

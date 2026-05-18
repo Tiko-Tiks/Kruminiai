@@ -24,7 +24,13 @@ import {
   X,
   Download,
 } from "lucide-react";
-import { formatDateLong, formatFileSize, getDocumentPublicUrl, vocative } from "@/lib/utils";
+import {
+  formatDateLong,
+  formatFileSize,
+  getDocumentPublicUrl,
+  isServerGeneratedDoc,
+  vocative,
+} from "@/lib/utils";
 import { toast } from "sonner";
 
 type VoteChoice = "uz" | "pries" | "susilaike";
@@ -79,7 +85,13 @@ export function VotingFlow({ token, data }: Props) {
   const [step, setStep] = useState<Step>("contacts");
   const [email, setEmail] = useState(data.member.email || "");
   const [phone, setPhone] = useState(data.member.phone || "");
-  const [votes, setVotes] = useState<Record<string, VoteChoice>>({});
+  // Pradinė reikšmė visiems klausimams – „susilaikau" (numatytasis pasirinkimas)
+  const [votes, setVotes] = useState<Record<string, VoteChoice>>(() =>
+    data.resolutions.reduce((acc, r) => {
+      acc[r.id] = "susilaike";
+      return acc;
+    }, {} as Record<string, VoteChoice>)
+  );
   const [submitting, setSubmitting] = useState(false);
   const [registeringLive, setRegisteringLive] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<ResolutionDocument | null>(null);
@@ -285,6 +297,7 @@ function DocPreviewModal({
   onClose: () => void;
 }) {
   const url = getDocumentPublicUrl(doc.file_path);
+  const isHtml = isServerGeneratedDoc(doc.file_path);
   return (
     <div
       className="fixed inset-0 z-50 bg-gray-900/85 flex flex-col"
@@ -295,16 +308,18 @@ function DocPreviewModal({
           <FileText className="h-4 w-4 text-gray-500 flex-shrink-0" />
           <span className="text-sm font-medium text-gray-900 truncate">{doc.title}</span>
         </div>
-        <a
-          href={url}
-          download={doc.file_name}
-          onClick={(e) => e.stopPropagation()}
-          className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100"
-          title="Atsisiųsti"
-        >
-          <Download className="h-4 w-4" />
-          <span className="hidden sm:inline">Atsisiųsti</span>
-        </a>
+        {!isHtml && (
+          <a
+            href={url}
+            download={doc.file_name}
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100"
+            title="Atsisiųsti"
+          >
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">Atsisiųsti</span>
+          </a>
+        )}
         <button
           type="button"
           onClick={onClose}
@@ -315,7 +330,15 @@ function DocPreviewModal({
         </button>
       </div>
       <div className="flex-1 bg-gray-100 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        <PdfViewer url={url} />
+        {isHtml ? (
+          <iframe
+            src={url}
+            className="w-full h-full bg-white"
+            title={doc.title}
+          />
+        ) : (
+          <PdfViewer url={url} />
+        )}
       </div>
     </div>
   );
@@ -598,23 +621,24 @@ function VotingStep({
           <div className="grid grid-cols-3 gap-2">
             {(["uz", "pries", "susilaike"] as VoteChoice[]).map((choice) => {
               const selected = votes[r.id] === choice;
+              // Visada matomos spalvos (švelnios), pasirinkimas – sodri spalva
               const colors = {
                 uz: selected
-                  ? "bg-green-600 text-white border-green-600"
-                  : "border-gray-300 text-gray-700 hover:bg-green-50 hover:border-green-300",
+                  ? "bg-green-700 text-white border-green-800 shadow-md"
+                  : "bg-green-100 text-green-800 border-green-300 hover:bg-green-200 hover:border-green-400",
                 pries: selected
-                  ? "bg-red-600 text-white border-red-600"
-                  : "border-gray-300 text-gray-700 hover:bg-red-50 hover:border-red-300",
+                  ? "bg-red-700 text-white border-red-800 shadow-md"
+                  : "bg-red-100 text-red-800 border-red-300 hover:bg-red-200 hover:border-red-400",
                 susilaike: selected
-                  ? "bg-gray-600 text-white border-gray-600"
-                  : "border-gray-300 text-gray-700 hover:bg-gray-50",
+                  ? "bg-yellow-500 text-white border-yellow-600 shadow-md"
+                  : "bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-200 hover:border-yellow-400",
               };
               return (
                 <button
                   key={choice}
                   type="button"
                   onClick={() => onVote(r.id, choice)}
-                  className={`px-4 py-3 rounded-lg border-2 font-medium text-sm transition-colors ${colors[choice]}`}
+                  className={`px-4 py-3 rounded-lg border-2 font-semibold text-sm transition-all ${colors[choice]}`}
                 >
                   {VOTE_LABELS[choice]}
                 </button>
