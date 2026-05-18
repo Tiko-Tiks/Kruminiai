@@ -21,21 +21,25 @@ export interface SepaPayment {
 
 /**
  * Sukonstruoja EPC SEPA QR turinio eilutę pagal standartą.
- * Eilutė pateikiama qrcode generatoriui.
+ *
+ * Naudojam v001 (10 laukų, BIC privalomas) – Lietuvos bankų aplikacijos
+ * (Swedbank, SEB, Luminor, LKU) v001 palaiko labiau nuosekliai negu v002.
+ * v002 kai kurios LT app'ų versijos atmeta kaip „nepalaikomas".
+ *
+ * Eilutė pateikiama qrcode generatoriui kaip Byte mode segmentas.
  */
 export function buildSepaQrPayload(p: SepaPayment): string {
   const lines = [
-    "BCD",                                          // Service tag
-    "002",                                          // Version
-    "1",                                            // Character set: UTF-8
-    "SCT",                                          // SEPA Credit Transfer
-    p.bic ?? "",                                    // BIC
-    p.recipient.slice(0, 70),                       // Name
-    p.iban.replace(/\s+/g, ""),                     // IBAN
-    p.amount ? `EUR${p.amount.toFixed(2)}` : "",    // Amount (paliekam tuščią aukotojui įvesti)
-    "",                                             // Purpose code (neprivalomas)
-    "",                                             // Structured reference
-    (p.remittance ?? "").slice(0, 140),             // Unstructured remittance
+    "BCD",                                          // 1. Service tag
+    "001",                                          // 2. Version (v001 plačiau palaikoma LT)
+    "1",                                            // 3. Character set: UTF-8
+    "SCT",                                          // 4. SEPA Credit Transfer
+    p.bic ?? "",                                    // 5. BIC (privalomas v001)
+    p.recipient.slice(0, 70),                       // 6. Name
+    p.iban.replace(/\s+/g, ""),                     // 7. IBAN
+    p.amount ? `EUR${p.amount.toFixed(2)}` : "",    // 8. Amount (tuščia – aukotojas įveda)
+    "",                                             // 9. Purpose code (neprivalomas)
+    (p.remittance ?? "").slice(0, 140),             // 10. Remittance Information
   ];
   return lines.join("\n");
 }
