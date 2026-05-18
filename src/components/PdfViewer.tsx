@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
-import { Loader2, AlertCircle, ZoomIn, ZoomOut } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 
 // PDF.js worker iš CDN – nereikia konfigūruoti webpack
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -13,10 +13,11 @@ interface Props {
   url: string;
 }
 
+// Be zoom mygtukų – mobiliuose įrenginiuose naudotojai naudoja
+// natūralų pinch-to-zoom dviem pirštais. PC – pakanka Ctrl + ratuko.
 export function PdfViewer({ url }: Props) {
   const [numPages, setNumPages] = useState<number>(0);
   const [error, setError] = useState(false);
-  const [scale, setScale] = useState(1.2);
   const [containerWidth, setContainerWidth] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -52,28 +53,6 @@ export function PdfViewer({ url }: Props) {
 
   return (
     <div ref={containerRef} className="w-full h-full overflow-y-auto bg-gray-100">
-      <div className="flex items-center justify-center gap-1 sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-gray-200 px-3 py-1.5">
-        <button
-          type="button"
-          onClick={() => setScale((s) => Math.max(0.6, s - 0.2))}
-          className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
-          title="Sumažinti"
-        >
-          <ZoomOut className="h-4 w-4" />
-        </button>
-        <span className="text-xs text-gray-600 min-w-[3rem] text-center">
-          {Math.round(scale * 100)}%
-        </span>
-        <button
-          type="button"
-          onClick={() => setScale((s) => Math.min(2.5, s + 0.2))}
-          className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
-          title="Padidinti"
-        >
-          <ZoomIn className="h-4 w-4" />
-        </button>
-      </div>
-
       <div className="flex flex-col items-center py-4 px-4">
         <Document
           file={url}
@@ -91,7 +70,6 @@ export function PdfViewer({ url }: Props) {
               <Page
                 pageNumber={i + 1}
                 width={containerWidth || undefined}
-                scale={scale}
                 renderAnnotationLayer={false}
                 renderTextLayer={false}
               />
