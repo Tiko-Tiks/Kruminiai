@@ -178,7 +178,7 @@ export async function getDeclarationStats() {
   const { data: rows } = await supabase
     .from("membership_declarations")
     .select(
-      "id, token, sent_at, submitted_at, intent, email, notes, member:members(id, first_name, last_name, phone, email, status)"
+      "id, token, sent_at, viewed_at, view_count, submitted_at, intent, email, notes, member:members(id, first_name, last_name, phone, email, status)"
     )
     .order("submitted_at", { ascending: false, nullsFirst: false });
 
@@ -187,6 +187,7 @@ export async function getDeclarationStats() {
   return {
     total: all.length,
     sent: all.filter((r) => r.sent_at).length,
+    viewed: all.filter((r) => r.viewed_at && !r.submitted_at).length,
     submitted: all.filter((r) => r.submitted_at).length,
     pending: all.filter((r) => r.sent_at && !r.submitted_at).length,
     continue_cash: all.filter((r) => r.intent === "continue_cash").length,

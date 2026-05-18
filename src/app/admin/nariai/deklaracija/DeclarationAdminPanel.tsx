@@ -15,6 +15,7 @@ import {
   CreditCard,
   UserMinus,
   Phone,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
@@ -23,6 +24,8 @@ interface DeclarationRow {
   id: string;
   token: string;
   sent_at: string | null;
+  viewed_at: string | null;
+  view_count: number | null;
   submitted_at: string | null;
   intent: string | null;
   email: string | null;
@@ -43,6 +46,7 @@ interface DeclarationRow {
 interface Stats {
   total: number;
   sent: number;
+  viewed: number;
   submitted: number;
   pending: number;
   continue_cash: number;
@@ -67,7 +71,7 @@ export function DeclarationAdminPanel({ stats }: { stats: Stats }) {
   const router = useRouter();
   const [sending, setSending] = useState(false);
   const [resending, setResending] = useState(false);
-  const [filter, setFilter] = useState<"all" | "submitted" | "pending" | "withdraw">("all");
+  const [filter, setFilter] = useState<"all" | "submitted" | "viewed" | "pending" | "withdraw">("all");
 
   async function handleSend() {
     if (!confirm("Siųsti SMS visiems aktyviems nariams su narystės patvirtinimo nuoroda?")) return;
@@ -102,6 +106,7 @@ export function DeclarationAdminPanel({ stats }: { stats: Stats }) {
   const filtered = stats.declarations.filter((d) => {
     if (filter === "all") return true;
     if (filter === "submitted") return !!d.submitted_at;
+    if (filter === "viewed") return !!d.viewed_at && !d.submitted_at;
     if (filter === "pending") return !d.submitted_at;
     if (filter === "withdraw") return d.intent === "withdraw";
     return true;
@@ -110,11 +115,17 @@ export function DeclarationAdminPanel({ stats }: { stats: Stats }) {
   return (
     <div className="space-y-6">
       {/* Statistikos */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard
           icon={<Users className="h-4 w-4 text-gray-500" />}
           label="Iš viso išsiųsta"
           value={stats.sent}
+        />
+        <StatCard
+          icon={<Eye className="h-4 w-4 text-purple-600" />}
+          label="Atidarė (be atsakymo)"
+          value={stats.viewed}
+          color="text-purple-700"
         />
         <StatCard
           icon={<CheckCircle2 className="h-4 w-4 text-green-600" />}
@@ -210,6 +221,9 @@ export function DeclarationAdminPanel({ stats }: { stats: Stats }) {
                 >
                   Atsakė ({stats.submitted})
                 </FilterBtn>
+                <FilterBtn active={filter === "viewed"} onClick={() => setFilter("viewed")}>
+                  Atidarė ({stats.viewed})
+                </FilterBtn>
                 <FilterBtn active={filter === "pending"} onClick={() => setFilter("pending")}>
                   Laukia ({stats.pending})
                 </FilterBtn>
@@ -258,6 +272,16 @@ export function DeclarationAdminPanel({ stats }: { stats: Stats }) {
                           </span>
                           <p className="text-xs text-gray-400 mt-1">
                             {formatDate(d.submitted_at)}
+                          </p>
+                        </>
+                      ) : d.viewed_at ? (
+                        <>
+                          <span className="inline-flex items-center gap-1 text-xs text-purple-700 bg-purple-50 px-2 py-0.5 rounded font-medium">
+                            <Eye className="h-3 w-3" /> Atidarė
+                            {d.view_count && d.view_count > 1 ? ` ×${d.view_count}` : ""}
+                          </span>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {formatDate(d.viewed_at)}
                           </p>
                         </>
                       ) : d.sent_at ? (
