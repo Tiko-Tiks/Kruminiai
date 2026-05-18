@@ -22,26 +22,49 @@ export interface SepaPayment {
 /**
  * Sukonstruoja EPC SEPA QR turinio eilutę pagal standartą.
  *
- * Naudojam v001 (10 laukų, BIC privalomas) – Lietuvos bankų aplikacijos
- * (Swedbank, SEB, Luminor, LKU) v001 palaiko labiau nuosekliai negu v002.
- * v002 kai kurios LT app'ų versijos atmeta kaip „nepalaikomas".
+ * Versijos pasirinkimas:
+ * - Jei BIC pateiktas → v001 (10 laukų, BIC privalomas)
+ * - Jei BIC NE pateiktas → v002 (11 laukų, BIC neprivalomas; bankų
+ *   aplikacija pati susiranda BIC iš IBAN per LEI/SWIFT registrą)
+ *
+ * Tai svarbu, nes BIC↔IBAN neatitikimas yra dažna priežastis, kodėl
+ * bankų aplikacijos atmeta SEPA QR su pranešimu „nepalaikomas".
  *
  * Eilutė pateikiama qrcode generatoriui kaip Byte mode segmentas.
  */
 export function buildSepaQrPayload(p: SepaPayment): string {
-  const lines = [
-    "BCD",                                          // 1. Service tag
-    "001",                                          // 2. Version (v001 plačiau palaikoma LT)
-    "1",                                            // 3. Character set: UTF-8
-    "SCT",                                          // 4. SEPA Credit Transfer
-    p.bic ?? "",                                    // 5. BIC (privalomas v001)
-    p.recipient.slice(0, 70),                       // 6. Name
-    p.iban.replace(/\s+/g, ""),                     // 7. IBAN
-    p.amount ? `EUR${p.amount.toFixed(2)}` : "",    // 8. Amount (tuščia – aukotojas įveda)
-    "",                                             // 9. Purpose code (neprivalomas)
-    (p.remittance ?? "").slice(0, 140),             // 10. Remittance Information
-  ];
-  return lines.join("\n");
+  const hasBic = !!(p.bic && p.bic.trim());
+
+  if (hasBic) {
+    // v001 – kompaktiškiausia forma su BIC
+    return [
+      "BCD",
+      "001",
+      "1",
+      "SCT",
+      p.bic!.trim(),
+      p.recipient.slice(0, 70),
+      p.iban.replace(/\s+/g, ""),
+      p.amount ? `EUR${p.amount.toFixed(2)}` : "",
+      "",                                           // Purpose code
+      (p.remittance ?? "").slice(0, 140),           // Remittance Information
+    ].join("\n");
+  }
+
+  // v002 – BIC neprivalomas, banko app pati ras BIC iš IBAN
+  return [
+    "BCD",
+    "002",
+    "1",
+    "SCT",
+    "",                                             // BIC (tuščia – derive iš IBAN)
+    p.recipient.slice(0, 70),
+    p.iban.replace(/\s+/g, ""),
+    p.amount ? `EUR${p.amount.toFixed(2)}` : "",
+    "",                                             // Purpose code
+    "",                                             // Structured reference
+    (p.remittance ?? "").slice(0, 140),
+  ].join("\n");
 }
 
 /**
