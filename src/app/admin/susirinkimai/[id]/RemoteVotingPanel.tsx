@@ -40,7 +40,7 @@ export function RemoteVotingPanel({ meetingId, stats }: Props) {
   const [resending, setResending] = useState(false);
 
   async function handleSendInitial() {
-    if (!confirm("Siųsti SMS visiems aktyviems nariams su balsavimo nuoroda?")) return;
+    if (!confirm("Siųsti SMS visiems aktyviems ir pasyviems nariams su balsavimo nuoroda?")) return;
     setSending(true);
     const result = await generateAndSendVotingTokens(meetingId);
     setSending(false);
@@ -94,7 +94,7 @@ export function RemoteVotingPanel({ meetingId, stats }: Props) {
           <div className="text-center py-4">
             <p className="text-sm text-gray-600 mb-4">
               Tokenai dar nesugeneruoti. Paspauskite mygtuką, kad sistema sukurtų unikalią nuorodą
-              kiekvienam aktyviam nariui ir išsiųstų SMS.
+              kiekvienam aktyviam ir pasyviam nariui ir išsiųstų SMS.
             </p>
             <Button onClick={handleSendInitial} loading={sending}>
               <Send className="h-4 w-4" />

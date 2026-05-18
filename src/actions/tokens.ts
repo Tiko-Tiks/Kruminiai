@@ -38,15 +38,16 @@ export async function generateAndSendVotingTokens(meetingId: string) {
 
   if (meetingErr || !meeting) return { success: false as const, error: "Susirinkimas nerastas" };
 
-  // Aktyvūs nariai su telefonu
+  // Aktyvūs IR pasyvūs nariai – pasyvūs vis dar turi balsavimo teisę,
+  // kol Taryba nepriima sprendimo dėl jų pašalinimo (įstatų 5.3.1 p.).
   const { data: members, error: membersErr } = await supabase
     .from("members")
-    .select("id, first_name, last_name, phone, email")
-    .eq("status", "aktyvus");
+    .select("id, first_name, last_name, phone, email, status")
+    .in("status", ["aktyvus", "pasyvus"]);
 
   if (membersErr) return { success: false as const, error: membersErr.message };
   if (!members || members.length === 0)
-    return { success: false as const, error: "Aktyvių narių nėra" };
+    return { success: false as const, error: "Narių nėra" };
 
   const baseUrl = getBaseUrl();
   const expiresAt = meeting.meeting_date; // iki susirinkimo pradžios
