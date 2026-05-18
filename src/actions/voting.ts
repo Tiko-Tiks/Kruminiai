@@ -3,6 +3,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
+import { revalidateMeetingPaths } from "@/lib/revalidate";
 import { z } from "zod";
 
 const resolutionSchema = z.object({
@@ -134,7 +135,7 @@ export async function createResolution(meetingId: string, formData: FormData) {
     newData: { ...values, documentsCount: allDocIds.length } as Record<string, unknown>,
   });
 
-  revalidatePath(`/admin/susirinkimai/${meetingId}`);
+  revalidateMeetingPaths(meetingId);
   revalidatePath("/admin/dokumentai");
   return { success: true, id: data.id };
 }
@@ -158,7 +159,7 @@ export async function updateResolution(
     newData: data as Record<string, unknown>,
   });
 
-  revalidatePath(`/admin/susirinkimai/${meetingId}`);
+  revalidateMeetingPaths(meetingId);
   return { success: true };
 }
 
@@ -192,7 +193,7 @@ export async function updateResolutionStatus(id: string, status: string, meeting
     newData: updateData,
   });
 
-  revalidatePath(`/admin/susirinkimai/${meetingId}`);
+  revalidateMeetingPaths(meetingId);
   return { success: true };
 }
 
@@ -210,7 +211,7 @@ export async function deleteResolution(id: string, meetingId: string) {
     recordId: id,
   });
 
-  revalidatePath(`/admin/susirinkimai/${meetingId}`);
+  revalidateMeetingPaths(meetingId);
   return { success: true };
 }
 
@@ -280,7 +281,7 @@ export async function recordBallots(
     newData: { ballots_count: ballots.length, voteType } as Record<string, unknown>,
   });
 
-  revalidatePath(`/admin/susirinkimai/${meetingId}`);
+  revalidateMeetingPaths(meetingId);
   return { success: true };
 }
 
@@ -310,7 +311,7 @@ export async function setResolutionResults(
     newData: { ...results, status } as Record<string, unknown>,
   });
 
-  revalidatePath(`/admin/susirinkimai/${meetingId}`);
+  revalidateMeetingPaths(meetingId);
   return { success: true };
 }
 
@@ -359,7 +360,7 @@ export async function attachDocumentToResolution(
     newData: { resolution_id: resolutionId, document_id: documentId } as Record<string, unknown>,
   });
 
-  revalidatePath(`/admin/susirinkimai/${meetingId}`);
+  revalidateMeetingPaths(meetingId);
   return { success: true };
 }
 
@@ -426,7 +427,7 @@ export async function uploadAndAttachDocument(
     newData: { title: finalTitle, attached_to_resolution: resolutionId } as Record<string, unknown>,
   });
 
-  revalidatePath(`/admin/susirinkimai/${meetingId}`);
+  revalidateMeetingPaths(meetingId);
   revalidatePath("/admin/dokumentai");
   return { success: true };
 }
@@ -454,7 +455,7 @@ export async function detachDocumentFromResolution(
     oldData: { resolution_id: resolutionId, document_id: documentId } as Record<string, unknown>,
   });
 
-  revalidatePath(`/admin/susirinkimai/${meetingId}`);
+  revalidateMeetingPaths(meetingId);
   return { success: true };
 }
 
@@ -511,6 +512,6 @@ export async function castOnlineVote(resolutionId: string, memberId: string, vot
     result_abstain: totals.susilaike,
   }).eq("id", resolutionId);
 
-  revalidatePath(`/admin/susirinkimai/${resolution.meeting_id}`);
+  revalidateMeetingPaths(resolution.meeting_id);
   return { success: true };
 }

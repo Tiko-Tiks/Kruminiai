@@ -3,6 +3,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
+import { revalidateMeetingPaths } from "@/lib/revalidate";
 
 // =============================================================================
 // Šalinamų narių sąrašas konkrečiam susirinkimui
@@ -198,7 +199,7 @@ export async function addExpulsion(
   });
 
   await syncResolutionDescription(meetingId);
-  revalidatePath(`/admin/susirinkimai/${meetingId}`);
+  revalidateMeetingPaths(meetingId);
   revalidatePath(`/admin/susirinkimai/${meetingId}/salinami`);
   return { success: true as const };
 }
@@ -230,7 +231,7 @@ export async function removeExpulsion(expulsionId: string) {
   });
 
   await syncResolutionDescription(row.meeting_id);
-  revalidatePath(`/admin/susirinkimai/${row.meeting_id}`);
+  revalidateMeetingPaths(row.meeting_id);
   revalidatePath(`/admin/susirinkimai/${row.meeting_id}/salinami`);
   return { success: true as const };
 }
@@ -254,6 +255,7 @@ export async function updateExpulsionReason(expulsionId: string, reason: string)
   if (error) return { error: error.message };
 
   await syncResolutionDescription(row.meeting_id);
+  revalidateMeetingPaths(row.meeting_id);
   revalidatePath(`/admin/susirinkimai/${row.meeting_id}/salinami`);
   return { success: true as const };
 }

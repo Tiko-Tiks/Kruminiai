@@ -3,6 +3,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
+import { revalidateMeetingPaths } from "@/lib/revalidate";
 import { z } from "zod";
 
 const meetingSchema = z.object({
@@ -154,8 +155,7 @@ export async function updateMeeting(id: string, formData: FormData) {
     newData: values as Record<string, unknown>,
   });
 
-  revalidatePath("/admin/susirinkimai");
-  revalidatePath(`/admin/susirinkimai/${id}`);
+  revalidateMeetingPaths(id);
   return { success: true };
 }
 
@@ -181,8 +181,7 @@ export async function updateMeetingStatus(id: string, status: string) {
     newData: updateData,
   });
 
-  revalidatePath("/admin/susirinkimai");
-  revalidatePath(`/admin/susirinkimai/${id}`);
+  revalidateMeetingPaths(id);
   return { success: true };
 }
 
@@ -204,7 +203,7 @@ export async function updateMeetingProtocolInfo(
     newData: data as Record<string, unknown>,
   });
 
-  revalidatePath(`/admin/susirinkimai/${id}`);
+  revalidateMeetingPaths(id);
   return { success: true };
 }
 
@@ -265,7 +264,7 @@ export async function addAttendance(meetingId: string, memberIds: string[], type
     newData: { memberIds, type } as Record<string, unknown>,
   });
 
-  revalidatePath(`/admin/susirinkimai/${meetingId}`);
+  revalidateMeetingPaths(meetingId);
   return { success: true };
 }
 
@@ -279,6 +278,6 @@ export async function removeAttendance(meetingId: string, memberId: string) {
     .eq("member_id", memberId);
   if (error) return { error: error.message };
 
-  revalidatePath(`/admin/susirinkimai/${meetingId}`);
+  revalidateMeetingPaths(meetingId);
   return { success: true };
 }
