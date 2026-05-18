@@ -219,15 +219,20 @@ export async function GET(
       }
       <tr>
         <td><strong>Revizorius</strong></td>
-        <td>${auditorRow ? memberName(auditorRow) : `<em style="color:#888">Neįvestas</em>`}</td>
-        <td>${auditorRow ? fmtTermYears(auditorRow) : "—"}</td>
+        <td colspan="2">${
+          auditorRow
+            ? `${memberName(auditorRow)} (${fmtTermYears(auditorRow)})`
+            : `<em style="color:#9a3412">Šiuo metu Revizorius nėra išrinktas. 2027 m. rinkimuose turi būti renkamas (įstatų 6.2 p.).</em>`
+        }</td>
       </tr>
     </tbody>
   </table>
 
   <div class="callout amber">
-    <strong>2027 m. rinkimuose</strong> bus renkami visi išvardyti valdymo
-    organai. Kiekvieno organo kadencija – 4 metai (įstatų 5.1, 5.5 ir 6.2 p.).
+    <strong>2027 m. rinkimuose</strong> bus renkami: Pirmininkas, Tarybos
+    nariai (${councilRows.length > 0 ? councilRows.length : "3–7"}
+    asmenys)${auditorRow ? "" : " bei Revizorius (kuris šiuo metu nėra išrinktas)"}.
+    Kiekvieno organo kadencija – 4 metai (įstatų 5.1, 5.5 ir 6.2 p.).
   </div>
 
   <h3>2. Teisinis pagrindas</h3>
