@@ -94,7 +94,7 @@ export default function AboutPage() {
               <div className="border-l-2 border-green-700 pl-4">
                 <p className="font-semibold text-gray-900 text-sm mb-1">Paplūdimio liepto restauravimas</p>
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  Pilotinis projektas: lėšų rinkimas iš kaimiečių, lankytojų, turistų,
+                  Pilotinis projektas: lėšų rinkimas iš kaimo gyventojų, lankytojų, turistų,
                   galimo savivaldybės prisidėjimo (planuojama surinkti 4 000 EUR).
                 </p>
               </div>

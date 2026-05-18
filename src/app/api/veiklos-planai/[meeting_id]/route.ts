@@ -443,7 +443,7 @@ export async function GET(
       </tr>
       <tr>
         <td>Liepto projektas (iki 4 000 EUR)</td>
-        <td class="note">Atskira aukų kampanija (kaimiečiai, turistai) + savivaldybė</td>
+        <td class="note">Atskira aukų kampanija (kaimo gyventojai, turistai) + savivaldybė</td>
       </tr>
       <tr>
         <td>Tradiciniai renginiai</td>
