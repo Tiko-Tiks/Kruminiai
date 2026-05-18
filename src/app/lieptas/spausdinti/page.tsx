@@ -13,7 +13,7 @@ export default async function LieptasPrintPage() {
   const supabase = createServerSupabaseClient();
   const { data: project } = await supabase
     .from("fundraising_projects")
-    .select("title, short_desc, iban, recipient, purpose_text, goal_cents")
+    .select("title, short_desc, iban, bic, recipient, purpose_text, goal_cents")
     .eq("slug", "lieptas")
     .single();
 
