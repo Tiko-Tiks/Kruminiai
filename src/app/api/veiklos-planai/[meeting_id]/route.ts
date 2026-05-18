@@ -21,7 +21,7 @@ export async function GET(
   const generatedAt = new Date();
   const year = meetingDate.getFullYear();
 
-  // Dabartinė finansinė padėtis – kiek surinkta einamiems metams, kiek skolų
+  // Dabartinė finansinė padėtis – iš DB realiu laiku
   const { data: currentFeePeriod } = await supabase
     .from("fee_periods")
     .select("id, amount_cents")
@@ -40,7 +40,6 @@ export async function GET(
     paidCount = (payments || []).length;
   }
 
-  // Bendras narių skaičius (aktyvūs + pasyvūs)
   const { count: memberCount } = await supabase
     .from("members")
     .select("id", { count: "exact", head: true })
@@ -80,6 +79,17 @@ export async function GET(
   const totalDebt = debtRows.reduce((s, r) => s + r.eur, 0);
   const totalUnpaidMembers = debtRows.reduce((s, r) => s + r.count, 0);
 
+  // Skaičiavimai biudžetui
+  const potentialFeeRevenue = (memberCount || 0) * 12; // jei visi sumokėtų 2026 m.
+  const remainingFee2026 = potentialFeeRevenue - collectedEur;
+
+  // Numatomos veiklos sąnaudos (metinės)
+  const COST_COMMUNAL = 240; // 20 EUR x 12 mėn (atliekos + elektra)
+  const COST_BANK = 20;
+  const COST_COMMS = 50; // SMS + svetainė + domenas + hostingas
+  const COST_INVESTMENTS = 550; // smėlis + aikštelė + eksploatacija
+  const COST_TOTAL = COST_COMMUNAL + COST_BANK + COST_COMMS + COST_INVESTMENTS;
+
   const html = `<!DOCTYPE html>
 <html lang="lt">
 <head>
@@ -93,7 +103,7 @@ export async function GET(
       font-size: 11pt;
       line-height: 1.65;
       color: #1a1a1a;
-      max-width: 800px;
+      max-width: 820px;
       margin: 0 auto;
       padding: 40px;
       background: #fff;
@@ -103,7 +113,7 @@ export async function GET(
     .header .subtitle { font-size: 10pt; color: #444; }
     .doc-title { text-align: center; margin: 28px 0 22px; }
     .doc-title h2 {
-      font-size: 14pt;
+      font-size: 15pt;
       font-weight: 700;
       text-transform: uppercase;
       margin-bottom: 6px;
@@ -117,9 +127,15 @@ export async function GET(
       padding-bottom: 4px;
       border-bottom: 1px solid #15803d;
     }
+    h4 {
+      font-size: 11pt;
+      font-weight: 700;
+      color: #1f2937;
+      margin: 16px 0 6px;
+    }
     p { margin: 0 0 12px; text-align: justify; }
     ul, ol { margin: 8px 0 14px 24px; }
-    li { margin-bottom: 6px; }
+    li { margin-bottom: 5px; }
     .callout {
       margin: 18px 0;
       padding: 14px 18px;
@@ -127,7 +143,14 @@ export async function GET(
       background: #f0fdf4;
       font-size: 11pt;
     }
-    .callout strong { color: #0f3d20; }
+    .callout.amber {
+      border-left-color: #d97706;
+      background: #fffbeb;
+    }
+    .callout.blue {
+      border-left-color: #2563eb;
+      background: #eff6ff;
+    }
     table.budget {
       width: 100%;
       border-collapse: collapse;
@@ -136,7 +159,7 @@ export async function GET(
     }
     table.budget th, table.budget td {
       border: 1px solid #ccc;
-      padding: 10px 14px;
+      padding: 9px 13px;
     }
     table.budget th {
       background: #f0f0f0;
@@ -144,17 +167,27 @@ export async function GET(
       text-align: left;
     }
     table.budget td.amount { text-align: right; font-weight: 600; white-space: nowrap; }
+    table.budget td.note {
+      font-weight: normal;
+      font-size: 10pt;
+      color: #555;
+    }
+    table.budget tr.subtotal td { background: #f9fafb; }
     table.budget tr.total td { background: #fafaf7; font-weight: 700; }
     table.budget tr.total td.amount { color: #15803d; font-size: 12pt; }
-    .law-ref {
-      display: inline-block;
-      padding: 1px 6px;
-      background: #e5e7eb;
-      border-radius: 3px;
-      font-family: 'Courier New', monospace;
-      font-size: 9.5pt;
-      color: #1f2937;
+    table.budget tr.expense td.amount { color: #991b1b; }
+    table.summary {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 11pt;
     }
+    table.summary td {
+      border: 1px solid #e5e7eb;
+      padding: 8px 12px;
+    }
+    table.summary td.label { background: #f9fafb; font-weight: 600; width: 50%; }
+    table.summary td.value { text-align: right; }
     .footer-note {
       margin-top: 30px;
       padding-top: 16px;
@@ -205,35 +238,42 @@ export async function GET(
   </div>
 
   <p>
-    Šiame dokumente pateikiamas konkretus ${year} m. biudžeto paskirstymas
-    ir planuojami darbai bendruomenės teritorijoje, pilotinis paplūdimio
-    liepto restauravimo projektas bei tradiciniai renginiai. Plano dėmesys
-    – realios investicijos ir lėšų paskirstymas, o ne kasmetinė
-    administracinė rutina (ši aprašyta ${year - 1} m. veiklos ataskaitoje).
+    Šis veiklos planas teikiamas visuotinio susirinkimo balsavimui. Plane
+    nurodoma <strong>dabartinė finansinė padėtis</strong>, ${year} m.
+    <strong>biudžeto paskirstymas</strong>, planuojami nauji <strong>projektai
+    bei renginiai</strong>. Nuolatinės kasmetinės veiklos (paplūdimio
+    priežiūra, šiukšliadėžių aptarnavimas, žolės šienavimas, inventoriaus
+    priežiūra, komunikacija) tęsiamos toliau – jos detaliai aprašytos
+    ${year - 1} m. veiklos ataskaitoje.
   </p>
 
   <h3>1. Dabartinė finansinė padėtis</h3>
   <p>Susirinkimo metu (${meetingDate.toLocaleDateString("lt-LT", { year: "numeric", month: "long", day: "numeric" })}):</p>
-  <table class="budget">
-    <thead>
-      <tr><th>Rodiklis</th><th style="text-align:right">Reikšmė</th></tr>
-    </thead>
+  <table class="summary">
     <tbody>
       <tr>
-        <td>${year} m. nario mokesčio surinkta</td>
-        <td class="amount">${collectedEur.toFixed(0)} EUR</td>
+        <td class="label">Bendruomenės narių (aktyvūs + pasyvūs)</td>
+        <td class="value"><strong>${memberCount || 0}</strong></td>
       </tr>
       <tr>
-        <td>Sumokėjusių narių skaičius</td>
-        <td class="amount" style="font-weight:normal">${paidCount} iš ${memberCount || 0}</td>
+        <td class="label">Numatoma priimti naujų narių ${year} m.</td>
+        <td class="value"><strong>2</strong> (Tarybos kompetencija)</td>
       </tr>
       <tr>
-        <td>Skolingų narių (visi metai)</td>
-        <td class="amount" style="font-weight:normal">${totalUnpaidMembers}</td>
+        <td class="label">${year} m. nario mokesčio surinkta</td>
+        <td class="value"><strong style="color:#15803d">${collectedEur.toFixed(0)} EUR</strong> (${paidCount} iš ${memberCount || 0} narių)</td>
       </tr>
-      <tr class="total">
-        <td>Bendra likusi skola (${debtRows.map((r) => r.year).join(", ") || "—"} m.)</td>
-        <td class="amount" style="color:#991b1b">${totalDebt.toFixed(0)} EUR</td>
+      <tr>
+        <td class="label">Likusi galima ${year} m. nario mokesčio dalis</td>
+        <td class="value"><strong>${remainingFee2026.toFixed(0)} EUR</strong> (jei visi sumokėtų)</td>
+      </tr>
+      <tr>
+        <td class="label">Bendra likusi skola (${debtRows.map((r) => `${r.year} m.`).join(", ") || "—"})</td>
+        <td class="value"><strong style="color:#991b1b">${totalDebt.toFixed(0)} EUR</strong> (${totalUnpaidMembers} skolingų narių)</td>
+      </tr>
+      <tr>
+        <td class="label">Pinigų likutis ${year - 1}-12-31 (pagal ${year - 1} m. ataskaitą)</td>
+        <td class="value"><strong>119 EUR</strong></td>
       </tr>
     </tbody>
   </table>
@@ -246,41 +286,76 @@ export async function GET(
       : ""
   }
 
-  <h3>2. ${year} m. biudžeto paskirstymas</h3>
-  <p>Konkrečios investicijos į bendruomenės teritoriją:</p>
+  <h3>2. ${year} m. veiklos sąnaudų sąmata</h3>
+  <p>Planuojamos metinės veiklos sąnaudos pagal kategorijas:</p>
   <table class="budget">
     <thead>
-      <tr><th>Darbas / paskirtis</th><th style="text-align:right">Biudžetas</th></tr>
+      <tr><th>Sąnaudos / paskirtis</th><th style="text-align:right">Suma per metus</th></tr>
     </thead>
     <tbody>
       <tr>
-        <td>3 mašinos smėlio paplūdimio būklės gerinimui</td>
-        <td class="amount">450 EUR</td>
+        <td><strong>A. Komunalinės paslaugos ir atliekų surinkimas</strong><br><span class="note">elektra (AB ESO), atliekų surinkimas (ARATC) – apie 20 EUR/mėn.</span></td>
+        <td class="amount expense">240 EUR</td>
       </tr>
       <tr>
-        <td>Žaidimų aikštelės kapitalinio remonto darbai</td>
-        <td class="amount">50 EUR</td>
+        <td><strong>B. Banko paslaugos</strong><br><span class="note">sąskaitos administravimas, kortelė, SEPA pavedimai</span></td>
+        <td class="amount expense">20 EUR</td>
       </tr>
       <tr>
-        <td>Einamosios eksploatacijos išlaidos<br><span style="font-weight:normal;font-size:10pt;color:#555;">(pjovimo valas, kuras, tepalai, elektra)</span></td>
-        <td class="amount">50 EUR</td>
+        <td><strong>C. Komunikacija ir svetainė</strong><br><span class="note">SMS pranešimai nariams, kruminiai.lt domeno ir hostingo palaikymas</span></td>
+        <td class="amount expense">50 EUR</td>
+      </tr>
+      <tr>
+        <td><strong>D. Investicijos į teritoriją</strong><br><span class="note">smėlis paplūdimiui (450), žaidimų aikštelės remontas (50), pjovimo valas/kuras/tepalai (50)</span></td>
+        <td class="amount expense">550 EUR</td>
       </tr>
       <tr class="total">
-        <td>Iš viso ${year} m. investicijų biudžetas</td>
-        <td class="amount">550 EUR</td>
+        <td>Iš viso planuojama ${year} m. sąnaudų</td>
+        <td class="amount">${COST_TOTAL} EUR</td>
       </tr>
     </tbody>
   </table>
   <p style="font-size:10.5pt;color:#555;font-style:italic;">
-    Komunalinės išlaidos galimai bus dalinai kompensuojamos iš Varėnos rajono
-    savivaldybės lėšų.
+    Buhalterinė apskaita ir bendruomenės administravimas atliekami savanoriškai
+    (Pirmininkas) – į sąnaudas neįtraukiama. Komunalinės išlaidos galimai bus
+    iš dalies kompensuojamos iš Varėnos rajono savivaldybės paramos.
   </p>
 
-  <h3>3. Krūminių kaimo paplūdimio liepto restauravimo projektas</h3>
+  <h3>3. Pajamų ir sąnaudų balansas (${year} m.)</h3>
+  <table class="summary">
+    <tbody>
+      <tr>
+        <td class="label" style="color:#15803d">Numatomos pajamos</td>
+        <td class="value" style="color:#15803d"><strong>~${potentialFeeRevenue} EUR</strong></td>
+      </tr>
+      <tr>
+        <td class="label" style="padding-left:24px;font-weight:normal">– Nario mokestis (jei visi sumokės)</td>
+        <td class="value">${potentialFeeRevenue} EUR</td>
+      </tr>
+      <tr>
+        <td class="label" style="padding-left:24px;font-weight:normal">– GPM 1,2 % parama (priklauso nuo gyventojų)</td>
+        <td class="value">priklauso</td>
+      </tr>
+      <tr>
+        <td class="label" style="padding-left:24px;font-weight:normal">– Savivaldybės parama (galima)</td>
+        <td class="value">priklauso</td>
+      </tr>
+      <tr>
+        <td class="label" style="color:#991b1b">Planuojamos sąnaudos</td>
+        <td class="value" style="color:#991b1b"><strong>${COST_TOTAL} EUR</strong></td>
+      </tr>
+      <tr style="background:#f0fdf4">
+        <td class="label" style="font-weight:700">Balansas (jei visi nario mokesčiai surinkti)</td>
+        <td class="value" style="font-weight:700;color:${potentialFeeRevenue - COST_TOTAL >= 0 ? "#15803d" : "#991b1b"}">${potentialFeeRevenue - COST_TOTAL >= 0 ? "+" : ""}${potentialFeeRevenue - COST_TOTAL} EUR</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>4. Krūminių kaimo paplūdimio liepto restauravimo projektas</h3>
   <p>
-    <strong>Pilotinis projektas</strong> – atstatyti paplūdimio lieptą, kuris
-    yra svarbi bendruomenės infrastruktūros dalis. Įgyvendinama mažais
-    žingsniais į priekį, priklausomai nuo surenkamų lėšų.
+    <strong>Pilotinis projektas</strong> – atstatyti paplūdimio lieptą prie
+    Krūminių užtvankos, kuris yra svarbi bendruomenės infrastruktūros dalis.
+    Įgyvendinama mažais žingsniais į priekį, priklausomai nuo surenkamų lėšų.
   </p>
 
   <div class="callout">
@@ -294,33 +369,38 @@ export async function GET(
   </div>
 
   <p style="font-size:10.5pt;color:#555;">
-    Atskira ataskaita apie surinktas lėšas ir atliktus darbus bus reguliariai
-    teikiama nariams – per visuotinį susirinkimą ir bendruomenės svetainę.
+    Šios lėšos rinkimos <strong>atskirai</strong> nuo nario mokesčio biudžeto.
+    Ataskaita apie surinktas lėšas ir atliktus darbus reguliariai teikiama
+    nariams per visuotinį susirinkimą ir bendruomenės svetainę.
   </p>
 
-  <h3>4. Savivaldybės projektas ir galima turistinė išvyka</h3>
+  <h3>5. Galimas savivaldybės projektas ir turistinė išvyka</h3>
   <p>
     ${year} m. eigoje Varėnos rajono savivaldybė skelbia projektą, į kurį
-    bendruomenė galimai pretenduos. Jei pavyks gauti finansavimą:
+    bendruomenė planuoja pretenduoti. Jei pavyks gauti finansavimą:
   </p>
   <ul>
     <li>papildomos lėšos bus skirtos teritorijos gerinimui ir/arba liepto projektui;</li>
-    <li>iš dalies sutaupytas bendruomenės biudžetas bus skirtas <strong>turistinei išvykai bendruomenės nariams</strong> (savanoriškas dalyvavimas – kas norės);</li>
-    <li>apie projekto eigą ir rezultatus bus reguliariai informuojama nariai per SMS, el. paštą bei bendruomenės svetainę.</li>
+    <li>iš dalies sutaupytas bendruomenės biudžetas bus skirtas <strong>turistinei išvykai bendruomenės nariams</strong> (savanoriškas dalyvavimas);</li>
+    <li>apie projekto eigą ir rezultatus reguliariai informuojama per SMS, el. paštą ir bendruomenės svetainę.</li>
   </ul>
-  <p style="font-size:10.5pt;color:#555;font-style:italic;">
-    Projektas dar nepatvirtintas – ši dalis priklauso nuo savivaldybės sprendimo
-    bei mūsų pateikto paraiškos rezultato.
-  </p>
+  <div class="callout amber">
+    <strong>Pastaba:</strong> projektas dar nepatvirtintas – ši dalis priklauso
+    nuo savivaldybės sprendimo bei mūsų paraiškos rezultato.
+  </div>
 
-  <h3>5. Tradiciniai bendruomenės renginiai</h3>
+  <h3>6. Tradiciniai bendruomenės renginiai</h3>
   <ul>
     <li>
       <strong>Mindauginės</strong> – tradicinė kasmetinė bendruomenės šventė
-      Valstybės dienos proga (liepos 6 d.).
+      Valstybės dienos proga (liepos 6 d.) ant Krūminių piliakalnio.
     </li>
     <li>
       <strong>Eglutės puošimas</strong> – Kalėdinė tradicija (gruodis).
+    </li>
+    <li>
+      <strong>Pavasarinės talkos</strong> – kaimo viešųjų erdvių sutvarkymas
+      po žiemos.
     </li>
     <li>
       <strong>Papildomi renginiai</strong> – pagal narių iniciatyvą ir
@@ -328,23 +408,31 @@ export async function GET(
     </li>
   </ul>
 
-  <h3>6. Bendros lėšų panaudojimo gairės</h3>
+  <h3>7. Bendros lėšų panaudojimo gairės</h3>
   <table class="budget">
     <thead>
-      <tr><th>Veiklos sritis</th><th style="text-align:right">Lėšų šaltinis</th></tr>
+      <tr><th>Veiklos sritis</th><th>Lėšų šaltinis</th></tr>
     </thead>
     <tbody>
       <tr>
-        <td>Teritorijos investicijos (550 EUR)</td>
-        <td class="amount" style="font-weight:normal;text-align:left;font-size:10.5pt">Nario mokesčiai + savivaldybės parama</td>
+        <td>Komunalinės, atliekos, banko paslaugos, komunikacija (310 EUR)</td>
+        <td class="note">Nario mokesčiai</td>
+      </tr>
+      <tr>
+        <td>Investicijos į teritoriją (550 EUR)</td>
+        <td class="note">Nario mokesčiai + savivaldybės parama</td>
       </tr>
       <tr>
         <td>Liepto projektas (iki 4 000 EUR)</td>
-        <td class="amount" style="font-weight:normal;text-align:left;font-size:10.5pt">Aukos (kaimiečiai, turistai) + savivaldybė</td>
+        <td class="note">Atskira aukų kampanija (kaimiečiai, turistai) + savivaldybė</td>
       </tr>
       <tr>
         <td>Tradiciniai renginiai</td>
-        <td class="amount" style="font-weight:normal;text-align:left;font-size:10.5pt">Nario mokesčiai + savanoriška parama</td>
+        <td class="note">Nario mokesčiai + savanoriška parama</td>
+      </tr>
+      <tr>
+        <td>Buhalterinė apskaita ir administravimas</td>
+        <td class="note">Savanoriškai (Pirmininkas) – be sąnaudų</td>
       </tr>
     </tbody>
   </table>
@@ -352,7 +440,9 @@ export async function GET(
   <p class="footer-note">
     <strong>Plano lankstumas:</strong> nariams metų eigoje pasiūlius naujų
     iniciatyvų ar renginių, jie bus svarstomi Tarybos posėdyje ir įgyvendinami
-    atsižvelgiant į bendruomenės interesus bei surenkamas lėšas.
+    atsižvelgiant į bendruomenės interesus bei surenkamas lėšas. Apie finansinę
+    padėtį nariai informuojami reguliariai per bendruomenės svetainę
+    (kruminiai.lt) ir metinę veiklos ataskaitą.
   </p>
 
   <p class="generated">
