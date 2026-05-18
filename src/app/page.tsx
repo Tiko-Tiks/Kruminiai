@@ -266,9 +266,8 @@ export default async function HomePage() {
                     {lieptas.title}
                   </h2>
                   <p className="text-sm text-gray-600 mb-3 max-w-2xl">
-                    Sovietmečio betoninis lieptas vietomis suiręs ir nesaugus –
-                    apkalsime jį terasinėmis lentomis, sumontuosime nerūdijančio
-                    plieno kopėtėles ir turėklus.
+                    Mūsų liepto laikas atsinaujinti – su bendruomenės ir svečių
+                    pagalba. Kada jai ne dabar?
                   </p>
 
                   {/* Progresas */}
@@ -359,7 +358,7 @@ export default async function HomePage() {
               {
                 icon: Heart,
                 title: "Lieptas",
-                desc: "Pilotinis projektas – paplūdimio liepto apkalimas terasinėmis lentomis",
+                desc: "Liepto atsinaujinimo projektas – paaukok per QR kodą",
                 href: "/lieptas",
               },
               {
