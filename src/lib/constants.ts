@@ -69,7 +69,15 @@ export const RESOLUTION_STATUS_LABELS: Record<string, string> = {
   atmestas: "Atmestas",
 };
 
+// Balsavimo mygtukų etiketės – pirmasis asmuo, kaip vartotojas pats sakytų
 export const VOTE_LABELS: Record<string, string> = {
+  uz: "Už",
+  pries: "Prieš",
+  susilaike: "Susilaikau",
+};
+
+// Rezultatų / protokolo etiketės – trečiasis asmuo, kaip atsiskaitoma
+export const VOTE_RESULT_LABELS: Record<string, string> = {
   uz: "Už",
   pries: "Prieš",
   susilaike: "Susilaikė",

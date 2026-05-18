@@ -298,15 +298,15 @@ async function syncResolutionDescription(meetingId: string) {
   let description: string;
   if (list.length === 0) {
     description =
-      "Šios darbotvarkės klausimo metu Taryba informuoja apie sprendimus dėl narių šalinimo. " +
-      "Šiuo metu šalinamų narių sąrašas nesudarytas.";
+      "Pritarimas Tarybos siūlomam nemokių narių šalinimo procesui. " +
+      "Šiuo metu kandidatų į šalinamų narių sąrašą nesudaryta.";
   } else {
     const totalEur = list.reduce((s, e) => s + e.debtEur, 0);
     description =
-      `Taryba priėmė sprendimą dėl narių šalinimo iš bendruomenės dėl sistematinio nario mokesčio nemokėjimo (įstatų 3.5 punktas).\n\n` +
-      `Iš viso šalinama **${list.length} narių**, bendra skola **${totalEur.toFixed(0)} EUR**.\n\n` +
-      `Konkretus narių sąrašas (vardai, pavardės, skolos sumos, neapmokėti metai) pateikiamas prikabintame dokumente.\n\n` +
-      `Pagal įstatų 3.6 punktą, šalinamas narys gali grąžinti narystę bendruomenėje sumokėjęs stojamąjį mokestį (20 EUR) ir einamųjų metų nario mokestį (12 EUR), jeigu skola padengta.`;
+      `Pridedamas **kandidatų į galimai šalinamų narių sąrašas** dėl sistematinio nario mokesčio nemokėjimo.\n\n` +
+      `Iš viso kandidatų – **${list.length} narių**, bendra skola **${totalEur.toFixed(0)} EUR**. Pridedamame dokumente išvardinta kiekvieno nario skola, neapmokėti metai bei šių metų bendravimo istorija (kada ir kiek kartų buvo siųsti priminimai, ar buvo atsakyta).\n\n` +
+      `Visuotinio susirinkimo balsavimas yra **patariamojo pobūdžio – nariai išreiškia nuomonę / pritarimą** dėl šių kandidatų šalinimo. Pagal įstatų **5.3.1 punktą** galutinį sprendimą dėl narystės nutraukimo priima Taryba.\n\n` +
+      `**Pasekmės šalinamiems nariams:** narystė bendruomenėje pasibaigia, prarandama teisė dalyvauti susirinkimuose ir balsuoti. Pagal įstatų **3.6 punktą** asmuo gali vėliau vėl tapti nariu sumokėjęs stojamąjį mokestį (20 EUR) ir einamųjų metų nario mokestį (12 EUR), padengus susikaupusią skolą.`;
   }
 
   await supabase
