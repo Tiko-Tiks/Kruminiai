@@ -238,7 +238,7 @@ interface VoteWithDetails {
 export async function castVotesByToken(
   token: string,
   firstName: string,
-  email: string,
+  email: string | null,
   phone: string | null,
   votes: VoteWithDetails[]
 ) {
@@ -254,6 +254,11 @@ export async function castVotesByToken(
 
   if (error) return { error: error.message };
   if (data?.error) return { error: data.error };
+
+  // Jei email nepateiktas – balsuoti pavyko, bet patvirtinimo el. paštu nesiunčiam
+  if (!email || !email.trim()) {
+    return { success: true };
+  }
 
   // Po balsavimo siųsti patvirtinimą su pilnais balsų rezultatais
   const greeting = firstName ? `Sveiki, ${vocative(firstName)}!` : "Sveiki!";

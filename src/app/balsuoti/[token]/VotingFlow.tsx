@@ -105,8 +105,10 @@ export function VotingFlow({ token, data }: Props) {
   const emailValid = EMAIL_RE.test(email.trim());
 
   async function handleSubmit() {
-    if (!emailValid) {
-      toast.error("El. paštas privalomas balsavimui");
+    // El. paštas neprivalomas, bet jei įvestas – turi būti tinkamo formato
+    const trimmedEmail = email.trim();
+    if (trimmedEmail.length > 0 && !emailValid) {
+      toast.error("Patikrinkite el. pašto formatą arba palikite tuščią");
       setStep("contacts");
       return;
     }
@@ -114,7 +116,7 @@ export function VotingFlow({ token, data }: Props) {
     const result = await castVotesByToken(
       token,
       data.member.first_name,
-      email.trim(),
+      trimmedEmail || null,
       phone.trim() || null,
       data.resolutions.map((r) => ({
         resolution_id: r.id,
@@ -150,6 +152,7 @@ export function VotingFlow({ token, data }: Props) {
   }
 
   if (step === "done_voted") {
+    const finalEmail = data.member.email || email.trim();
     return (
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
         <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
@@ -157,10 +160,17 @@ export function VotingFlow({ token, data }: Props) {
           Ačiū, {vocative(data.member.first_name)}!
         </h2>
         <p className="text-gray-600 mb-2">Jūsų balsas sėkmingai užregistruotas.</p>
-        <p className="text-sm text-gray-600 mb-6 inline-flex items-center gap-1.5">
-          <Mail className="h-4 w-4" />
-          Patvirtinimas su balsų suvestine išsiųstas į <span className="font-medium">{email}</span>
-        </p>
+        {finalEmail ? (
+          <p className="text-sm text-gray-600 mb-6 inline-flex items-center gap-1.5">
+            <Mail className="h-4 w-4" />
+            Patvirtinimas su balsų suvestine išsiųstas į{" "}
+            <span className="font-medium">{finalEmail}</span>
+          </p>
+        ) : (
+          <p className="text-sm text-gray-600 mb-6">
+            El. pašto nepateikėte – balsavimo suvestinės nesiunčiame.
+          </p>
+        )}
         <a
           href={`/susirinkimai/${data.meeting.id}`}
           className="inline-flex items-center gap-1.5 text-sm text-green-700 hover:text-green-800 hover:underline mb-3"
@@ -228,6 +238,8 @@ export function VotingFlow({ token, data }: Props) {
           email={email}
           phone={phone}
           emailValid={emailValid}
+          hasExistingEmail={!!data.member.email}
+          existingEmail={data.member.email}
           onEmailChange={setEmail}
           onPhoneChange={setPhone}
           onNext={() => setStep("voting")}
@@ -253,7 +265,7 @@ export function VotingFlow({ token, data }: Props) {
         <ReviewStep
           resolutions={data.resolutions}
           votes={votes}
-          email={email}
+          email={(data.member.email || email.trim()) || null}
           onBack={() => setStep("voting")}
           onSubmit={handleSubmit}
           submitting={submitting}
@@ -401,6 +413,8 @@ function ContactsStep({
   email,
   phone,
   emailValid,
+  hasExistingEmail,
+  existingEmail,
   onEmailChange,
   onPhoneChange,
   onNext,
@@ -413,6 +427,8 @@ function ContactsStep({
   email: string;
   phone: string;
   emailValid: boolean;
+  hasExistingEmail: boolean;
+  existingEmail: string | null;
   onEmailChange: (v: string) => void;
   onPhoneChange: (v: string) => void;
   onNext: () => void;
@@ -421,6 +437,8 @@ function ContactsStep({
   alreadyChoseLive: boolean;
 }) {
   const showError = email.length > 0 && !emailValid;
+  // Mygtukas blokuojamas tik tada, kai įvestas blogo formato email (tuščias = OK)
+  const canVote = email.trim().length === 0 || emailValid;
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
@@ -428,7 +446,7 @@ function ContactsStep({
         Sveiki, {firstNameVocative} {lastName}
       </h3>
       <p className="text-sm text-gray-600 mb-5">
-        Pasirinkite, kaip dalyvausite – galite balsuoti nuotoliu jau dabar arba ateiti į susirinkimą gyvai.
+        Pasirinkite, kaip dalyvausite – galite ateiti į susirinkimą gyvai arba balsuoti nuotoliu jau dabar.
       </p>
 
       {alreadyChoseLive && (
@@ -440,17 +458,38 @@ function ContactsStep({
         </div>
       )}
 
-      {/* Variantas A: balsuoti nuotoliu (reikalauja email) */}
+      {/* Variantas A: dalyvausiu gyvai */}
       <div className="border border-gray-200 rounded-lg p-5 mb-4">
-        <h4 className="font-semibold text-gray-900 mb-1">A. Balsuoti nuotoliu</h4>
+        <h4 className="font-semibold text-gray-900 mb-1">A. Dalyvausiu gyvai</h4>
         <p className="text-xs text-gray-500 mb-4">
-          Jūsų balsas bus įskaičiuotas į susirinkimo rezultatus, į el. paštą gausite patvirtinimą su balsų suvestine.
+          Atvyksiu į susirinkimą gegužės 23 d. ir balsuosiu vietoje. Jei persigalvosite, galėsite grįžti į šią
+          nuorodą ir balsuoti nuotoliu.
+        </p>
+        <Button variant="outline" onClick={onLive} loading={registeringLive} className="w-full">
+          <Users className="h-4 w-4" />
+          Dalyvausiu gyvai
+        </Button>
+      </div>
+
+      {/* Variantas B: balsuoti nuotoliu */}
+      <div className="border border-gray-200 rounded-lg p-5">
+        <h4 className="font-semibold text-gray-900 mb-1">B. Balsuoti nuotoliu</h4>
+        <p className="text-xs text-gray-500 mb-4">
+          Jūsų balsas bus įskaičiuotas į susirinkimo rezultatus, o jūs gausite balsų suvestinę el. paštu.
         </p>
 
-        <div className="space-y-3">
-          <div>
+        {hasExistingEmail ? (
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-4 flex items-start gap-2 text-sm text-blue-900">
+            <Mail className="h-4 w-4 flex-shrink-0 mt-0.5" />
+            <span>
+              Pilną balsavimo ataskaitą atsiųsime į{" "}
+              <strong className="font-semibold">{existingEmail}</strong>
+            </span>
+          </div>
+        ) : (
+          <div className="space-y-1 mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              El. paštas <span className="text-red-600">*</span>
+              El. paštas <span className="text-gray-400 text-xs">(neprivalomas)</span>
             </label>
             <Input
               type="email"
@@ -459,16 +498,18 @@ function ContactsStep({
               onChange={(e) => onEmailChange(e.target.value)}
               className={showError ? "border-red-300" : ""}
             />
-            {showError && (
+            {showError ? (
               <p className="text-xs text-red-600 mt-1">Patikrinkite el. pašto formatą</p>
-            )}
-            {!showError && (
+            ) : (
               <p className="text-xs text-gray-500 mt-1">
-                Privalomas – be el. pašto balsuoti nuotoliu negalima
+                Įveskite, jei norite gauti pilną balsavimo ataskaitą į el. paštą. Balsuoti galima ir be jo.
               </p>
             )}
           </div>
-          <div>
+        )}
+
+        {!hasExistingEmail && (
+          <div className="space-y-1 mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Telefonas <span className="text-gray-400 text-xs">(neprivalomas)</span>
             </label>
@@ -479,26 +520,11 @@ function ContactsStep({
               onChange={(e) => onPhoneChange(e.target.value)}
             />
           </div>
-        </div>
+        )}
 
-        <div className="flex justify-end mt-4">
-          <Button onClick={onNext} disabled={!emailValid}>
-            Tęsti į balsavimą
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Variantas B: dalyvausiu gyvai */}
-      <div className="border border-gray-200 rounded-lg p-5">
-        <h4 className="font-semibold text-gray-900 mb-1">B. Dalyvausiu gyvai</h4>
-        <p className="text-xs text-gray-500 mb-4">
-          Atvyksiu į susirinkimą gegužės 23 d. ir balsuosiu vietoje. Jei persigalvosite, galėsite grįžti į šią
-          nuorodą ir balsuoti nuotoliu.
-        </p>
-        <Button variant="outline" onClick={onLive} loading={registeringLive} className="w-full">
-          <Users className="h-4 w-4" />
-          Pažymėti, kad dalyvausiu gyvai
+        <Button onClick={onNext} disabled={!canVote} className="w-full">
+          <ChevronRight className="h-4 w-4" />
+          Balsuoti
         </Button>
       </div>
     </div>
@@ -627,7 +653,7 @@ function ReviewStep({
 }: {
   resolutions: Resolution[];
   votes: Record<string, VoteChoice>;
-  email: string;
+  email: string | null;
   onBack: () => void;
   onSubmit: () => void;
   submitting: boolean;
@@ -642,8 +668,10 @@ function ReviewStep({
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-1">Peržiūrėkite ir patvirtinkite</h3>
       <p className="text-sm text-gray-500 mb-5">
-        Patvirtinę balsą, jo pakeisti nebegalėsite. Patvirtinimas su balsų suvestine bus
-        atsiųstas į <span className="font-medium text-gray-700">{email}</span>.
+        Patvirtinę balsą, jo pakeisti nebegalėsite.
+        {email
+          ? <> Balsavimo suvestinė bus atsiųsta į <span className="font-medium text-gray-700">{email}</span>.</>
+          : " El. pašto nepateikėte – suvestinė nebus siunčiama."}
       </p>
 
       <div className="space-y-3 mb-6">
