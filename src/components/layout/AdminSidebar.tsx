@@ -14,6 +14,7 @@ import {
   ExternalLink,
   Vote,
   Bell,
+  Heart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SITE_NAME } from "@/lib/constants";
@@ -29,6 +30,7 @@ const icons = {
   UserCheck,
   Vote,
   Bell,
+  Heart,
 };
 
 const navItems = [
@@ -38,6 +40,7 @@ const navItems = [
   { label: "Dokumentai", href: "/admin/dokumentai", icon: "FileText" },
   { label: "Naujienos", href: "/admin/naujienos", icon: "Newspaper" },
   { label: "Susirinkimai", href: "/admin/susirinkimai", icon: "Vote" },
+  { label: "Aukos", href: "/admin/aukos", icon: "Heart" },
   { label: "Pranešimai", href: "/admin/pranesimai", icon: "Bell" },
   { label: "Vartotojai", href: "/admin/vartotojai", icon: "UserCheck" },
 ] as const;
