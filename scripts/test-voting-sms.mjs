@@ -19,7 +19,7 @@ const BASE_URL = process.env.INFOBIP_BASE_URL?.replace(/^https?:\/\//, "").repla
 const API_KEY = process.env.INFOBIP_API_KEY;
 const SENDER = process.env.INFOBIP_SMS_SENDER || "Kruminiai";
 const TO = "37065849514";
-const TOKEN = "9a5f3156390c02a80840c7560dc25dcb";
+const TOKEN = "23213aed14706694f94b07e57c4bbb0e";
 const URL = `https://kruminiai.lt/balsuoti/${TOKEN}`;
 const TEXT = `KKB visuotinis susirinkimas 2026-05-23 18:00. Balsuokite: ${URL}`;
 
