@@ -264,6 +264,14 @@ export async function GET(
       padding: 40px;
       background: #fff;
     }
+    @media (max-width: 640px) {
+      body { padding: 16px; font-size: 12pt; }
+      .doc-title h2 { font-size: 15pt !important; }
+      .candidate { padding: 14px !important; }
+      .cand-head { gap: 10px !important; }
+      table.events { font-size: 10pt !important; }
+      table.events th, table.events td { padding: 4px 6px !important; }
+    }
     .header { text-align: center; margin-bottom: 24px; }
     .header h1 { font-size: 13pt; font-weight: 700; margin-bottom: 4px; }
     .header .subtitle { font-size: 10pt; color: #444; }

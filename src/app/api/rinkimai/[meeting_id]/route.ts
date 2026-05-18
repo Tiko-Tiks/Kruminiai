@@ -70,6 +70,14 @@ export async function GET(
       padding: 40px;
       background: #fff;
     }
+    @media (max-width: 640px) {
+      body { padding: 16px; font-size: 12pt; }
+      .doc-title h2 { font-size: 16pt !important; }
+      h3 { font-size: 13pt !important; }
+      table.terms { font-size: 11pt !important; }
+      table.terms th, table.terms td { padding: 6px 8px !important; }
+      .callout { padding: 12px !important; }
+    }
     .header { text-align: center; margin-bottom: 24px; }
     .header h1 { font-size: 13pt; font-weight: 700; margin-bottom: 4px; }
     .header .subtitle { font-size: 10pt; color: #444; }
