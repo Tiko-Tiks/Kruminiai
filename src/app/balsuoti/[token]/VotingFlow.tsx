@@ -308,36 +308,38 @@ function DocPreviewModal({
   const isHtml = isServerGeneratedDoc(doc.file_path);
   return (
     <div
-      className="fixed inset-0 z-50 bg-gray-900/85 flex flex-col"
-      onClick={onClose}
+      // fullscreen overlay – fixed pozicija dengia visą viewport'ą
+      className="fixed inset-0 z-50 bg-white flex flex-col"
     >
-      <div className="flex items-center justify-between gap-2 px-3 py-2 bg-white border-b border-gray-200 shadow-sm">
+      {/* Antraštė: visada matomas didelis „Grįžti atgal" mygtukas */}
+      <div className="flex items-center justify-between gap-3 px-4 py-3 bg-green-700 text-white shadow-md flex-shrink-0">
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          <FileText className="h-4 w-4 text-gray-500 flex-shrink-0" />
-          <span className="text-sm font-medium text-gray-900 truncate">{doc.title}</span>
+          <FileText className="h-5 w-5 flex-shrink-0" />
+          <span className="text-base font-semibold truncate">{doc.title}</span>
         </div>
         {!isHtml && (
           <a
             href={url}
             download={doc.file_name}
-            onClick={(e) => e.stopPropagation()}
-            className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100"
+            className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-white/90 hover:text-white px-3 py-2 rounded-lg hover:bg-white/10"
             title="Atsisiųsti"
           >
             <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">Atsisiųsti</span>
+            Atsisiųsti
           </a>
         )}
         <button
           type="button"
           onClick={onClose}
-          className="flex items-center gap-1 text-sm font-medium text-gray-700 hover:text-gray-900 px-3 py-1.5 rounded hover:bg-gray-100"
+          className="flex items-center gap-2 text-base font-bold bg-white text-green-800 hover:bg-gray-100 px-4 py-2.5 rounded-lg shadow-sm flex-shrink-0"
         >
-          <X className="h-4 w-4" />
-          Uždaryti
+          <X className="h-5 w-5" />
+          Grįžti atgal
         </button>
       </div>
-      <div className="flex-1 bg-gray-100 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+
+      {/* Pats dokumentas – visas likęs aukštis */}
+      <div className="flex-1 bg-gray-100 overflow-hidden">
         {isHtml ? (
           <iframe
             src={url}
@@ -347,6 +349,18 @@ function DocPreviewModal({
         ) : (
           <PdfViewer url={url} />
         )}
+      </div>
+
+      {/* Apatinė juostelė – dar vienas didelis mygtukas grįžti į balsavimą */}
+      <div className="flex-shrink-0 bg-white border-t border-gray-200 px-4 py-3 shadow-[0_-2px_6px_rgba(0,0,0,0.06)]">
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full flex items-center justify-center gap-2 bg-green-700 hover:bg-green-800 text-white text-base font-bold py-3 rounded-lg shadow-sm"
+        >
+          <ChevronLeft className="h-5 w-5" />
+          Grįžti į balsavimą
+        </button>
       </div>
     </div>
   );
