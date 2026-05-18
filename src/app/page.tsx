@@ -266,8 +266,9 @@ export default async function HomePage() {
                     {lieptas.title}
                   </h2>
                   <p className="text-sm text-gray-600 mb-3 max-w-2xl">
-                    Renkame lėšas paplūdimio liepto atstatymui prie Krūminių užtvankos.
-                    Aukoti gali kiekvienas – kaimo gyventojai, vasaros lankytojai, turistai.
+                    Sovietmečio betoninis lieptas vietomis suiręs ir nesaugus –
+                    apkalsime jį terasinėmis lentomis, sumontuosime nerūdijančio
+                    plieno kopėtėles ir turėklus.
                   </p>
 
                   {/* Progresas */}
@@ -358,7 +359,7 @@ export default async function HomePage() {
               {
                 icon: Heart,
                 title: "Lieptas",
-                desc: "Pilotinis aukų rinkimo projektas paplūdimio liepto atstatymui",
+                desc: "Pilotinis projektas – paplūdimio liepto apkalimas terasinėmis lentomis",
                 href: "/lieptas",
               },
               {

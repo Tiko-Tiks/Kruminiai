@@ -13,14 +13,14 @@ export const revalidate = 60; // atnaujinama kas minutę – progresas matomas b
 export const metadata: Metadata = {
   title: "Padėk man atsinaujinti – Krūminių paplūdimio lieptas",
   description:
-    "Krūminių kaimo bendruomenė renka lėšas paplūdimio liepto restauravimui. Padėkite paaukoję per QR kodą ar banko pavedimu.",
+    "Sovietmečio betoninis Krūminių paplūdimio lieptas vietomis suiręs ir nesaugus. Renkame lėšas jį apkalti terasinėmis lentomis ir įrengti nerūdijančio plieno kopėtėles bei turėklus.",
   alternates: { canonical: "/lieptas" },
   openGraph: {
     type: "website",
     locale: "lt_LT",
     title: "Padėk man atsinaujinti – Krūminių paplūdimio lieptas",
     description:
-      "Krūminių kaimo bendruomenė renka lėšas paplūdimio liepto restauravimui.",
+      "Krūminių kaimo bendruomenė renka lėšas paplūdimio liepto atnaujinimui – apkalimas terasinėmis lentomis, nerūdijančio plieno kopėtėlės ir turėklai.",
     siteName: "Krūminių kaimo bendruomenė",
     images: [{ url: "/images/logo-md.png", width: 512, height: 512 }],
   },
@@ -195,7 +195,7 @@ export default async function LieptasPage() {
                     </span>
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
-                    💡 <strong>Vienos liepto lentos kaina ~12 €</strong> – jūsų indėlis tampa konkrečia statybinė medžiaga.
+                    💡 <strong>Vienos terasinės lentos kaina ~12 €</strong> – jūsų indėlis tampa konkrečia statybinė medžiaga.
                   </p>
                 </div>
               </div>
@@ -242,7 +242,7 @@ export default async function LieptasPage() {
               <div className="text-center py-10">
                 <p className="text-gray-400 mb-2">Aukotojų dar nėra – būkite pirmas! 💚</p>
                 <p className="text-sm text-gray-500">
-                  Jūsų auka padarys liepto restauravimą realybe.
+                  Jūsų auka padarys liepto atnaujinimą realybe.
                 </p>
               </div>
             ) : (

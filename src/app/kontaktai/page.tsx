@@ -92,10 +92,12 @@ export default function AboutPage() {
                 </p>
               </div>
               <div className="border-l-2 border-green-700 pl-4">
-                <p className="font-semibold text-gray-900 text-sm mb-1">Paplūdimio liepto restauravimas</p>
+                <p className="font-semibold text-gray-900 text-sm mb-1">Paplūdimio liepto atnaujinimas</p>
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  Pilotinis projektas: lėšų rinkimas iš kaimo gyventojų, lankytojų, turistų,
-                  galimo savivaldybės prisidėjimo (planuojama surinkti 4 000 EUR).
+                  Sovietmečio betoninis lieptas vietomis suiręs ir nesaugus –
+                  pilotinis projektas: apkalimas terasinėmis lentomis, nerūdijančio plieno
+                  kopėtėlės ir turėklai (planuojama surinkti 4 000 EUR iš kaimo gyventojų,
+                  lankytojų, turistų ir galimo savivaldybės prisidėjimo).
                 </p>
               </div>
               <div className="border-l-2 border-green-700 pl-4">

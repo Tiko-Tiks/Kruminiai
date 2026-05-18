@@ -327,11 +327,16 @@ export async function GET(
     </tbody>
   </table>
 
-  <h3>4. Krūminių kaimo paplūdimio liepto restauravimo projektas</h3>
+  <h3>4. Krūminių kaimo paplūdimio liepto atnaujinimo projektas</h3>
   <p>
-    <strong>Pilotinis projektas</strong> – atstatyti paplūdimio lieptą prie
-    Krūminių užtvankos, kuris yra svarbi bendruomenės infrastruktūros dalis.
-    Įgyvendinama mažais žingsniais į priekį, priklausomai nuo surenkamų lėšų.
+    <strong>Pilotinis projektas</strong> – atnaujinti paplūdimio lieptą prie
+    Krūminių užtvankos. Lieptas yra sovietmečio palikimas: betoninė konstrukcija
+    yra stipri, tačiau <strong>vietomis suiręs ir nesaugus</strong>. Sprendimas
+    ekonomiškas – stipriąją bazę paliekame, o virš jos suformuojame saugų
+    sluoksnį: apkalsime <strong>terasinėmis lentomis</strong>, sumontuosime
+    <strong>nerūdijančio plieno kopėtėles</strong> užlipimui iš vandens ir
+    <strong>turėklus</strong>. Įgyvendinama mažais žingsniais į priekį,
+    priklausomai nuo surenkamų lėšų.
   </p>
 
   <div class="callout">

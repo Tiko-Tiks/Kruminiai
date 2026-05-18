@@ -164,7 +164,7 @@ export default async function LieptasPrintPage() {
           <div className="title-block">
             <div className="pre-title">Krūminių kaimo bendruomenė</div>
             <h1>Padėk man<br/>atsinaujinti!</h1>
-            <div className="subtitle">Krūminių paplūdimio liepto restauravimas</div>
+            <div className="subtitle">Krūminių paplūdimio liepto atnaujinimas</div>
           </div>
 
           <div className="qr-block">
