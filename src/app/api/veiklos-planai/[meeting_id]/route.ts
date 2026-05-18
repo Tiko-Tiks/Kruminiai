@@ -146,24 +146,15 @@ export async function GET(
   </div>
 
   <p>
-    Šiame dokumente pateikiamos ${year} m. Krūminių kaimo bendruomenės veiklos
-    kryptys, planuojamos investicijos į bendruomenės teritoriją ir tradiciniai
-    renginiai. Planas teikiamas visuotinio susirinkimo balsavimui.
+    Šiame dokumente pateikiamas konkretus ${year} m. biudžeto paskirstymas
+    ir planuojami darbai bendruomenės teritorijoje, pilotinis paplūdimio
+    liepto restauravimo projektas bei tradiciniai renginiai. Plano dėmesys
+    – realios investicijos ir lėšų paskirstymas, o ne kasmetinė
+    administracinė rutina (ši aprašyta ${year - 1} m. veiklos ataskaitoje).
   </p>
 
-  <h3>1. Rutininiai administraciniai darbai</h3>
-  <p>Visus metus vykdomi nuolatiniai administraciniai darbai pagal įstatus:</p>
-  <ul>
-    <li>Tarybos posėdžiai – ne rečiau kaip kartą per ketvirtį (<span class="law-ref">įstatų 5.3 p.</span>);</li>
-    <li>Nario mokesčių administravimas, banko išrašų tikrinimas, mokėjimų fiksavimas;</li>
-    <li>Naujų narių priėmimas ir narystės administravimas (Tarybos kompetencija pagal <span class="law-ref">5.3.1 p.</span>);</li>
-    <li>${year - 1} m. ataskaitų teikimas Registrų centrui (atsakingas pirmininkas);</li>
-    <li>Reguliarus bendravimas su nariais (SMS, el. paštas, svetainė kruminiai.lt);</li>
-    <li>Skaidri finansinė veikla – mokėjimų ir ataskaitų skelbimas viešai.</li>
-  </ul>
-
-  <h3>2. Investicijos į bendruomenės teritoriją</h3>
-  <p>${year} m. planuojamas biudžetas:</p>
+  <h3>1. ${year} m. biudžeto paskirstymas</h3>
+  <p>Konkrečios investicijos į bendruomenės teritoriją:</p>
   <table class="budget">
     <thead>
       <tr><th>Darbas / paskirtis</th><th style="text-align:right">Biudžetas</th></tr>
@@ -178,11 +169,11 @@ export async function GET(
         <td class="amount">50 EUR</td>
       </tr>
       <tr>
-        <td>Kitos einamosios išlaidos (pjovimo valas, kuras, tepalai, elektra)</td>
+        <td>Einamosios eksploatacijos išlaidos<br><span style="font-weight:normal;font-size:10pt;color:#555;">(pjovimo valas, kuras, tepalai, elektra)</span></td>
         <td class="amount">50 EUR</td>
       </tr>
       <tr class="total">
-        <td>Iš viso planuojamų investicijų</td>
+        <td>Iš viso ${year} m. investicijų biudžetas</td>
         <td class="amount">550 EUR</td>
       </tr>
     </tbody>
@@ -192,11 +183,11 @@ export async function GET(
     savivaldybės lėšų.
   </p>
 
-  <h3>3. Krūminių kaimo paplūdimio liepto restauravimo projektas (pilotinis)</h3>
+  <h3>2. Krūminių kaimo paplūdimio liepto restauravimo projektas</h3>
   <p>
-    Pilotinis projektas, kuriuo siekiama atstatyti paplūdimio lieptą – svarbią
-    bendruomenės infrastruktūros dalį. Projektas įgyvendinamas mažais žingsniais
-    į priekį, priklausomai nuo surenkamų lėšų.
+    <strong>Pilotinis projektas</strong> – atstatyti paplūdimio lieptą, kuris
+    yra svarbi bendruomenės infrastruktūros dalis. Įgyvendinama mažais
+    žingsniais į priekį, priklausomai nuo surenkamų lėšų.
   </p>
 
   <div class="callout">
@@ -211,38 +202,49 @@ export async function GET(
 
   <p style="font-size:10.5pt;color:#555;">
     Atskira ataskaita apie surinktas lėšas ir atliktus darbus bus reguliariai
-    teikiama nariams – tiek per visuotinį susirinkimą, tiek per bendruomenės
-    svetainę.
+    teikiama nariams – per visuotinį susirinkimą ir bendruomenės svetainę.
   </p>
 
-  <h3>4. Tradiciniai bendruomenės renginiai</h3>
+  <h3>3. Tradiciniai bendruomenės renginiai</h3>
   <ul>
     <li>
-      <strong>Mindauginės</strong> – tradicinė kasmetinė bendruomenės šventė,
-      sutampanti su Valstybės diena (liepos 6 d.).
+      <strong>Mindauginės</strong> – tradicinė kasmetinė bendruomenės šventė
+      Valstybės dienos proga (liepos 6 d.).
     </li>
     <li>
       <strong>Eglutės puošimas</strong> – Kalėdinė tradicija (gruodis).
     </li>
     <li>
       <strong>Papildomi renginiai</strong> – pagal narių iniciatyvą ir
-      entuziazmą metų eigoje. Tarybos posėdyje aptariamos ir įgyvendinamos
-      narių pasiūlytos idėjos.
+      entuziazmą metų eigoje.
     </li>
   </ul>
 
-  <h3>5. Vidinė tvarka ir pasiruošimas rinkimams</h3>
-  <ul>
-    <li>2027 m. valdymo organų rinkimų pasiruošimas (Pirmininko, Tarybos,
-        Revizoriaus) – plačiau aprašyta atskirame dokumente apie rinkimus;</li>
-    <li>Įstatų laikymosi priežiūra; esant poreikiui – įstatų pakeitimų svarstymas.</li>
-  </ul>
+  <h3>4. Bendros lėšų panaudojimo gairės</h3>
+  <table class="budget">
+    <thead>
+      <tr><th>Veiklos sritis</th><th style="text-align:right">Lėšų šaltinis</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Teritorijos investicijos (550 EUR)</td>
+        <td class="amount" style="font-weight:normal;text-align:left;font-size:10.5pt">Nario mokesčiai + savivaldybės parama</td>
+      </tr>
+      <tr>
+        <td>Liepto projektas (iki 4 000 EUR)</td>
+        <td class="amount" style="font-weight:normal;text-align:left;font-size:10.5pt">Aukos (kaimiečiai, turistai) + savivaldybė</td>
+      </tr>
+      <tr>
+        <td>Tradiciniai renginiai</td>
+        <td class="amount" style="font-weight:normal;text-align:left;font-size:10.5pt">Nario mokesčiai + savanoriška parama</td>
+      </tr>
+    </tbody>
+  </table>
 
   <p class="footer-note">
-    <strong>Plano lankstumas:</strong> šis dokumentas yra orientacinis. Nariams
-    metų eigoje pasiūlius naujų iniciatyvų ar renginių, jie bus svarstomi
-    Tarybos posėdyje ir įgyvendinami atsižvelgiant į bendruomenės interesus
-    bei surenkamas lėšas.
+    <strong>Plano lankstumas:</strong> nariams metų eigoje pasiūlius naujų
+    iniciatyvų ar renginių, jie bus svarstomi Tarybos posėdyje ir įgyvendinami
+    atsižvelgiant į bendruomenės interesus bei surenkamas lėšas.
   </p>
 
   <p class="generated">
