@@ -272,13 +272,14 @@ async function syncResolutionDescription(meetingId: string) {
     .eq("meeting_id", meetingId)
     .order("sort_order", { ascending: true });
 
-  // 2) Rasti #8 nutarimą
+  // 2) Rasti šalinimo nutarimą pagal pavadinimo raktažodį (ne pagal numerį,
+  //    kad veiktų po darbotvarkės pertvarkymo)
   const { data: resolution } = await supabase
     .from("resolutions")
     .select("id, description")
     .eq("meeting_id", meetingId)
-    .eq("resolution_number", 8)
     .eq("is_procedural", false)
+    .ilike("title", "%šalinim%")
     .maybeSingle();
 
   if (!resolution) return;
