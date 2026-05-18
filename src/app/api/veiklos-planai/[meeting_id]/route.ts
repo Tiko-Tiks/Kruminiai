@@ -21,65 +21,29 @@ export async function GET(
   const generatedAt = new Date();
   const year = meetingDate.getFullYear();
 
-  // Dabartinė finansinė padėtis – iš DB realiu laiku
-  const { data: currentFeePeriod } = await supabase
-    .from("fee_periods")
-    .select("id, amount_cents")
-    .eq("fee_type", "metinis")
-    .eq("year", year)
-    .maybeSingle();
+  // Naudojam SECURITY DEFINER RPC – veikia ir anonymous kontekste (kai iframe
+  // atidaromas iš /balsuoti/[token] anon srauto, RLS blokuotų tiesiogines užklausas)
+  type PlanData = {
+    error?: string;
+    member_count?: number;
+    collected_cents?: number;
+    paid_count?: number;
+    debt_rows?: Array<{ year: number; count: number; eur: number }>;
+    total_debt_cents?: number;
+  };
+  const { data: planData } = await supabase.rpc("get_meeting_plan_data", {
+    p_meeting_id: params.meeting_id,
+  });
+  const plan = (planData ?? {}) as PlanData;
 
-  let collectedEur = 0;
-  let paidCount = 0;
-  if (currentFeePeriod) {
-    const { data: payments } = await supabase
-      .from("payments")
-      .select("amount_cents")
-      .eq("fee_period_id", currentFeePeriod.id);
-    collectedEur = (payments || []).reduce((s, p) => s + (p.amount_cents as number), 0) / 100;
-    paidCount = (payments || []).length;
-  }
-
-  const { count: memberCount } = await supabase
-    .from("members")
-    .select("id", { count: "exact", head: true })
-    .in("status", ["aktyvus", "pasyvus"]);
-
-  // Skolų suvestinė pagal metus
-  const { data: periods } = await supabase
-    .from("fee_periods")
-    .select("id, year, amount_cents")
-    .eq("fee_type", "metinis");
-  const { data: members } = await supabase
-    .from("members")
-    .select("id, join_date")
-    .in("status", ["aktyvus", "pasyvus"]);
-  const { data: allPayments } = await supabase
-    .from("payments")
-    .select("member_id, fee_period_id");
-
-  const paidSet = new Set(
-    (allPayments || []).map((p) => `${p.member_id}|${p.fee_period_id}`)
-  );
-
-  type DebtRow = { year: number; count: number; eur: number };
-  const debtsByYear = new Map<number, DebtRow>();
-  for (const m of members || []) {
-    const joinYear = m.join_date ? new Date(m.join_date).getFullYear() : 2012;
-    for (const fp of periods || []) {
-      if (fp.year < joinYear) continue;
-      if (paidSet.has(`${m.id}|${fp.id}`)) continue;
-      const row = debtsByYear.get(fp.year) || { year: fp.year, count: 0, eur: 0 };
-      row.count += 1;
-      row.eur += (fp.amount_cents as number) / 100;
-      debtsByYear.set(fp.year, row);
-    }
-  }
-  const debtRows = Array.from(debtsByYear.values()).sort((a, b) => a.year - b.year);
-  const totalDebt = debtRows.reduce((s, r) => s + r.eur, 0);
+  const memberCount = plan.member_count ?? 0;
+  const collectedEur = (plan.collected_cents ?? 0) / 100;
+  const paidCount = plan.paid_count ?? 0;
+  const debtRows = plan.debt_rows ?? [];
+  const totalDebt = (plan.total_debt_cents ?? 0) / 100;
 
   // Skaičiavimai biudžetui
-  const potentialFeeRevenue = (memberCount || 0) * 12; // jei visi sumokėtų 2026 m.
+  const potentialFeeRevenue = memberCount * 12;
   const remainingFee2026 = potentialFeeRevenue - collectedEur;
 
   // Numatomos veiklos sąnaudos (metinės)
