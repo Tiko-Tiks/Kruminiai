@@ -18,7 +18,10 @@ export default function NewPaymentPage() {
   const [members, setMembers] = useState<SearchableSelectOption[]>([]);
   const [periods, setPeriods] = useState<{ value: string; label: string }[]>([]);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
+  // Visi kritiniai laukai – controlled state'e, nesvarbu kaip FormData elgsis
   const [memberId, setMemberId] = useState("");
+  const [feePeriodId, setFeePeriodId] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("grynieji");
 
   useEffect(() => {
     const load = async () => {
@@ -54,13 +57,32 @@ export default function NewPaymentPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    // ===== Client-side validacija – iš controlled state, ne iš DOM =====
+    const formData = new FormData(e.currentTarget);
+    const amountEur = parseFloat((formData.get("amount_eur") as string) || "0");
+    const paidDate = (formData.get("paid_date") as string) || "";
+
+    const clientErrors: Record<string, string[]> = {};
+    if (!memberId) clientErrors.member_id = ["Pasirinkite narį"];
+    if (!feePeriodId) clientErrors.fee_period_id = ["Pasirinkite laikotarpį"];
+    if (!amountEur || amountEur <= 0) clientErrors.amount_cents = ["Suma privaloma"];
+    if (!paidDate) clientErrors.paid_date = ["Data privaloma"];
+
+    if (Object.keys(clientErrors).length > 0) {
+      setErrors(clientErrors);
+      toast.error("Patikrinkite užpildytus laukus");
+      return;
+    }
+
     setLoading(true);
     setErrors({});
 
-    const formData = new FormData(e.currentTarget);
-    // Aiškiai įrašom member_id iš controlled state – nepasitikime hidden input'u
+    // Pertinklinam visus kritinius laukus iš React state – garantuotai
+    // nepriklausomai nuo to, kaip browser'is užpildė FormData.
     formData.set("member_id", memberId);
-    const amountEur = parseFloat(formData.get("amount_eur") as string);
+    formData.set("fee_period_id", feePeriodId);
+    formData.set("payment_method", paymentMethod);
     formData.set("amount_cents", Math.round(amountEur * 100).toString());
     formData.delete("amount_eur");
 
@@ -122,6 +144,17 @@ export default function NewPaymentPage() {
               options={periods}
               placeholder="Pasirinkite laikotarpį..."
               error={errors.fee_period_id?.[0]}
+              value={feePeriodId}
+              onChange={(e) => {
+                setFeePeriodId(e.target.value);
+                if (e.target.value && errors.fee_period_id) {
+                  setErrors((prev) => {
+                    const rest = { ...prev };
+                    delete rest.fee_period_id;
+                    return rest;
+                  });
+                }
+              }}
               required
             />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -154,6 +187,8 @@ export default function NewPaymentPage() {
                   { value: "pavedimas", label: "Pavedimas" },
                   { value: "kita", label: "Kita" },
                 ]}
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
               />
               <Input
                 id="receipt_number"
