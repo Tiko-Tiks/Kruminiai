@@ -13,9 +13,16 @@ const feePeriodSchema = z.object({
   due_date: z.string().optional().or(z.literal("")),
 });
 
+// UUID regex'as RFC 4122 nestriktas – sutinka su Postgres priimamais
+// identifikatoriais. Zod default .uuid() reikalauja konkretaus version
+// (1-5) ir variant byte, todėl test'iniai narių UUID kaip
+// b0000000-0000-0000-0000-000000000068 jį griūdavo, nors Postgres juos
+// priima be problemų. Naudojam paprastesnį formato patikrinimą.
+const LOOSE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const paymentSchema = z.object({
-  member_id: z.string().uuid("Pasirinkite narį"),
-  fee_period_id: z.string().uuid("Pasirinkite laikotarpį"),
+  member_id: z.string().regex(LOOSE_UUID, "Pasirinkite narį"),
+  fee_period_id: z.string().regex(LOOSE_UUID, "Pasirinkite laikotarpį"),
   amount_cents: z.coerce.number().min(1, "Suma privaloma"),
   paid_date: z.string().min(1, "Data privaloma"),
   payment_method: z.enum(["grynieji", "pavedimas", "kita"]),

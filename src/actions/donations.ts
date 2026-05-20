@@ -5,8 +5,11 @@ import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+// UUID nestriktas regex'as (žr. payments.ts paaiškinimą)
+const LOOSE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const donationSchema = z.object({
-  project_id: z.string().uuid("Pasirinkite projektą"),
+  project_id: z.string().regex(LOOSE_UUID, "Pasirinkite projektą"),
   donor_name: z.string().optional().or(z.literal("")),
   amount_cents: z.coerce.number().int().min(1, "Suma privalo būti didesnė už 0"),
   method: z.enum(["sepa", "cash", "card", "other"]),
