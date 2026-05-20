@@ -63,6 +63,12 @@ export default function NewPaymentPage() {
     const amountEur = parseFloat((formData.get("amount_eur") as string) || "0");
     const paidDate = (formData.get("paid_date") as string) || "";
 
+    // DEBUG: jei narys ar laikotarpis tuščias, parodom diagnostiką toast'e
+    if (!memberId || !feePeriodId) {
+      console.log("[Mokėjimo forma] memberId:", memberId, "feePeriodId:", feePeriodId);
+      console.log("[Mokėjimo forma] FormData entries:", Array.from(formData.entries()));
+    }
+
     const clientErrors: Record<string, string[]> = {};
     if (!memberId) clientErrors.member_id = ["Pasirinkite narį"];
     if (!feePeriodId) clientErrors.fee_period_id = ["Pasirinkite laikotarpį"];
