@@ -148,11 +148,35 @@ export async function GET(
   const totalActual = liveAttendees.length + remoteVoters.length + writtenVoters.length;
   const hasQuorum = meeting.is_repeat || totalActual >= meeting.quorum_required;
 
-  // ===== HTML komponentai =====
-  const liveRows = (effectiveMode === "blank" ? blankList : liveAttendees)
-    .map((m, i) => `
+  // ===== Padalinam į puslapius (server-side chunking) =====
+  // A4 portretu po 25/20/15/15 mm paraščių lieka ~252mm aukščio.
+  // Eilutė su 32pt parašo lange = ~12mm. Page header (table header)
+  // pakartojamas kiekviename chunk'e per HTML markup.
+  const PAGE_1_LIVE_CAPACITY = 14; // mažiau – pirmas puslapis turi doc header + meta
+  const PAGE_N_LIVE_CAPACITY = 20;
+
+  const liveList = effectiveMode === "blank" ? blankList : liveAttendees;
+  const livePages: AttendeeRow[][] = [];
+  if (liveList.length === 0) {
+    livePages.push([]);
+  } else {
+    const remaining = [...liveList];
+    livePages.push(remaining.splice(0, PAGE_1_LIVE_CAPACITY));
+    while (remaining.length > 0) {
+      livePages.push(remaining.splice(0, PAGE_N_LIVE_CAPACITY));
+    }
+  }
+
+  // Paskutinis puslapis (remote + signatures) – atskiras .sheet.
+  const needsLastPage =
+    effectiveMode !== "blank" &&
+    (remoteVoters.length > 0 || writtenVoters.length > 0 || liveAttendees.length === 0);
+  const totalPages = livePages.length + (needsLastPage ? 1 : 0);
+
+  const renderLiveRows = (chunk: AttendeeRow[], startIdx: number) =>
+    chunk.map((m, i) => `
     <tr>
-      <td class="num">${i + 1}.</td>
+      <td class="num">${startIdx + i + 1}.</td>
       <td class="name">${m.first_name} ${m.last_name}${m.status === "pasyvus" ? ' <span class="pasyvus">(pasyvus)</span>' : ""}</td>
       <td class="signature"></td>
     </tr>`).join("");
@@ -171,6 +195,160 @@ export async function GET(
       <td class="vote-time">${m.voted_at ? fmtVoteTime(m.voted_at) : "—"}</td>
     </tr>`).join("");
 
+  // Doc header + meta (rodomas tik pirmame puslapyje)
+  const docHeader = `
+    <div class="doc-label">
+      ${meeting.protocol_number ? `Priedas prie protokolo ${meeting.protocol_number}` : "Priedas prie susirinkimo protokolo"}
+    </div>
+    <div class="header">
+      <h1>${COMMUNITY_LEGAL.name.toUpperCase()}</h1>
+      <div class="subtitle">Juridinio asmens kodas: ${COMMUNITY_LEGAL.code}</div>
+      <div class="subtitle">Buveinė: ${COMMUNITY_LEGAL.address}</div>
+    </div>
+
+    <h2>Susirinkimo dalyvių sąrašas</h2>
+    <div class="meta">
+      <div class="line"><strong>${meeting.title}</strong></div>
+      <div class="line">${dateStr}, ${timeStr} val.</div>
+      <div class="line">${meeting.location}</div>
+      ${effectiveMode === "signed" ? `
+      <div class="quorum-info ${hasQuorum ? "has" : "no"}">
+        Bendras narių skaičius: <strong>${meeting.total_members_at_time}</strong> ·
+        Dalyvavo iš viso: <strong>${totalActual}</strong>
+        (${liveAttendees.length} gyvai${remoteVoters.length > 0 ? `, ${remoteVoters.length} nuotoliu` : ""}${writtenVoters.length > 0 ? `, ${writtenVoters.length} raštu` : ""}) ·
+        Kvorumui reikia: <strong>${meeting.quorum_required}</strong> ·
+        Kvorumas: <strong>${hasQuorum ? "YRA" : "NĖRA"}</strong>${meeting.is_repeat ? " (pakartotinis)" : ""}
+      </div>
+      ` : `
+      <div class="quorum-info">
+        Bendras narių skaičius: <strong>${meeting.total_members_at_time}</strong> ·
+        Kvorumui reikia: <strong>${meeting.quorum_required}</strong>${meeting.is_repeat ? " (pakartotinis – kvorumas neribojamas)" : ""}
+      </div>
+      `}
+    </div>
+  `;
+
+  const liveTableHeader = `
+    <table class="attendees">
+      <thead>
+        <tr>
+          <th class="num">Nr.</th>
+          <th>Vardas, pavardė</th>
+          <th>Parašas</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+  const liveTableFooter = `</tbody></table>`;
+
+  // Surinkti visus sheet'us su matomu puslapio numeravimu
+  const sheets: string[] = [];
+  let liveCounter = 0;
+
+  livePages.forEach((chunk, idx) => {
+    const isFirst = idx === 0;
+    const pageNum = idx + 1;
+    const sectionHeading = effectiveMode === "blank"
+      ? `<h3>Gyvai dalyvaujantys nariai (pasirašo atvykę)</h3>`
+      : `<h3>${idx === 0 ? "1. " : ""}Gyvai dalyvavę nariai (parašai)${livePages.length > 1 ? ` <span class="cont">(tęsinys, p. ${pageNum})</span>` : ""}</h3>`;
+
+    sheets.push(`
+    <div class="sheet">
+      ${isFirst ? docHeader : ""}
+      ${chunk.length > 0 ? `
+        ${sectionHeading}
+        ${liveTableHeader}
+        ${renderLiveRows(chunk, liveCounter)}
+        ${liveTableFooter}
+      ` : (effectiveMode === "blank" ? "" : `<div class="empty">Gyvai dalyvavę nariai sąraše neužfiksuoti.</div>`)}
+      <div class="page-footer">Puslapis ${pageNum} iš ${totalPages}</div>
+    </div>`);
+    liveCounter += chunk.length;
+  });
+
+  if (needsLastPage) {
+    const pageNum = livePages.length + 1;
+    const sectionNum = liveAttendees.length > 0 ? 2 : 1;
+    sheets.push(`
+    <div class="sheet">
+      ${remoteVoters.length > 0 ? `
+        <h3>${sectionNum}. Nuotoliniu būdu balsavę nariai (parašo nereikia)</h3>
+        <table class="attendees">
+          <thead>
+            <tr>
+              <th class="num">Nr.</th>
+              <th>Vardas, pavardė</th>
+              <th>Balso fiksavimo data ir laikas</th>
+            </tr>
+          </thead>
+          <tbody>${remoteRows}</tbody>
+        </table>
+        <p class="note">
+          Pagal Asociacijų įstatymo 16 str. ir bendruomenės įstatų 4.4 p., nuotoliniu
+          būdu balsavusių narių parašas nereikalaujamas. Jų dalyvavimas fiksuojamas
+          per elektroninio balsavimo įrodymą (SMS tokenas + balso registracijos laikas).
+        </p>
+      ` : ""}
+
+      ${writtenVoters.length > 0 ? `
+        <h3>${sectionNum + (remoteVoters.length > 0 ? 1 : 0)}. Raštu balsavę nariai</h3>
+        <table class="attendees">
+          <thead>
+            <tr>
+              <th class="num">Nr.</th>
+              <th>Vardas, pavardė</th>
+              <th>Balso pateikimo data</th>
+            </tr>
+          </thead>
+          <tbody>${writtenRows}</tbody>
+        </table>
+      ` : ""}
+
+      <div class="signatures">
+        <table>
+          <tr>
+            <td style="width:50%">
+              <div class="label">Susirinkimo pirmininkas:</div>
+              <div class="name-line">${meeting.chairperson_name || "(vardas, pavardė, parašas)"}</div>
+            </td>
+            <td style="width:50%">
+              <div class="label">Susirinkimo sekretorius:</div>
+              <div class="name-line">${meeting.secretary_name || "(vardas, pavardė, parašas)"}</div>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <div class="page-footer">Puslapis ${pageNum} iš ${totalPages}</div>
+    </div>`);
+  } else {
+    // Blank mode – signatures section į paskutinį live sheet'ą (jei tik 1 puslapis)
+    // arba pridėti į paskutinį puslapį
+    const lastSheetIdx = sheets.length - 1;
+    sheets[lastSheetIdx] = sheets[lastSheetIdx].replace(
+      `<div class="page-footer">`,
+      `
+      <p class="note">
+        Tuščias sąrašas spausdinamas prieš susirinkimą. Atvykę nariai pasirašo
+        savo eilutėje.
+      </p>
+      <div class="signatures">
+        <table>
+          <tr>
+            <td style="width:50%">
+              <div class="label">Susirinkimo pirmininkas:</div>
+              <div class="name-line">(vardas, pavardė, parašas)</div>
+            </td>
+            <td style="width:50%">
+              <div class="label">Susirinkimo sekretorius:</div>
+              <div class="name-line">(vardas, pavardė, parašas)</div>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <div class="page-footer">`
+    );
+  }
+
   const html = `<!DOCTYPE html>
 <html lang="lt">
 <head>
@@ -178,12 +356,15 @@ export async function GET(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dalyvių sąrašas – ${meeting.title}</title>
   <style>
-    /* @page margin = 0 – paraštes tvarkome per .sheet padding, kad
-       būtų garantuotos nepriklausomai nuo browser'io print dialog'o
-       (Chrome „Margins: None" arba „Custom" gali nepaisyti @page margin). */
+    /* @page margin – paraštės VEIKIA KIEKVIENAM puslapiui (browser engine
+       jas pridės automatiškai). .sheet padding'as buvo blogas pasirinkimas
+       nes veikė tik pirmame puslapyje, antrame ir vėlesniuose tarpo
+       nebūdavo (content prasidėdavo nuo lapo viršaus).
+       Sąlyga: Chrome print dialog'e Margins turi būti „Default" (jei „None",
+       @page margin ignoruojamas). */
     @page {
       size: A4 portrait;
-      margin: 0;
+      margin: 25mm 15mm 20mm 15mm;
       @bottom-center {
         content: "Puslapis " counter(page) " iš " counter(pages);
         font-family: 'Times New Roman', serif;
@@ -200,32 +381,51 @@ export async function GET(
       color: #000;
     }
 
-    /* Visada (ekrane IR spausdinant) – .sheet turi savo padding'ą,
-       kuris veikia kaip paraštės. 25mm viršuje – kad printerio hardware
-       margin'ai nesukirpdintu antraštės. */
-    .sheet {
-      padding: 25mm 15mm 20mm 15mm;
-    }
-
     @media screen {
+      /* Ekrane atvaizduojam .sheet kaip A4 lapą su pilnais paraštės
+         tarpais – padding'as imituoja @page margin'us */
       body { background: #e5e7eb; padding: 30px 0 80px; }
       .sheet {
         width: 210mm;
         min-height: 297mm;
+        padding: 25mm 15mm 20mm 15mm;
         margin: 0 auto 24px;
         background: #fff;
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       }
     }
     @media print {
+      /* Spausdinant @page margin'ai veikia kiekvienam puslapiui.
+         .sheet padding = 0, kad nesukurtume dvigubo margin'o.
+         Kiekvienas .sheet = atskiras puslapis (page-break-after). */
       body { background: #fff; }
       .sheet {
-        width: 100%;
+        padding: 0;
         margin: 0;
         box-shadow: none;
         page-break-after: always;
+        min-height: 0;
       }
       .sheet:last-child { page-break-after: auto; }
+    }
+
+    /* Puslapio numeravimo footer'is – server-side rendered į kiekvieną
+       .sheet, visiškai nepriklauso nuo browser'io @page rules palaikymo */
+    .page-footer {
+      margin-top: 30pt;
+      padding-top: 10pt;
+      border-top: 0.5pt solid #999;
+      text-align: center;
+      font-size: 9.5pt;
+      color: #555;
+    }
+
+    .cont {
+      font-size: 9pt;
+      font-weight: normal;
+      color: #888;
+      text-transform: none;
+      letter-spacing: 0;
     }
 
     .doc-label {
@@ -426,136 +626,16 @@ export async function GET(
     </a>
   </div>
   <div class="print-hint">
-    💡 <strong>Chrome spausdinimo nustatymai:</strong> Paper size = <strong>A4</strong>,
-    Margins = <strong>Default</strong>, Headers and footers = <strong>❌ OFF</strong>
-    (kad „Puslapis X iš Y" rodytųsi apačioje)
+    💡 <strong>Chrome spausdinimo nustatymai (BŪTINA):</strong> Paper size = <strong>A4</strong>,
+    Margins = <strong>Default</strong> (NE „None"!),
+    Headers and footers = <strong>❌ OFF</strong>.
+    Tik su šiais nustatymais paraštės bus kiekviename puslapyje ir
+    matosi „Puslapis X iš Y" apačioje.
   </div>
 
-  <div class="sheet">
-    <div class="doc-label">
-      ${meeting.protocol_number ? `Priedas prie protokolo ${meeting.protocol_number}` : "Susirinkimo dalyvių sąrašas (priedas prie protokolo)"}
-    </div>
-    <div class="header">
-      <h1>${COMMUNITY_LEGAL.name.toUpperCase()}</h1>
-      <div class="subtitle">Juridinio asmens kodas: ${COMMUNITY_LEGAL.code}</div>
-      <div class="subtitle">Buveinė: ${COMMUNITY_LEGAL.address}</div>
-    </div>
-
-    <h2>Susirinkimo dalyvių sąrašas</h2>
-    <div class="meta">
-      <div class="line"><strong>${meeting.title}</strong></div>
-      <div class="line">${dateStr}, ${timeStr} val.</div>
-      <div class="line">${meeting.location}</div>
-      ${effectiveMode === "signed" ? `
-      <div class="quorum-info ${hasQuorum ? "has" : "no"}">
-        Bendras narių skaičius: <strong>${meeting.total_members_at_time}</strong> ·
-        Dalyvavo iš viso: <strong>${totalActual}</strong>
-        (${liveAttendees.length} gyvai${remoteVoters.length > 0 ? `, ${remoteVoters.length} nuotoliu` : ""}${writtenVoters.length > 0 ? `, ${writtenVoters.length} raštu` : ""}) ·
-        Kvorumui reikia: <strong>${meeting.quorum_required}</strong> ·
-        Kvorumas: <strong>${hasQuorum ? "YRA" : "NĖRA"}</strong>${meeting.is_repeat ? " (pakartotinis)" : ""}
-      </div>
-      ` : `
-      <div class="quorum-info">
-        Bendras narių skaičius: <strong>${meeting.total_members_at_time}</strong> ·
-        Kvorumui reikia: <strong>${meeting.quorum_required}</strong>${meeting.is_repeat ? " (pakartotinis – kvorumas neribojamas)" : ""}
-      </div>
-      `}
-    </div>
-
-    ${effectiveMode === "blank" ? `
-    <h3>Gyvai dalyvaujantys nariai (pasirašo atvykę)</h3>
-    <table class="attendees">
-      <thead>
-        <tr>
-          <th class="num">Nr.</th>
-          <th>Vardas, pavardė</th>
-          <th>Parašas</th>
-        </tr>
-      </thead>
-      <tbody>${liveRows}</tbody>
-    </table>
-    <p class="note">
-      Tuščias sąrašas spausdinamas prieš susirinkimą. Atvykę nariai pasirašo
-      savo eilutėje. Po susirinkimo iš šio puslapio rinkti tik pasirašusių
-      narių parašai – jie suvedami į sistemą kaip dalyvavę gyvai.
-    </p>
-    ` : `
-
-    ${liveAttendees.length > 0 ? `
-    <h3>1. Gyvai dalyvavę nariai (parašai)</h3>
-    <table class="attendees">
-      <thead>
-        <tr>
-          <th class="num">Nr.</th>
-          <th>Vardas, pavardė</th>
-          <th>Parašas</th>
-        </tr>
-      </thead>
-      <tbody>${liveRows}</tbody>
-    </table>
-    ` : ""}
-
-    ${remoteVoters.length > 0 ? `
-    <h3>${liveAttendees.length > 0 ? "2" : "1"}. Nuotoliniu būdu balsavę nariai (parašo nereikia)</h3>
-    <table class="attendees">
-      <thead>
-        <tr>
-          <th class="num">Nr.</th>
-          <th>Vardas, pavardė</th>
-          <th>Balso fiksavimo data ir laikas</th>
-        </tr>
-      </thead>
-      <tbody>${remoteRows}</tbody>
-    </table>
-    <p class="note">
-      Pagal Asociacijų įstatymo 16 str. ir bendruomenės įstatų 4.4 p., nuotoliniu
-      būdu balsavusių narių parašas nereikalaujamas. Jų dalyvavimas fiksuojamas
-      per elektroninio balsavimo įrodymą (SMS tokenas + balso registracijos laikas).
-    </p>
-    ` : ""}
-
-    ${writtenVoters.length > 0 ? `
-    <h3>${liveAttendees.length > 0 && remoteVoters.length > 0 ? "3" : liveAttendees.length > 0 || remoteVoters.length > 0 ? "2" : "1"}. Raštu balsavę nariai</h3>
-    <table class="attendees">
-      <thead>
-        <tr>
-          <th class="num">Nr.</th>
-          <th>Vardas, pavardė</th>
-          <th>Balso pateikimo data</th>
-        </tr>
-      </thead>
-      <tbody>${writtenRows}</tbody>
-    </table>
-    ` : ""}
-
-    ${!hasAnyAttendance ? `<div class="empty">Dalyvių sąrašas tuščias – susirinkimo metu jokio nario dalyvavimas dar neužfiksuotas.</div>` : ""}
-    `}
-
-    <div class="signatures">
-      <table>
-        <tr>
-          <td style="width:50%">
-            <div class="label">Susirinkimo pirmininkas:</div>
-            <div class="name-line">${meeting.chairperson_name || "(vardas, pavardė, parašas)"}</div>
-          </td>
-          <td style="width:50%">
-            <div class="label">Susirinkimo sekretorius:</div>
-            <div class="name-line">${meeting.secretary_name || "(vardas, pavardė, parašas)"}</div>
-          </td>
-        </tr>
-      </table>
-    </div>
-  </div>
+  ${sheets.join("\n")}
 
   <script>
-    // JS-based puslapių numeravimo fallback – kai kurie PDF generatoriai
-    // ignoruoja CSS @page counter rules. Čia print preview metu apskaičiuojam
-    // puslapių skaičių ir pridedam matomus žymeklius dokumento apačioje.
-    //
-    // Veikia kartu su CSS @bottom-center – jei browser palaiko, dubliuojasi
-    // (nedubliuojasi, nes CSS counter rodomas puslapio paraštėje, o JS žymeklis
-    // dokumento turinyje). Kad nesimaišytų, JS žymeklis rodomas tik ekrane
-    // (matomas peržiūrint, bet ne spausdinant).
     window.addEventListener('beforeprint', () => {
       document.title = 'Dalyviu sarasas ' + new Date().toISOString().slice(0,10);
     });

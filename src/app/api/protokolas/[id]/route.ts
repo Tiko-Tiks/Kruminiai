@@ -98,11 +98,13 @@ export async function GET(
        - Times New Roman 12pt, eilutė 1.5
        - Puslapių numeracija dešinėje viršuje (po 1-o)
        - Sectionai turi avoid page break inside */
-    /* @page margin = 0 – paraštes tvarkome per .page-container padding,
-       kad būtų garantuotos nepriklausomai nuo browser print dialog'o */
+    /* @page margin – LT raštvedybos standartas, taikomas KIEKVIENAM puslapiui
+       (kairė 30mm, dešinė 10mm, viršus 20mm, apačia 20mm). Browser engine
+       prideda margin'us automatiškai. .page-container padding pasitelkiamas
+       tik ekraniniam preview. */
     @page {
       size: A4 portrait;
-      margin: 0;
+      margin: 20mm 10mm 20mm 30mm;
       @bottom-center {
         content: "Puslapis " counter(page) " iš " counter(pages);
         font-family: 'Times New Roman', serif;
@@ -118,25 +120,24 @@ export async function GET(
       line-height: 1.5;
       color: #000;
     }
-    /* Paraštės VIENINTELIS šaltinis – .page-container padding (LT raštvedyba:
-       kairė 30mm, dešinė 10mm, viršus 20mm, apačia 20mm). Veikia ekrane ir
-       spausdinant nepriklausomai nuo browser nustatymų. */
-    .page-container {
-      padding: 20mm 10mm 20mm 30mm;
-      background: #fff;
-    }
+
     @media screen {
+      /* Ekrane atvaizduojam .page-container kaip A4 lapą su pilnais
+         paraštės tarpais – padding'as imituoja @page margin'us */
       body { background: #f3f4f6; padding: 20px 0; }
       .page-container {
         width: 210mm;
         min-height: 297mm;
+        padding: 20mm 10mm 20mm 30mm;
         margin: 0 auto;
-        box-shadow: 0 0 8px rgba(0,0,0,0.15);
+        background: #fff;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       }
     }
     @media print {
+      /* Spausdinant @page margin'ai veikia kiekvienam puslapiui */
       .page-container {
-        width: 100%;
+        padding: 0;
         margin: 0;
         box-shadow: none;
       }
