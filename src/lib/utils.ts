@@ -15,6 +15,22 @@ export function formatDateLong(date: string | Date): string {
   return format(new Date(date), "yyyy 'm.' MMMM d 'd.'", { locale: lt });
 }
 
+/**
+ * Formatuoja laiką HH:MM Europe/Vilnius zonoje.
+ *
+ * BŪTINA naudoti vietoj date.toLocaleTimeString("lt-LT", {...}) – Vercel
+ * serveris veikia UTC zonoje, todėl SSR rodytų UTC valandą (pvz. 15:00
+ * vietoj 18:00 Vilniaus laiku). Šis helper'is visada konvertuoja į
+ * Europe/Vilnius nepriklausomai nuo serverio zonos.
+ */
+export function formatTime(date: string | Date): string {
+  return new Date(date).toLocaleTimeString("lt-LT", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Vilnius",
+  });
+}
+
 export function formatCurrency(cents: number): string {
   return `${(cents / 100).toFixed(2)} €`;
 }

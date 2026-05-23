@@ -124,10 +124,7 @@ export default async function PortalMeetingDetailPage({
           <span className="flex items-center gap-1.5">
             <Calendar className="h-4 w-4" />
             {formatDateLong(meeting.meeting_date)}{" "}
-            {new Date(meeting.meeting_date).toLocaleTimeString("lt-LT", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+            {new Date(meeting.meeting_date).toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vilnius" })}
           </span>
           <span className="flex items-center gap-1.5">
             <MapPin className="h-4 w-4" />

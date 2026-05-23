@@ -61,10 +61,7 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
               <Calendar className="h-4 w-4" />
               {formatDateLong(meeting.meeting_date)}
               {" "}
-              {new Date(meeting.meeting_date).toLocaleTimeString("lt-LT", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {new Date(meeting.meeting_date).toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vilnius" })}
             </span>
             {meeting.location && (
               <span className="flex items-center gap-1.5">

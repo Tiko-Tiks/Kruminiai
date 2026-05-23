@@ -55,10 +55,7 @@ export default async function PortalVotingsPage() {
                       <span className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
                         {formatDateLong(m.meeting_date)}{" "}
-                        {new Date(m.meeting_date).toLocaleTimeString("lt-LT", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {new Date(m.meeting_date).toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vilnius" })}
                       </span>
                       <span className="flex items-center gap-1">
                         <MapPin className="h-4 w-4" />

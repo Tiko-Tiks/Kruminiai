@@ -215,10 +215,7 @@ export function VotingFlow({ token, data }: Props) {
             <Calendar className="h-5 w-5 text-green-700" />
             <span className="font-semibold">
               {formatDateLong(data.meeting.meeting_date)}{" "}
-              {new Date(data.meeting.meeting_date).toLocaleTimeString("lt-LT", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {new Date(data.meeting.meeting_date).toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vilnius" })}
             </span>
           </div>
           <div className="flex items-center justify-center gap-1.5">
@@ -427,10 +424,7 @@ function MeetingHeader({
         <span className="flex items-center gap-1.5">
           <Calendar className="h-5 w-5" />
           {formatDateLong(meeting.meeting_date)}{" "}
-          {new Date(meeting.meeting_date).toLocaleTimeString("lt-LT", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
+          {new Date(meeting.meeting_date).toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vilnius" })}
         </span>
         <span className="flex items-center gap-1.5">
           <MapPin className="h-5 w-5" />

@@ -24,7 +24,7 @@ export function MeetingForm({ meeting }: Props) {
 
   const dateValue = meeting ? new Date(meeting.meeting_date).toISOString().split("T")[0] : "";
   const timeValue = meeting
-    ? new Date(meeting.meeting_date).toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit" })
+    ? new Date(meeting.meeting_date).toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vilnius" })
     : "18:00";
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
