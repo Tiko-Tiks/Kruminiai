@@ -397,16 +397,19 @@ export async function GET(
     @media print {
       /* Spausdinant @page margin'ai veikia kiekvienam puslapiui.
          .sheet padding = 0, kad nesukurtume dvigubo margin'o.
-         Kiekvienas .sheet = atskiras puslapis (page-break-after). */
+         Page-break-after pridedam TIK TARP sheet'ų (ne po paskutinio,
+         kad nebūtų tuščio puslapio gale). :not(:last-of-type) veikia
+         korektiškai net jei po .sheet yra <script> tag'as. */
       body { background: #fff; }
       .sheet {
         padding: 0;
         margin: 0;
         box-shadow: none;
-        page-break-after: always;
         min-height: 0;
       }
-      .sheet:last-child { page-break-after: auto; }
+      .sheet:not(:last-of-type) {
+        page-break-after: always;
+      }
     }
 
     /* Puslapio numeravimo footer'is – server-side rendered į kiekvieną
