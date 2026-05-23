@@ -89,6 +89,14 @@ export function MeetingControls({ meeting }: { meeting: Meeting }) {
         </Button>
       )}
 
+      {/* Dalyvių sąrašas parašams – prieinamas visada (prieš ir po susirinkimo) */}
+      <Link href={`/api/dalyviu-sarasas/${meeting.id}`} target="_blank">
+        <Button size="sm" variant="outline">
+          <FileText className="h-4 w-4" />
+          Dalyvių sąrašas (parašams)
+        </Button>
+      </Link>
+
       {meeting.status === "baigtas" && (
         <Link href={`/api/protokolas/${meeting.id}`} target="_blank">
           <Button size="sm" variant="outline">
