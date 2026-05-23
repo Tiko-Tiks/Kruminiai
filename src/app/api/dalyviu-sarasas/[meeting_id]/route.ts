@@ -250,7 +250,7 @@ export async function GET(
     const pageNum = idx + 1;
     const sectionHeading = effectiveMode === "blank"
       ? `<h3>Gyvai dalyvaujantys nariai (pasirašo atvykę)</h3>`
-      : `<h3>${idx === 0 ? "1. " : ""}Gyvai dalyvavę nariai (parašai)${livePages.length > 1 ? ` <span class="cont">(tęsinys, p. ${pageNum})</span>` : ""}</h3>`;
+      : `<h3>${idx === 0 ? "1. " : ""}Gyvai dalyvavusių narių parašai${livePages.length > 1 ? ` <span class="cont">(tęsinys, p. ${pageNum})</span>` : ""}</h3>`;
 
     sheets.push(`
     <div class="sheet">
@@ -260,7 +260,7 @@ export async function GET(
         ${liveTableHeader}
         ${renderLiveRows(chunk, liveCounter)}
         ${liveTableFooter}
-      ` : (effectiveMode === "blank" ? "" : `<div class="empty">Gyvai dalyvavę nariai sąraše neužfiksuoti.</div>`)}
+      ` : (effectiveMode === "blank" ? "" : `<div class="empty">Gyvai dalyvavusių narių sąraše neužfiksuota.</div>`)}
       <div class="page-footer">Puslapis ${pageNum} iš ${totalPages}</div>
     </div>`);
     liveCounter += chunk.length;
@@ -356,21 +356,13 @@ export async function GET(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dalyvių sąrašas – ${meeting.title}</title>
   <style>
-    /* @page margin – paraštės VEIKIA KIEKVIENAM puslapiui (browser engine
-       jas pridės automatiškai). .sheet padding'as buvo blogas pasirinkimas
-       nes veikė tik pirmame puslapyje, antrame ir vėlesniuose tarpo
-       nebūdavo (content prasidėdavo nuo lapo viršaus).
-       Sąlyga: Chrome print dialog'e Margins turi būti „Default" (jei „None",
-       @page margin ignoruojamas). */
+    /* Kadangi server-side padalintame į atskirus .sheet div'us (vienas
+       sheet = vienas A4 puslapis), .sheet padding'as veikia kiekvienam
+       puslapiui korektiškai. Nereikia priklausyti nuo @page margin
+       (kurį Chrome ignoruoja jei dialog'e „Margins: None"). */
     @page {
       size: A4 portrait;
-      margin: 25mm 15mm 20mm 15mm;
-      @bottom-center {
-        content: "Puslapis " counter(page) " iš " counter(pages);
-        font-family: 'Times New Roman', serif;
-        font-size: 9pt;
-        color: #666;
-      }
+      margin: 0;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -381,28 +373,25 @@ export async function GET(
       color: #000;
     }
 
+    /* .sheet padding'as – paraštės VISUR (ekrane ir spausdinant) */
+    .sheet {
+      padding: 25mm 15mm 20mm 15mm;
+    }
+
     @media screen {
-      /* Ekrane atvaizduojam .sheet kaip A4 lapą su pilnais paraštės
-         tarpais – padding'as imituoja @page margin'us */
       body { background: #e5e7eb; padding: 30px 0 80px; }
       .sheet {
         width: 210mm;
         min-height: 297mm;
-        padding: 25mm 15mm 20mm 15mm;
         margin: 0 auto 24px;
         background: #fff;
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       }
     }
     @media print {
-      /* Spausdinant @page margin'ai veikia kiekvienam puslapiui.
-         .sheet padding = 0, kad nesukurtume dvigubo margin'o.
-         Page-break-after pridedam TIK TARP sheet'ų (ne po paskutinio,
-         kad nebūtų tuščio puslapio gale). :not(:last-of-type) veikia
-         korektiškai net jei po .sheet yra <script> tag'as. */
       body { background: #fff; }
       .sheet {
-        padding: 0;
+        width: 100%;
         margin: 0;
         box-shadow: none;
         min-height: 0;
