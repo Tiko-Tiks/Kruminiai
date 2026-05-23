@@ -14,6 +14,7 @@ import { ResolutionsList } from "./ResolutionsList";
 import { AttendanceManager } from "./AttendanceManager";
 import { AddResolutionForm } from "./AddResolutionForm";
 import { RemoteVotingPanel } from "./RemoteVotingPanel";
+import { MeetingDocumentsPanel } from "./MeetingDocumentsPanel";
 
 function statusVariant(status: string) {
   switch (status) {
@@ -88,6 +89,9 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
           </CardContent>
         </Card>
       )}
+
+      {/* Greitas dokumentų panelis – susirinkimo metu pirmininkui patogu */}
+      <MeetingDocumentsPanel resolutions={resolutions} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Resolutions - main content */}

@@ -8,9 +8,9 @@ import {
   detachDocumentFromResolution,
   uploadAndAttachDocument,
 } from "@/actions/voting";
-import { FileText, Plus, X, Upload } from "lucide-react";
+import { FileText, Plus, X, Upload, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
-import { formatFileSize } from "@/lib/utils";
+import { formatFileSize, getDocumentPublicUrl } from "@/lib/utils";
 import { Document } from "@/lib/types";
 
 interface AttachedDoc {
@@ -118,10 +118,19 @@ export function ResolutionDocuments({
             a.document ? (
               <li
                 key={a.id}
-                className="flex items-center gap-2 text-sm text-gray-700 bg-white px-2 py-1.5 rounded border border-gray-100"
+                className="flex items-center gap-2 text-sm bg-white px-2 py-1.5 rounded border border-gray-100"
               >
-                <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                <span className="flex-1 truncate">{a.document.title}</span>
+                <FileText className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                <a
+                  href={getDocumentPublicUrl(a.document.file_path)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 truncate text-blue-700 hover:text-blue-900 hover:underline font-medium"
+                  title="Atidaryti naujame lange"
+                >
+                  {a.document.title}
+                </a>
+                <ExternalLink className="h-3 w-3 text-gray-400 flex-shrink-0" />
                 {a.document.file_size && (
                   <span className="text-xs text-gray-400 flex-shrink-0">
                     {formatFileSize(a.document.file_size)}
