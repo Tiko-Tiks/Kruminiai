@@ -92,20 +92,11 @@ export async function GET(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Protokolas ${meeting.protocol_number || ""} - ${meeting.title}</title>
   <style>
-    /* Vieningas .page-container layout. Naršyklė pati paginuoja per
-       page-break-inside: avoid taisykles ant decision-item ir signatures.
-       Puslapių numeravimas per @page bottom-center.
-       Sąlyga: Chrome print dialog'e Margins = „Default", Headers OFF. */
-    @page {
-      size: A4 portrait;
-      margin: 20mm 10mm 20mm 30mm;
-      @bottom-center {
-        content: "Puslapis " counter(page) " iš " counter(pages);
-        font-family: 'Times New Roman', serif;
-        font-size: 9pt;
-        color: #666;
-      }
-    }
+    /* Multi-sheet layout: kiekvienas .sheet = 1 A4 puslapis.
+       LT raštvedybos paraštės: kairė 30mm, dešinė 10mm, viršus/apačia 20mm.
+       Flex column + margin-top: auto ant .page-footer pastumia footer'į
+       į sheet'o apačią (A4 apačią). */
+    @page { size: A4 portrait; margin: 0; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { background: #fff; }
     body {
@@ -115,23 +106,48 @@ export async function GET(
       color: #000;
     }
 
+    .sheet {
+      padding: 20mm 10mm 20mm 30mm;
+      display: flex;
+      flex-direction: column;
+    }
+    .sheet > .page-footer { margin-top: auto; }
+
     @media screen {
       body { background: #f3f4f6; padding: 20px 0; }
-      .page-container {
+      .sheet {
         width: 210mm;
-        min-height: 297mm;
-        padding: 20mm 10mm 20mm 30mm;
+        height: 297mm;
         margin: 0 auto 24px;
         background: #fff;
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       }
     }
     @media print {
-      .page-container {
-        padding: 0;
+      .sheet {
+        width: 100%;
+        height: 297mm;
         margin: 0;
-        background: #fff;
+        box-shadow: none;
       }
+      .sheet:not(:last-of-type) {
+        page-break-after: always;
+      }
+    }
+
+    .page-footer {
+      padding-top: 10pt;
+      border-top: 0.5pt solid #999;
+      text-align: center;
+      font-size: 10pt;
+      color: #555;
+    }
+    .cont {
+      font-size: 10pt;
+      font-weight: normal;
+      color: #888;
+      text-transform: none;
+      letter-spacing: 0;
     }
     .header {
       text-align: center;
@@ -240,94 +256,155 @@ export async function GET(
     <button onclick="window.print()">Spausdinti / PDF</button>
   </div>
 
-  <div class="page-container">
-    <div class="header">
-      <h1>${COMMUNITY_LEGAL.name.toUpperCase()}</h1>
-      <div class="subtitle">Juridinio asmens kodas: ${COMMUNITY_LEGAL.code}</div>
-      <div class="subtitle">Buveinė: ${COMMUNITY_LEGAL.address}</div>
-    </div>
+  ${(() => {
+    type Resolution = {
+      id: string;
+      resolution_number: number;
+      title: string;
+      is_procedural: boolean;
+      discussion_text: string | null;
+      result_for: number;
+      result_against: number;
+      result_abstain: number;
+      decision_text: string | null;
+    };
+    const resList = (resolutions || []) as Resolution[];
 
-    <div class="protocol-title">
-      <h2>VISUOTINIO NARIŲ SUSIRINKIMO PROTOKOLAS</h2>
-      ${meeting.protocol_number ? `<div class="nr">${meeting.protocol_number}</div>` : ""}
-      <div class="date">${meetingDate.toLocaleDateString("lt-LT", { year: "numeric", month: "long", day: "numeric", timeZone: "Europe/Vilnius" })}</div>
-      <div class="location">${meeting.location}</div>
-    </div>
-
-    <div class="info-block">
-      <p><span class="label">Susirinkimo pradžia:</span> ${meetingDate.toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vilnius" })} val.</p>
-      ${endDate ? `<p><span class="label">Susirinkimo pabaiga:</span> ${endDate.toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vilnius" })} val.</p>` : ""}
-      <p></p>
-      <p><span class="label">Bendras bendruomenės narių skaičius:</span> ${meeting.total_members_at_time}</p>
-      <p><span class="label">Susirinkime dalyvauja narių:</span> ${totalAttending}${attendanceSummaryParts.length > 0 ? ` (iš jų ${attendanceSummaryParts.join(", ")})` : ""}.</p>
-      <p><span class="label">Kvorumas:</span> ${hasQuorum ? "YRA" : "NĖRA"}${meeting.is_repeat ? " (pakartotinis susirinkimas)" : ""}.</p>
-    </div>
-
-    <div class="agenda">
-      <h3>SUSIRINKIMO DARBOTVARKĖ:</h3>
-      <ol>
-        ${(resolutions || []).map((r: { title: string }) => `<li>${r.title}.</li>`).join("\n        ")}
-      </ol>
-    </div>
-
-    <div class="decisions">
-      <h3>SVARSTYTA IR NUTARTA:</h3>
-      ${(resolutions || []).map((r: {
-        id: string;
-        resolution_number: number;
-        title: string;
-        is_procedural: boolean;
-        discussion_text: string | null;
-        result_for: number;
-        result_against: number;
-        result_abstain: number;
-        decision_text: string | null;
-      }) => {
-        const remote = remoteByResolution.get(r.id) || { uz: 0, pries: 0, susilaike: 0 };
-        const liveUz = r.result_for - remote.uz;
-        const livePries = r.result_against - remote.pries;
-        const liveSusilaike = r.result_abstain - remote.susilaike;
-        const totalVotes = r.result_for + r.result_against + r.result_abstain;
-        const showBreakdown = !r.is_procedural && (remote.uz + remote.pries + remote.susilaike) > 0;
-        const balsavoLine = showBreakdown
-          ? `<span class="balsavo">BALSAVO:</span> iš viso <strong>${totalVotes}</strong> (gyvai ${liveUz + livePries + liveSusilaike}, nuotoliu ${remote.uz + remote.pries + remote.susilaike}). UŽ: <strong>${r.result_for}</strong> (gyvai ${liveUz} + nuotoliu ${remote.uz}), PRIEŠ: <strong>${r.result_against}</strong> (gyvai ${livePries} + nuotoliu ${remote.pries}), SUSILAIKĖ: <strong>${r.result_abstain}</strong> (gyvai ${liveSusilaike} + nuotoliu ${remote.susilaike}).`
-          : `<span class="balsavo">BALSAVO:</span> iš viso <strong>${totalVotes}</strong>. UŽ: <strong>${r.result_for}</strong>, PRIEŠ: <strong>${r.result_against}</strong>, SUSILAIKĖ: <strong>${r.result_abstain}</strong>.`;
-        return `
+    const renderDecision = (r: Resolution) => {
+      const remote = remoteByResolution.get(r.id) || { uz: 0, pries: 0, susilaike: 0 };
+      const liveUz = r.result_for - remote.uz;
+      const livePries = r.result_against - remote.pries;
+      const liveSusilaike = r.result_abstain - remote.susilaike;
+      const totalVotes = r.result_for + r.result_against + r.result_abstain;
+      const showBreakdown = !r.is_procedural && (remote.uz + remote.pries + remote.susilaike) > 0;
+      const balsavoLine = showBreakdown
+        ? `<span class="balsavo">BALSAVO:</span> iš viso <strong>${totalVotes}</strong> (gyvai ${liveUz + livePries + liveSusilaike}, nuotoliu ${remote.uz + remote.pries + remote.susilaike}). UŽ: <strong>${r.result_for}</strong> (gyvai ${liveUz} + nuotoliu ${remote.uz}), PRIEŠ: <strong>${r.result_against}</strong> (gyvai ${livePries} + nuotoliu ${remote.pries}), SUSILAIKĖ: <strong>${r.result_abstain}</strong> (gyvai ${liveSusilaike} + nuotoliu ${remote.susilaike}).`
+        : `<span class="balsavo">BALSAVO:</span> iš viso <strong>${totalVotes}</strong>. UŽ: <strong>${r.result_for}</strong>, PRIEŠ: <strong>${r.result_against}</strong>, SUSILAIKĖ: <strong>${r.result_abstain}</strong>.`;
+      return `
       <div class="decision-item">
         <p><span class="number">${r.resolution_number}.</span> <span class="svarstyta">SVARSTYTA:</span> ${r.title}.</p>
         ${r.discussion_text ? `<p>${r.discussion_text}</p>` : ""}
         <p>${balsavoLine}</p>
         ${r.decision_text ? `<p><span class="nutarta">NUTARTA:</span> ${r.decision_text}</p>` : ""}
       </div>`;
-      }).join("\n")}
-    </div>
+    };
 
-    <p class="closing">Daugiau klausimų darbotvarkėje nebuvo, susirinkimas baigtas.</p>
+    // Padalinam nutarimus į puslapius. Kiekvienas decision-item ~30mm,
+    // sheet capacity (be cover'io): 252-30(h3)-25(footer) = 197mm → 6 decisions
+    // saugiai. Paskutinis sheet'as su closing turi mažesnę capacity:
+    // (197-100mm closing) / 30mm = ~3 decisions.
+    const DECISIONS_PER_PAGE = 6;
+    const MAX_DECISIONS_WITH_CLOSING = 3;
 
-    <div class="attachments">
-      <h4>PRIDEDAMA:</h4>
-      <ol>
-        <li>Susirinkimo dalyvių registracijos sąrašas.</li>
-      </ol>
-    </div>
+    const decisionsPages: Resolution[][] = [];
+    const remaining = [...resList];
+    while (remaining.length > 0) {
+      decisionsPages.push(remaining.splice(0, DECISIONS_PER_PAGE));
+    }
 
-    <div class="signatures">
-      <table style="width:100%">
-        <tr>
-          <td style="width:50%;padding:20pt 0">
-            <p>Susirinkimo pirmininkas:</p>
-            <br><br>
-            <p>${meeting.chairperson_name || "___________________"}</p>
-          </td>
-          <td style="width:50%;padding:20pt 0">
-            <p>Susirinkimo sekretorius:</p>
-            <br><br>
-            <p>${meeting.secretary_name || "___________________"}</p>
-          </td>
-        </tr>
-      </table>
-    </div>
-  </div>
+    // Jei paskutinis puslapis turi mažai nutarimų – pridedam closing
+    // į tą patį sheet'ą. Kitu atveju – atskira closing sheet'a.
+    const lastPageHasCount = decisionsPages.length > 0 ? decisionsPages[decisionsPages.length - 1].length : 0;
+    const closingOnLastDecisionPage = lastPageHasCount > 0 && lastPageHasCount <= MAX_DECISIONS_WITH_CLOSING;
+
+    const totalPages = 1 + decisionsPages.length + (closingOnLastDecisionPage ? 0 : 1);
+
+    const coverContent = `
+      <div class="header">
+        <h1>${COMMUNITY_LEGAL.name.toUpperCase()}</h1>
+        <div class="subtitle">Juridinio asmens kodas: ${COMMUNITY_LEGAL.code}</div>
+        <div class="subtitle">Buveinė: ${COMMUNITY_LEGAL.address}</div>
+      </div>
+      <div class="protocol-title">
+        <h2>VISUOTINIO NARIŲ SUSIRINKIMO PROTOKOLAS</h2>
+        ${meeting.protocol_number ? `<div class="nr">${meeting.protocol_number}</div>` : ""}
+        <div class="date">${meetingDate.toLocaleDateString("lt-LT", { year: "numeric", month: "long", day: "numeric", timeZone: "Europe/Vilnius" })}</div>
+        <div class="location">${meeting.location}</div>
+      </div>
+      <div class="info-block">
+        <p><span class="label">Susirinkimo pradžia:</span> ${meetingDate.toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vilnius" })} val.</p>
+        ${endDate ? `<p><span class="label">Susirinkimo pabaiga:</span> ${endDate.toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vilnius" })} val.</p>` : ""}
+        <p></p>
+        <p><span class="label">Bendras bendruomenės narių skaičius:</span> ${meeting.total_members_at_time}</p>
+        <p><span class="label">Susirinkime dalyvauja narių:</span> ${totalAttending}${attendanceSummaryParts.length > 0 ? ` (iš jų ${attendanceSummaryParts.join(", ")})` : ""}.</p>
+        <p><span class="label">Kvorumas:</span> ${hasQuorum ? "YRA" : "NĖRA"}${meeting.is_repeat ? " (pakartotinis susirinkimas)" : ""}.</p>
+      </div>
+      <div class="agenda">
+        <h3>SUSIRINKIMO DARBOTVARKĖ:</h3>
+        <ol>
+          ${resList.map((r) => `<li>${r.title}.</li>`).join("\n        ")}
+        </ol>
+      </div>
+    `;
+
+    const closingContent = `
+      <p class="closing">Daugiau klausimų darbotvarkėje nebuvo, susirinkimas baigtas.</p>
+      <div class="attachments">
+        <h4>PRIDEDAMA:</h4>
+        <ol>
+          <li>Susirinkimo dalyvių registracijos sąrašas.</li>
+        </ol>
+      </div>
+      <div class="signatures">
+        <table style="width:100%">
+          <tr>
+            <td style="width:50%;padding:16pt 0">
+              <p>Susirinkimo pirmininkas:</p>
+              <br><br>
+              <p>${meeting.chairperson_name || "___________________"}</p>
+            </td>
+            <td style="width:50%;padding:16pt 0">
+              <p>Susirinkimo sekretorius:</p>
+              <br><br>
+              <p>${meeting.secretary_name || "___________________"}</p>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `;
+
+    const sheets: string[] = [];
+    let pageNum = 1;
+
+    // Sheet 1: cover (doc header + protocol title + meeting info + agenda)
+    sheets.push(`
+    <div class="sheet">
+      ${coverContent}
+      <div class="page-footer">Puslapis ${pageNum} iš ${totalPages}</div>
+    </div>`);
+    pageNum++;
+
+    // Sheets 2 to N: decisions chunked
+    decisionsPages.forEach((chunk, idx) => {
+      const isFirstDecisionPage = idx === 0;
+      const isLastDecisionPage = idx === decisionsPages.length - 1;
+      const includeClosing = isLastDecisionPage && closingOnLastDecisionPage;
+      const decisionsHeading = isFirstDecisionPage
+        ? `<h3>SVARSTYTA IR NUTARTA:</h3>`
+        : `<h3>SVARSTYTA IR NUTARTA: <span class="cont">(tęsinys, p. ${pageNum})</span></h3>`;
+      sheets.push(`
+    <div class="sheet">
+      <div class="decisions">
+        ${decisionsHeading}
+        ${chunk.map(renderDecision).join("\n")}
+      </div>
+      ${includeClosing ? closingContent : ""}
+      <div class="page-footer">Puslapis ${pageNum} iš ${totalPages}</div>
+    </div>`);
+      pageNum++;
+    });
+
+    // Sheet N+1: closing (jei netilpo į paskutinį decisions puslapį)
+    if (!closingOnLastDecisionPage) {
+      sheets.push(`
+    <div class="sheet">
+      ${closingContent}
+      <div class="page-footer">Puslapis ${pageNum} iš ${totalPages}</div>
+    </div>`);
+    }
+
+    return sheets.join("\n");
+  })()}
 </body>
 </html>`;
 
