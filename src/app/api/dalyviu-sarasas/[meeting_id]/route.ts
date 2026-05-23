@@ -373,9 +373,16 @@ export async function GET(
       color: #000;
     }
 
-    /* .sheet padding'as – paraštės VISUR (ekrane ir spausdinant) */
+    /* .sheet = vienas A4 puslapis. Flexbox layout užtikrina, kad footer'is
+       („Puslapis X iš Y") visada būtų puslapio apačioje, nesvarbu kiek
+       eilučių turi content'as. */
     .sheet {
       padding: 25mm 15mm 20mm 15mm;
+      display: flex;
+      flex-direction: column;
+    }
+    .sheet > .page-footer {
+      margin-top: auto;
     }
 
     @media screen {
@@ -392,9 +399,9 @@ export async function GET(
       body { background: #fff; }
       .sheet {
         width: 100%;
+        min-height: 297mm;
         margin: 0;
         box-shadow: none;
-        min-height: 0;
       }
       .sheet:not(:last-of-type) {
         page-break-after: always;
