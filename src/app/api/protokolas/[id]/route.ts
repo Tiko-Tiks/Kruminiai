@@ -206,9 +206,15 @@ export async function GET(
       page-break-inside: avoid;
     }
     .decision-item .number { font-weight: bold; }
-    .decision-item .svarstyta,
-    .decision-item .balsavo,
-    .decision-item .nutarta { font-weight: bold; }
+    .decision-item .svarstyta { font-weight: bold; text-transform: uppercase; }
+    .decision-item .nutarta { font-weight: bold; text-transform: uppercase; color: #0f3d20; }
+    .decision-item .balsavo { font-weight: bold; text-transform: uppercase; }
+    .decision-item .discussion {
+      margin-left: 14pt;
+      font-style: italic;
+      color: #444;
+    }
+    .decision-item p { margin-bottom: 4pt; }
 
     .signatures {
       margin-top: 30pt;
@@ -262,6 +268,8 @@ export async function GET(
       resolution_number: number;
       title: string;
       is_procedural: boolean;
+      procedural_type: string | null;
+      status: string;
       discussion_text: string | null;
       result_for: number;
       result_against: number;
@@ -270,22 +278,58 @@ export async function GET(
     };
     const resList = (resolutions || []) as Resolution[];
 
+    /**
+     * Sugeneruoja NUTARTA teksto eilutę pagal LR raštvedybos standartą.
+     * Naudoja decision_text iš DB, jei pateiktas. Kitu atveju auto-generuoja
+     * pagal nutarimo tipą ir balsavimo statusą.
+     */
+    const getNutartaText = (r: Resolution): string => {
+      if (r.decision_text && r.decision_text.trim()) return r.decision_text;
+
+      // Procedūrinis #1: pirmininko ir sekretoriaus rinkimai
+      if (r.procedural_type === "pirmininkas_sekretorius") {
+        if (r.status !== "patvirtintas") return "Pirmininko ir sekretoriaus rinkimams nepritarta.";
+        const ch = meeting.chairperson_name || "—";
+        const sec = meeting.secretary_name || "—";
+        return `Susirinkimo pirmininku išrinktas ${ch}, sekretoriumi – ${sec}.`;
+      }
+
+      // Procedūrinis #2: darbotvarkės tvirtinimas
+      if (r.procedural_type === "darbotvarke") {
+        return r.status === "patvirtintas"
+          ? "Susirinkimo darbotvarkė patvirtinta."
+          : "Susirinkimo darbotvarkei nepritarta.";
+      }
+
+      // Standartiniai – pagal pavadinimo raktažodžius
+      const title = r.title.toLowerCase();
+      if (r.status === "patvirtintas") {
+        if (title.includes("veiklos ataskait")) return "Patvirtinta veiklos ataskaita.";
+        if (title.includes("finansin") && title.includes("ataskait")) return "Patvirtintas finansinių ataskaitų rinkinys.";
+        if (title.includes("pavedim") && title.includes("registr")) return "Pavesta pirmininkui pateikti ataskaitas Registrų centrui.";
+        if (title.includes("veiklos plan")) return "Patvirtinti veiklos planai.";
+        if (title.includes("šalinim")) return "Pritarta Tarybos siūlymui dėl nemokių narių šalinimo.";
+        if (title.includes("rinkim")) return "Pritarta pasirengimui rinkimams.";
+        return `${r.title} – pritarta.`;
+      }
+      if (r.status === "atmestas") return `${r.title} – nepritarta.`;
+      return "—";
+    };
+
     const renderDecision = (r: Resolution) => {
-      const remote = remoteByResolution.get(r.id) || { uz: 0, pries: 0, susilaike: 0 };
-      const liveUz = r.result_for - remote.uz;
-      const livePries = r.result_against - remote.pries;
-      const liveSusilaike = r.result_abstain - remote.susilaike;
       const totalVotes = r.result_for + r.result_against + r.result_abstain;
-      const showBreakdown = !r.is_procedural && (remote.uz + remote.pries + remote.susilaike) > 0;
-      const balsavoLine = showBreakdown
-        ? `<span class="balsavo">BALSAVO:</span> iš viso <strong>${totalVotes}</strong> (gyvai ${liveUz + livePries + liveSusilaike}, nuotoliu ${remote.uz + remote.pries + remote.susilaike}). UŽ: <strong>${r.result_for}</strong> (gyvai ${liveUz} + nuotoliu ${remote.uz}), PRIEŠ: <strong>${r.result_against}</strong> (gyvai ${livePries} + nuotoliu ${remote.pries}), SUSILAIKĖ: <strong>${r.result_abstain}</strong> (gyvai ${liveSusilaike} + nuotoliu ${remote.susilaike}).`
-        : `<span class="balsavo">BALSAVO:</span> iš viso <strong>${totalVotes}</strong>. UŽ: <strong>${r.result_for}</strong>, PRIEŠ: <strong>${r.result_against}</strong>, SUSILAIKĖ: <strong>${r.result_abstain}</strong>.`;
+      const nutarta = getNutartaText(r);
+      // BALSAVO – paprastas formatas pagal LR CK 2.90–2.92 str. ir
+      // oficialų protokolo pavyzdį (be gyvai/nuotoliu skaidymo).
+      const balsavoLine = totalVotes > 0
+        ? `<span class="balsavo">BALSAVO:</span> UŽ <strong>${r.result_for}</strong>, PRIEŠ <strong>${r.result_against}</strong>, SUSILAIKĖ <strong>${r.result_abstain}</strong>.`
+        : `<span class="balsavo">BALSAVO:</span> nebalsuota.`;
       return `
       <div class="decision-item">
-        <p><span class="number">${r.resolution_number}.</span> <span class="svarstyta">SVARSTYTA:</span> ${r.title}.</p>
-        ${r.discussion_text ? `<p>${r.discussion_text}</p>` : ""}
+        <p><strong>${r.resolution_number}. <span class="svarstyta">SVARSTYTA:</span></strong> ${r.title}.</p>
+        ${r.discussion_text ? `<p class="discussion">${r.discussion_text}</p>` : ""}
+        <p><strong><span class="nutarta">NUTARTA:</span></strong> ${nutarta}</p>
         <p>${balsavoLine}</p>
-        ${r.decision_text ? `<p><span class="nutarta">NUTARTA:</span> ${r.decision_text}</p>` : ""}
       </div>`;
     };
 
