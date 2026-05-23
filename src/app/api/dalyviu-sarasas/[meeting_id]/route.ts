@@ -5,16 +5,23 @@ import { COMMUNITY_LEGAL } from "@/lib/constants";
 /**
  * Dalyvių registracijos sąrašas – A4 priedo dokumentas prie protokolo.
  *
- * Pagal Asociacijų įstatymą + bendruomenės įstatų 4.4 p.:
- * • GYVAI dalyvaujantys nariai – pasirašo dalyvių sąraše (parašų lapas)
- * • NUOTOLINIU būdu balsavę nariai – NEPASIRAŠO; jų dalyvavimas
- *   fiksuojamas per SMS tokeno voted_at timestamp + balsavimo įrodymą
- * • RAŠTU balsavę – fiksuojami kaip atskira kategorija
+ * Du režimai:
+ * • Default (signed) – po susirinkimo. Rodo TIK realiai dalyvavusius
+ *   narius iš meeting_attendance ir SMS tokenų su voted_at. Naudojamas
+ *   kaip oficialus priedas prie protokolo.
+ * • ?mode=blank – prieš susirinkimą. Rodo visus aktyvius+pasyvius narius
+ *   su tuščiomis parašo skiltimis. Naudojamas spausdinti tuščią lapą
+ *   prie durų pasirašyti atvykus.
  *
- * Šis dokumentas pateikia VISAS tris kategorijas atskirose sekcijose.
+ * Auto-fallback: jei meeting_attendance tuščia ir nėra balsavusių
+ * nuotoliu, automatiškai grįžtam į blank režimą.
+ *
+ * Teisinis pagrindas (Asociacijų įstatymo 16 str., įstatų 4.4 p.):
+ * nuotoliniu būdu balsavę nariai NEPASIRAŠO – jų dalyvavimas fiksuojamas
+ * per balsavimo įrodymą (SMS tokenas + voted_at timestamp).
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { meeting_id: string } }
 ) {
   const supabase = createServerSupabaseClient();
@@ -24,75 +31,95 @@ export async function GET(
     return NextResponse.json({ error: "Neautorizuotas" }, { status: 401 });
   }
 
+  const url = new URL(request.url);
+  const mode = url.searchParams.get("mode") || "auto";
+
   const { data: meeting } = await supabase
     .from("meetings")
-    .select("id, title, meeting_date, location, total_members_at_time, quorum_required, is_repeat")
+    .select("id, title, meeting_date, location, total_members_at_time, quorum_required, is_repeat, status, protocol_number, chairperson_name, secretary_name")
     .eq("id", params.meeting_id)
     .single();
   if (!meeting) {
     return NextResponse.json({ error: "Susirinkimas nerastas" }, { status: 404 });
   }
 
-  // Visi aktyvūs + pasyvūs nariai (potencialūs dalyviai)
-  const { data: members } = await supabase
-    .from("members")
-    .select("id, first_name, last_name, status")
-    .in("status", ["aktyvus", "pasyvus"])
-    .order("last_name")
-    .order("first_name");
+  // ===== Surenkam visus dalyvavimo įrašus =====
+  const { data: attendance } = await supabase
+    .from("meeting_attendance")
+    .select("member_id, attendance_type, registered_at, member:members(id, first_name, last_name, status)")
+    .eq("meeting_id", params.meeting_id)
+    .order("registered_at");
 
-  // Nuotoliniu būdu jau balsavę – iš SMS tokenų
   const { data: votedTokens } = await supabase
     .from("meeting_voting_tokens")
-    .select("member_id, voted_at")
+    .select("member_id, voted_at, member:members(id, first_name, last_name, status)")
     .eq("meeting_id", params.meeting_id)
     .not("voted_at", "is", null);
 
-  const remoteVotedMap = new Map<string, string>();
-  for (const t of votedTokens || []) {
-    if (t.member_id && t.voted_at) {
-      remoteVotedMap.set(t.member_id as string, t.voted_at as string);
-    }
-  }
+  type AttendeeRow = {
+    id: string;
+    first_name: string;
+    last_name: string;
+    status: string;
+    voted_at?: string;
+    type?: string;
+  };
 
-  // Pridėti registruotus dalyvius (admin gali rankomis pridėti nuotoliu/raštu)
-  const { data: attendance } = await supabase
-    .from("meeting_attendance")
-    .select("member_id, attendance_type, registered_at")
-    .eq("meeting_id", params.meeting_id);
+  const liveAttendees: AttendeeRow[] = [];
+  const remoteVoters: AttendeeRow[] = [];
+  const writtenVoters: AttendeeRow[] = [];
 
-  const attendanceMap = new Map<string, { type: string; at: string }>();
+  // Iš meeting_attendance
+  const seenIds = new Set<string>();
   for (const a of attendance || []) {
-    if (a.member_id) {
-      attendanceMap.set(a.member_id as string, {
-        type: a.attendance_type as string,
-        at: a.registered_at as string,
-      });
-    }
+    const m = (Array.isArray(a.member) ? a.member[0] : a.member) as
+      | { id: string; first_name: string; last_name: string; status: string }
+      | null;
+    if (!m || seenIds.has(m.id)) continue;
+    seenIds.add(m.id);
+    const row: AttendeeRow = { ...m, type: a.attendance_type as string };
+    if (a.attendance_type === "fizinis") liveAttendees.push(row);
+    else if (a.attendance_type === "nuotolinis") remoteVoters.push({ ...row, voted_at: a.registered_at as string });
+    else if (a.attendance_type === "rastu") writtenVoters.push({ ...row, voted_at: a.registered_at as string });
   }
 
-  // Dvi listės:
-  // 1) Gyvai dalyvaujantys (parašui) – visi, kas NEbalsavo nuotoliu ir NEra
-  //    pažymėti kaip raštu
-  // 2) Nuotoliu jau balsavę – su voting timestamp
-  type Member = { id: string; first_name: string; last_name: string; status: string };
-  const liveAttendees: Member[] = [];
-  const remoteVoters: (Member & { voted_at: string })[] = [];
-  const writtenVoters: (Member & { voted_at: string })[] = [];
+  // Iš SMS tokenų (jei dar neįtraukta į meeting_attendance)
+  for (const t of votedTokens || []) {
+    const m = (Array.isArray(t.member) ? t.member[0] : t.member) as
+      | { id: string; first_name: string; last_name: string; status: string }
+      | null;
+    if (!m || seenIds.has(m.id)) continue;
+    seenIds.add(m.id);
+    remoteVoters.push({ ...m, voted_at: t.voted_at as string });
+  }
 
-  for (const m of (members || []) as Member[]) {
-    const remoteVoteAt = remoteVotedMap.get(m.id);
-    const att = attendanceMap.get(m.id);
+  // Surūšiuojam pagal pavardę
+  const sortByLastName = (a: AttendeeRow, b: AttendeeRow) =>
+    a.last_name.localeCompare(b.last_name, "lt") ||
+    a.first_name.localeCompare(b.first_name, "lt");
+  liveAttendees.sort(sortByLastName);
+  remoteVoters.sort(sortByLastName);
+  writtenVoters.sort(sortByLastName);
 
-    if (remoteVoteAt) {
-      remoteVoters.push({ ...m, voted_at: remoteVoteAt });
-    } else if (att?.type === "nuotolinis") {
-      remoteVoters.push({ ...m, voted_at: att.at });
-    } else if (att?.type === "rastu") {
-      writtenVoters.push({ ...m, voted_at: att.at });
-    } else {
-      liveAttendees.push(m);
-    }
+  const hasAnyAttendance =
+    liveAttendees.length + remoteVoters.length + writtenVoters.length > 0;
+
+  // Auto-fallback į blank, jei dar niekas neregistruotas ir nepasirinkta signed
+  const effectiveMode =
+    mode === "blank" ? "blank" :
+    mode === "signed" ? "signed" :
+    hasAnyAttendance ? "signed" : "blank";
+
+  // Jei blank režimas – ištraukiam visus aktyvius+pasyvius narius
+  let blankList: AttendeeRow[] = [];
+  if (effectiveMode === "blank") {
+    const { data: members } = await supabase
+      .from("members")
+      .select("id, first_name, last_name, status")
+      .in("status", ["aktyvus", "pasyvus"])
+      .order("last_name")
+      .order("first_name");
+    blankList = (members || []) as AttendeeRow[];
   }
 
   const meetingDate = new Date(meeting.meeting_date);
@@ -118,7 +145,12 @@ export async function GET(
       timeZone: "Europe/Vilnius",
     });
 
-  const liveRows = liveAttendees.map((m, i) => `
+  const totalActual = liveAttendees.length + remoteVoters.length + writtenVoters.length;
+  const hasQuorum = meeting.is_repeat || totalActual >= meeting.quorum_required;
+
+  // ===== HTML komponentai =====
+  const liveRows = (effectiveMode === "blank" ? blankList : liveAttendees)
+    .map((m, i) => `
     <tr>
       <td class="num">${i + 1}.</td>
       <td class="name">${m.first_name} ${m.last_name}${m.status === "pasyvus" ? ' <span class="pasyvus">(pasyvus)</span>' : ""}</td>
@@ -129,17 +161,15 @@ export async function GET(
     <tr>
       <td class="num">${i + 1}.</td>
       <td class="name">${m.first_name} ${m.last_name}${m.status === "pasyvus" ? ' <span class="pasyvus">(pasyvus)</span>' : ""}</td>
-      <td class="vote-time">${fmtVoteTime(m.voted_at)}</td>
+      <td class="vote-time">${m.voted_at ? fmtVoteTime(m.voted_at) : "—"}</td>
     </tr>`).join("");
 
   const writtenRows = writtenVoters.map((m, i) => `
     <tr>
       <td class="num">${i + 1}.</td>
       <td class="name">${m.first_name} ${m.last_name}${m.status === "pasyvus" ? ' <span class="pasyvus">(pasyvus)</span>' : ""}</td>
-      <td class="vote-time">${fmtVoteTime(m.voted_at)}</td>
+      <td class="vote-time">${m.voted_at ? fmtVoteTime(m.voted_at) : "—"}</td>
     </tr>`).join("");
-
-  const totalParticipating = remoteVoters.length + writtenVoters.length + 0; // gyvai prisidės pasirašymo metu
 
   const html = `<!DOCTYPE html>
 <html lang="lt">
@@ -148,7 +178,6 @@ export async function GET(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dalyvių sąrašas – ${meeting.title}</title>
   <style>
-    /* ============== CSS Paged Media – A4 portrait ============== */
     @page {
       size: A4 portrait;
       margin: 15mm;
@@ -168,9 +197,8 @@ export async function GET(
       color: #000;
     }
 
-    /* Ekrane – atvaizduojam tarsi A4 lapas, su šešėliu */
     @media screen {
-      body { background: #f3f4f6; padding: 20px 0; }
+      body { background: #f3f4f6; padding: 20px 0 80px; }
       .sheet {
         width: 210mm;
         min-height: 297mm;
@@ -180,7 +208,6 @@ export async function GET(
         box-shadow: 0 0 8px rgba(0,0,0,0.1);
       }
     }
-    /* Spausdinant – body užima visą @page printable area, jokio papildomo padding */
     @media print {
       body { background: #fff; }
       .sheet {
@@ -191,13 +218,21 @@ export async function GET(
       }
     }
 
+    .doc-label {
+      font-size: 9pt;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #666;
+      text-align: right;
+      margin-bottom: 6pt;
+    }
     .header {
       text-align: center;
       margin-bottom: 10pt;
       padding-bottom: 8pt;
       border-bottom: 0.75pt solid #000;
     }
-    .header h1 { font-size: 12pt; font-weight: bold; margin-bottom: 2pt; }
+    .header h1 { font-size: 12pt; font-weight: bold; margin-bottom: 2pt; letter-spacing: 0.02em; }
     .header .subtitle { font-size: 10pt; color: #222; }
 
     h2 {
@@ -209,13 +244,13 @@ export async function GET(
       letter-spacing: 0.02em;
     }
     h3 {
-      font-size: 11.5pt;
+      font-size: 11pt;
       font-weight: bold;
       margin: 14pt 0 6pt;
       padding-bottom: 3pt;
       border-bottom: 0.5pt solid #888;
+      page-break-after: avoid;
     }
-
     .meta {
       text-align: center;
       font-size: 10.5pt;
@@ -223,10 +258,16 @@ export async function GET(
     }
     .meta .line { margin-bottom: 2pt; }
     .meta .quorum-info {
-      margin-top: 6pt;
+      margin-top: 8pt;
+      padding: 6pt 10pt;
+      background: #f9fafb;
+      border: 0.5pt solid #d1d5db;
+      border-radius: 4pt;
       font-size: 10pt;
-      color: #333;
+      display: inline-block;
     }
+    .meta .quorum-info.has { background: #f0fdf4; border-color: #86efac; }
+    .meta .quorum-info.no { background: #fef2f2; border-color: #fca5a5; }
 
     table.attendees {
       width: 100%;
@@ -234,9 +275,7 @@ export async function GET(
       font-size: 10.5pt;
       table-layout: fixed;
     }
-    table.attendees thead {
-      display: table-header-group; /* header kartojasi kiekviename puslapyje */
-    }
+    table.attendees thead { display: table-header-group; }
     table.attendees th {
       border: 0.5pt solid #000;
       padding: 5pt 4pt;
@@ -256,7 +295,7 @@ export async function GET(
     table.attendees td.num { width: 10mm; text-align: center; color: #555; font-size: 9.5pt; }
     table.attendees td.name { width: auto; }
     table.attendees td.signature { width: 70mm; height: 16pt; }
-    table.attendees td.vote-time { width: 50mm; font-size: 9.5pt; color: #444; }
+    table.attendees td.vote-time { width: 45mm; font-size: 9.5pt; color: #444; }
     .pasyvus { font-size: 9pt; color: #888; font-style: italic; }
 
     .note {
@@ -283,33 +322,81 @@ export async function GET(
       color: #555;
     }
 
-    /* Spausdinimo mygtukai */
+    .empty {
+      text-align: center;
+      color: #666;
+      font-style: italic;
+      padding: 16pt;
+      background: #f9fafb;
+      border: 0.5pt dashed #888;
+      border-radius: 4pt;
+    }
+
+    /* JS-based puslapių numeravimo fallback (jei @page counter ignoruojamas) */
+    .js-page-footer {
+      display: none; /* matomas tik spausdinant per JS */
+    }
+
+    /* Toolbar (matomas tik ekrane) */
     .toolbar {
       position: fixed;
       top: 20px;
       right: 20px;
       z-index: 100;
+      display: flex;
+      gap: 8px;
     }
-    .toolbar button {
+    .toolbar button, .toolbar a {
       background: #15803d;
       color: white;
       border: none;
-      padding: 10px 20px;
+      padding: 10px 18px;
       border-radius: 8px;
       cursor: pointer;
       font-family: Arial, sans-serif;
-      font-size: 14px;
+      font-size: 13px;
+      text-decoration: none;
+      display: inline-block;
     }
-    .toolbar button:hover { background: #166534; }
-    @media print { .toolbar { display: none; } }
+    .toolbar button:hover, .toolbar a:hover { background: #166534; }
+    .toolbar .alt { background: #475569; }
+    .toolbar .alt:hover { background: #334155; }
+    .print-hint {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fef3c7;
+      border: 1px solid #fcd34d;
+      color: #92400e;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      z-index: 100;
+      max-width: 600px;
+      text-align: center;
+    }
+    @media print {
+      .toolbar, .print-hint { display: none; }
+    }
   </style>
 </head>
 <body>
   <div class="toolbar">
     <button onclick="window.print()">Spausdinti</button>
+    <a href="?mode=${effectiveMode === "blank" ? "signed" : "blank"}" class="alt">
+      ${effectiveMode === "blank" ? "Rodyti faktinį" : "Rodyti tuščią lapą"}
+    </a>
+  </div>
+  <div class="print-hint">
+    💡 Spausdinant pasirinkite: Paper size = A4, Margins = Default, Headers and footers = Off
   </div>
 
   <div class="sheet">
+    <div class="doc-label">
+      ${meeting.protocol_number ? `Priedas prie protokolo ${meeting.protocol_number}` : "Susirinkimo dalyvių sąrašas (priedas prie protokolo)"}
+    </div>
     <div class="header">
       <h1>${COMMUNITY_LEGAL.name.toUpperCase()}</h1>
       <div class="subtitle">Juridinio asmens kodas: ${COMMUNITY_LEGAL.code}</div>
@@ -321,17 +408,24 @@ export async function GET(
       <div class="line"><strong>${meeting.title}</strong></div>
       <div class="line">${dateStr}, ${timeStr} val.</div>
       <div class="line">${meeting.location}</div>
+      ${effectiveMode === "signed" ? `
+      <div class="quorum-info ${hasQuorum ? "has" : "no"}">
+        Bendras narių skaičius: <strong>${meeting.total_members_at_time}</strong> ·
+        Dalyvavo iš viso: <strong>${totalActual}</strong>
+        (${liveAttendees.length} gyvai${remoteVoters.length > 0 ? `, ${remoteVoters.length} nuotoliu` : ""}${writtenVoters.length > 0 ? `, ${writtenVoters.length} raštu` : ""}) ·
+        Kvorumui reikia: <strong>${meeting.quorum_required}</strong> ·
+        Kvorumas: <strong>${hasQuorum ? "YRA" : "NĖRA"}</strong>${meeting.is_repeat ? " (pakartotinis)" : ""}
+      </div>
+      ` : `
       <div class="quorum-info">
         Bendras narių skaičius: <strong>${meeting.total_members_at_time}</strong> ·
         Kvorumui reikia: <strong>${meeting.quorum_required}</strong>${meeting.is_repeat ? " (pakartotinis – kvorumas neribojamas)" : ""}
-        ${totalParticipating > 0 ? ` · Jau dalyvauja (nuotoliu/raštu): <strong>${totalParticipating}</strong>` : ""}
       </div>
+      `}
     </div>
 
-    <h3>1. Gyvai dalyvaujantys nariai (pasirašo atvykę)</h3>
-    ${liveAttendees.length === 0 ? `
-      <p style="color:#666;font-style:italic;padding:8pt;">Visi nariai jau balsavo nuotoliniu būdu – gyvai dalyvių sąrašas tuščias.</p>
-    ` : `
+    ${effectiveMode === "blank" ? `
+    <h3>Gyvai dalyvaujantys nariai (pasirašo atvykę)</h3>
     <table class="attendees">
       <thead>
         <tr>
@@ -342,14 +436,29 @@ export async function GET(
       </thead>
       <tbody>${liveRows}</tbody>
     </table>
-    `}
     <p class="note">
-      Šioje skiltyje pasirašo nariai, atvykę į susirinkimą gyvai.
-      Parašas patvirtina dalyvavimą.
+      Tuščias sąrašas spausdinamas prieš susirinkimą. Atvykę nariai pasirašo
+      savo eilutėje. Po susirinkimo iš šio puslapio rinkti tik pasirašusių
+      narių parašai – jie suvedami į sistemą kaip dalyvavę gyvai.
     </p>
+    ` : `
+
+    ${liveAttendees.length > 0 ? `
+    <h3>1. Gyvai dalyvavę nariai (parašai)</h3>
+    <table class="attendees">
+      <thead>
+        <tr>
+          <th class="num">Nr.</th>
+          <th>Vardas, pavardė</th>
+          <th>Parašas</th>
+        </tr>
+      </thead>
+      <tbody>${liveRows}</tbody>
+    </table>
+    ` : ""}
 
     ${remoteVoters.length > 0 ? `
-    <h3>2. Nuotoliniu būdu jau balsavę nariai (parašo nereikia)</h3>
+    <h3>${liveAttendees.length > 0 ? "2" : "1"}. Nuotoliniu būdu balsavę nariai (parašo nereikia)</h3>
     <table class="attendees">
       <thead>
         <tr>
@@ -361,15 +470,14 @@ export async function GET(
       <tbody>${remoteRows}</tbody>
     </table>
     <p class="note">
-      Pagal Asociacijų įstatymo 16 str. ir bendruomenės įstatų 4.4 p.,
-      nuotoliniu būdu balsavusių narių parašas nereikalaujamas. Jų dalyvavimas
-      fiksuojamas per elektroninio balsavimo įrodymą (SMS tokenas + balso
-      registracijos laikas).
+      Pagal Asociacijų įstatymo 16 str. ir bendruomenės įstatų 4.4 p., nuotoliniu
+      būdu balsavusių narių parašas nereikalaujamas. Jų dalyvavimas fiksuojamas
+      per elektroninio balsavimo įrodymą (SMS tokenas + balso registracijos laikas).
     </p>
     ` : ""}
 
     ${writtenVoters.length > 0 ? `
-    <h3>${remoteVoters.length > 0 ? "3" : "2"}. Raštu balsavę nariai</h3>
+    <h3>${liveAttendees.length > 0 && remoteVoters.length > 0 ? "3" : liveAttendees.length > 0 || remoteVoters.length > 0 ? "2" : "1"}. Raštu balsavę nariai</h3>
     <table class="attendees">
       <thead>
         <tr>
@@ -380,26 +488,40 @@ export async function GET(
       </thead>
       <tbody>${writtenRows}</tbody>
     </table>
-    <p class="note">
-      Raštu balsavusių narių balsai pridedami prie protokolo originalų pavidalu.
-    </p>
     ` : ""}
+
+    ${!hasAnyAttendance ? `<div class="empty">Dalyvių sąrašas tuščias – susirinkimo metu jokio nario dalyvavimas dar neužfiksuotas.</div>` : ""}
+    `}
 
     <div class="signatures">
       <table>
         <tr>
           <td style="width:50%">
             <div class="label">Susirinkimo pirmininkas:</div>
-            <div class="name-line">(vardas, pavardė, parašas)</div>
+            <div class="name-line">${meeting.chairperson_name || "(vardas, pavardė, parašas)"}</div>
           </td>
           <td style="width:50%">
             <div class="label">Susirinkimo sekretorius:</div>
-            <div class="name-line">(vardas, pavardė, parašas)</div>
+            <div class="name-line">${meeting.secretary_name || "(vardas, pavardė, parašas)"}</div>
           </td>
         </tr>
       </table>
     </div>
   </div>
+
+  <script>
+    // JS-based puslapių numeravimo fallback – kai kurie PDF generatoriai
+    // ignoruoja CSS @page counter rules. Čia print preview metu apskaičiuojam
+    // puslapių skaičių ir pridedam matomus žymeklius dokumento apačioje.
+    //
+    // Veikia kartu su CSS @bottom-center – jei browser palaiko, dubliuojasi
+    // (nedubliuojasi, nes CSS counter rodomas puslapio paraštėje, o JS žymeklis
+    // dokumento turinyje). Kad nesimaišytų, JS žymeklis rodomas tik ekrane
+    // (matomas peržiūrint, bet ne spausdinant).
+    window.addEventListener('beforeprint', () => {
+      document.title = 'Dalyviu sarasas ' + new Date().toISOString().slice(0,10);
+    });
+  </script>
 </body>
 </html>`;
 
