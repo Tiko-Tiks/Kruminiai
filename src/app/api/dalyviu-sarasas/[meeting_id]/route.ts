@@ -149,23 +149,44 @@ export async function GET(
   const hasQuorum = meeting.is_repeat || totalActual >= meeting.quorum_required;
 
   // ===== Padalinam į puslapius (server-side chunking) =====
-  // A4 portretu po 25/20/15/15 mm paraščių lieka ~252mm content vietos.
-  // Eilutė su 24pt parašo + 4pt padding = ~33pt ≈ 11.7mm.
-  // Page 1 header dalis (doc header + meta + section h3 + table header) ≈ 110mm.
-  // Footer ≈ 25mm. Available rows page 1: (252-110-25)/11.7 = 10 rows safe.
-  // Available rows page N: (252-50-25)/11.7 = 15 rows safe.
-  const PAGE_1_LIVE_CAPACITY = 10;
-  const PAGE_N_LIVE_CAPACITY = 15;
+  // Balanced chunker: paskaičiuoja minimalų puslapių kiekį pagal capacity,
+  // tada tolygiai paskirsto eilutes – kad nebūtų pustuščio paskutinio puslapio.
+  // Capacity skaičiavimai (su 24pt parašo eilutės aukščiu ≈ 11mm):
+  //   Page 1: (252mm content area) - (115mm doc header) - (25mm footer) = 112mm
+  //           → 10 eilučių saugiai, max 13
+  //   Page N: (252mm) - (50mm h3 + table header) - (25mm footer) = 177mm
+  //           → 16 eilučių saugiai, max 19
+  const PAGE_1_LIVE_CAPACITY = 12;
+  const PAGE_N_LIVE_CAPACITY = 18;
+
+  function balancedChunks(total: number, p1Max: number, pNMax: number): number[] {
+    if (total <= 0) return [0];
+    if (total <= p1Max) return [total];
+    // Minimalus puslapių kiekis su max capacity'ais
+    const minPages = 1 + Math.ceil((total - p1Max) / pNMax);
+    // Tolygus paskirstymas: page 1 = mažiau dėl doc header, kiti tolygiai
+    const p1Size = Math.min(p1Max, Math.ceil(total / minPages));
+    const remaining = total - p1Size;
+    const contPages = minPages - 1;
+    if (contPages === 0) return [p1Size];
+    const baseSize = Math.floor(remaining / contPages);
+    const extras = remaining % contPages;
+    const chunks = [p1Size];
+    for (let i = 0; i < contPages; i++) {
+      chunks.push(baseSize + (i < extras ? 1 : 0));
+    }
+    return chunks;
+  }
 
   const liveList = effectiveMode === "blank" ? blankList : liveAttendees;
   const livePages: AttendeeRow[][] = [];
   if (liveList.length === 0) {
     livePages.push([]);
   } else {
+    const chunkSizes = balancedChunks(liveList.length, PAGE_1_LIVE_CAPACITY, PAGE_N_LIVE_CAPACITY);
     const remaining = [...liveList];
-    livePages.push(remaining.splice(0, PAGE_1_LIVE_CAPACITY));
-    while (remaining.length > 0) {
-      livePages.push(remaining.splice(0, PAGE_N_LIVE_CAPACITY));
+    for (const size of chunkSizes) {
+      livePages.push(remaining.splice(0, size));
     }
   }
 
