@@ -178,9 +178,12 @@ export async function GET(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dalyvių sąrašas – ${meeting.title}</title>
   <style>
+    /* @page margin = 0 – paraštes tvarkome per .sheet padding, kad
+       būtų garantuotos nepriklausomai nuo browser'io print dialog'o
+       (Chrome „Margins: None" arba „Custom" gali nepaisyti @page margin). */
     @page {
       size: A4 portrait;
-      margin: 15mm;
+      margin: 0;
       @bottom-center {
         content: "Puslapis " counter(page) " iš " counter(pages);
         font-family: 'Times New Roman', serif;
@@ -192,9 +195,15 @@ export async function GET(
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
       font-family: 'Times New Roman', serif;
-      font-size: 10.5pt;
-      line-height: 1.4;
+      font-size: 11pt;
+      line-height: 1.45;
       color: #000;
+    }
+
+    /* Visada (ekrane IR spausdinant) – .sheet turi savo padding'ą,
+       kuris veikia kaip paraštės. Nesvarbu kas su @page nutiko. */
+    .sheet {
+      padding: 15mm 15mm 18mm 15mm;
     }
 
     @media screen {
@@ -202,7 +211,6 @@ export async function GET(
       .sheet {
         width: 210mm;
         min-height: 297mm;
-        padding: 15mm;
         margin: 0 auto;
         background: #fff;
         box-shadow: 0 0 8px rgba(0,0,0,0.1);
@@ -212,7 +220,6 @@ export async function GET(
       body { background: #fff; }
       .sheet {
         width: 100%;
-        padding: 0;
         margin: 0;
         box-shadow: none;
       }
@@ -272,31 +279,52 @@ export async function GET(
     table.attendees {
       width: 100%;
       border-collapse: collapse;
-      font-size: 10.5pt;
+      font-size: 12pt;
       table-layout: fixed;
     }
     table.attendees thead { display: table-header-group; }
     table.attendees th {
       border: 0.5pt solid #000;
-      padding: 5pt 4pt;
+      padding: 6pt 6pt;
       background: #f0f0f0;
       font-weight: bold;
       text-align: left;
-      font-size: 9.5pt;
+      font-size: 9pt;
       text-transform: uppercase;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.05em;
     }
     table.attendees td {
       border: 0.5pt solid #000;
-      padding: 7pt 5pt;
+      padding: 4pt 8pt;
       vertical-align: middle;
       page-break-inside: avoid;
     }
-    table.attendees td.num { width: 10mm; text-align: center; color: #555; font-size: 9.5pt; }
-    table.attendees td.name { width: auto; }
-    table.attendees td.signature { width: 70mm; height: 16pt; }
-    table.attendees td.vote-time { width: 45mm; font-size: 9.5pt; color: #444; }
-    .pasyvus { font-size: 9pt; color: #888; font-style: italic; }
+    /* Siaurintas NR. – tik kelių pikselių dydis pakanka numeriui */
+    table.attendees td.num,
+    table.attendees th.num {
+      width: 7mm;
+      text-align: center;
+      color: #666;
+      font-size: 10pt;
+      padding: 4pt 2pt;
+    }
+    /* Vardas pavardė – didesnis, ryškesnis šriftas */
+    table.attendees td.name {
+      width: auto;
+      font-size: 12pt;
+      font-weight: 500;
+    }
+    /* Parašui – dvigubai daugiau vertikalios vietos */
+    table.attendees td.signature {
+      width: 70mm;
+      height: 32pt;
+    }
+    table.attendees td.vote-time {
+      width: 45mm;
+      font-size: 10pt;
+      color: #444;
+    }
+    .pasyvus { font-size: 9pt; color: #888; font-style: italic; font-weight: normal; }
 
     .note {
       margin-top: 8pt;
@@ -390,7 +418,9 @@ export async function GET(
     </a>
   </div>
   <div class="print-hint">
-    💡 Spausdinant pasirinkite: Paper size = A4, Margins = Default, Headers and footers = Off
+    💡 <strong>Chrome spausdinimo nustatymai:</strong> Paper size = <strong>A4</strong>,
+    Margins = <strong>Default</strong>, Headers and footers = <strong>❌ OFF</strong>
+    (kad „Puslapis X iš Y" rodytųsi apačioje)
   </div>
 
   <div class="sheet">
