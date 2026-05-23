@@ -286,17 +286,34 @@ export async function recordBallots(
 }
 
 // Greitasis balsų įvedimas (admin rankinis) – kai neskaičiuojami individualūs balsai
+/**
+ * Įveda GYVAI balsavimo rezultatus. Nuotoliu (SMS) balsai jau yra
+ * vote_ballots lentoje – juos PRIDEDAM prie admin'o pateikiamų gyvai
+ * skaičių, kad result_* lauke būtų pilna suma (gyvai + nuotoliu).
+ *
+ * Iki šio fix'o admin'o įvedimas OVERWRITE'indavo result_for/_against/
+ * _abstain, ir nuotoliu balsai būdavo prarandami galutiniame protokole.
+ */
 export async function setResolutionResults(
   id: string,
   meetingId: string,
-  results: { result_for: number; result_against: number; result_abstain: number },
+  liveResults: { result_for: number; result_against: number; result_abstain: number },
   status: "patvirtintas" | "atmestas"
 ) {
   const supabase = createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
 
+  // Suskaičiuojam nuotoliu balsus iš vote_ballots
+  const remote = await countVotes(id);
+
+  const totals = {
+    result_for: liveResults.result_for + remote.uz,
+    result_against: liveResults.result_against + remote.pries,
+    result_abstain: liveResults.result_abstain + remote.susilaike,
+  };
+
   const { error } = await supabase.from("resolutions").update({
-    ...results,
+    ...totals,
     status,
     early_voting_open: false,
   }).eq("id", id);
@@ -308,7 +325,18 @@ export async function setResolutionResults(
     action: "UPDATE",
     tableName: "resolutions",
     recordId: id,
-    newData: { ...results, status } as Record<string, unknown>,
+    newData: {
+      live_for: liveResults.result_for,
+      live_against: liveResults.result_against,
+      live_abstain: liveResults.result_abstain,
+      remote_for: remote.uz,
+      remote_against: remote.pries,
+      remote_abstain: remote.susilaike,
+      total_for: totals.result_for,
+      total_against: totals.result_against,
+      total_abstain: totals.result_abstain,
+      status,
+    } as Record<string, unknown>,
   });
 
   revalidateMeetingPaths(meetingId);
