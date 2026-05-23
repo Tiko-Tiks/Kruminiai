@@ -120,6 +120,76 @@ export function revalidateMeetingPaths(meetingId: string) {
 
 **Taisyklė:** bet kuri meetings/resolutions mutacija turi šaukti `revalidateMeetingPaths(meetingId)`, ne atskirus `revalidatePath` įrašus. Jei atsiras naujas puslapis su darbotvarke – pridėti į `revalidate.ts`.
 
+## ARCHITEKTŪRA: Susirinkimo pirmininko/sekretoriaus rinkimai
+
+Prieš atidarant **procedūrinio #1 nutarimo** balsavimą (procedural_type=`pirmininkas_sekretorius`),
+admin'as turi pasirinkti pirmininką ir sekretorių per inline pickerį:
+
+- **Pirmininkas**: pre-fill'inamas iš `community_management` lentelės (role=`pirmininkas`, is_current=true).
+  Galima keisti į kitą gyvai dalyvavusį narį, jei bendruomenės pirmininkas nedalyvauja.
+- **Sekretorius**: tik iš **gyvai dalyvavusių narių** (meeting_attendance, attendance_type=`fizinis`).
+  Negali būti tas pats asmuo kaip pirmininkas.
+
+Pickeris (`ChairmanSecretaryPicker` viduje `ResolutionsList.tsx`) ant „Atidaryti balsavimą"
+veiksmo:
+1. Validuoja abu laukus
+2. Įrašo į `meetings.chairperson_name` + `meetings.secretary_name`
+3. Atidaro nutarimui balsavimo statusą
+
+Jei nei vienas narys neregistruotas gyvai – pickeris parodo įspėjimą ir
+neleidžia tęsti, kol admin'as nepridės gyvai dalyvaujančių narių per
+`AttendanceManager` panelį.
+
+Įrašytos pavardės automatiškai naudojamos protokolui (parašų skiltyje),
+dalyvių sąrašui ir kitiems dokumentams.
+
+## ARCHITEKTŪRA: Dokumentų puslapiavimas (chunked .sheet layout)
+
+Protokolas ir dalyvių sąrašas spausdinami su **server-side chunking**:
+
+- Kiekvienas A4 puslapis = atskiras `<div class="sheet">`
+- `.sheet` turi `height: 297mm` (pilnas A4) + `display: flex; flex-direction: column`
+- Footer'is per `.page-footer { margin-top: auto }` pastumtas į sheet'o (= A4) apačią
+- Tarp sheet'ų – `page-break-after: always`, paskutiniam `:not(:last-of-type)`
+  (kad nebūtų ekstra tuščio puslapio)
+- `@page { margin: 0 }` – paraštės valdomos per `.sheet` padding (kairė 30mm
+  protokoloi pagal LT raštvedybą, 15mm dalyvių sąrašui)
+
+Visi puslapių numeravimai – **server-side matomi** „Puslapis X iš Y" footer'iai
+kiekvieno sheet'o apačioje. Nepriklauso nuo `@page bottom-center` CSS
+palaikymo Chrome PDF eksporto modeli, todėl visada matomi.
+
+**Dalyvių sąrašo chunking** (`src/app/api/dalyviu-sarasas/[meeting_id]/route.ts`):
+- `balancedChunks(total, p1Cap, pNCap)` – paskirsto eilutes tolygiai per
+  puslapius, kad nebūtų pustuščio paskutinio puslapio
+- p1Cap=12 (pirmas puslapis turi doc header), pNCap=19 (sekantys be header)
+- Atskiri sheet'ai: gyvai dalyvavę → nuotoliu balsavę → parašai
+
+**Protokolo chunking** (`src/app/api/protokolas/[id]/route.ts`):
+- Cover sheet: doc header + protokolo antraštė + meeting info + darbotvarkė
+- Decisions sheet'ai: 6 nutarimai per sheet'ą
+- Closing sheet: PRIDEDAMA + parašai
+- Closing automatiškai prijungiamas prie paskutinio decisions sheet'o,
+  jei ten ≤3 nutarimai (taupant vietos)
+
+## ARCHITEKTŪRA: Balsų skaičiavimas (gyvai + nuotoliu)
+
+Galutinis balsų skaičius per `setResolutionResults` SUMUOJA admin'o
+įvestus gyvi balsus + esamus nuotoliu balsus iš `vote_ballots`:
+
+```ts
+const remote = await countVotes(resolutionId);  // SMS balsai
+const totals = {
+  result_for: liveResults.result_for + remote.uz,
+  result_against: liveResults.result_against + remote.pries,
+  result_abstain: liveResults.result_abstain + remote.susilaike,
+};
+```
+
+Anksčiau admin'o įvedimas OVERWRITE'indavo result_for/etc, todėl
+nuotoliu balsai pradingdavo. Protokolas rodo **pilną breakdown**:
+„BALSAVO: iš viso 39 (gyvai 31, nuotoliu 8). UŽ: 37 (gyvai 31 + nuotoliu 6)..."
+
 ## ARCHITEKTŪRA: Anonimo RLS apėjimas per RPC
 
 `/balsuoti/[token]` srautas yra **anonymous** – Supabase klientas neturi `authenticated` rolės, todėl RLS blokuoja tiesiogines užklausas į `members`, `payments`, `community_management` ir kt. Tačiau balsavimo iframe atvaizduoja iš trijų dokumentų:

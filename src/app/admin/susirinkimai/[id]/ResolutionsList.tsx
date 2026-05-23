@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateResolutionStatus, updateResolution, deleteResolution, setResolutionResults } from "@/actions/voting";
+import { updateMeetingProtocolInfo } from "@/actions/meetings";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { RESOLUTION_STATUS_LABELS } from "@/lib/constants";
@@ -19,6 +20,8 @@ import {
   Scale,
   Gavel,
   FileText,
+  UserCheck,
+  AlertCircle,
 } from "lucide-react";
 
 function statusVariant(status: string) {
@@ -36,14 +39,32 @@ interface ResolutionWithDocs extends Resolution {
   resolution_documents?: { id: string; sort_order: number; document: Document | null }[];
 }
 
+interface LiveAttendee {
+  member_id: string;
+  member: { id: string; first_name: string; last_name: string } | null;
+}
+
 interface Props {
   resolutions: ResolutionWithDocs[];
   meetingId: string;
   meetingStatus: string;
   allDocuments: Document[];
+  liveAttendees?: LiveAttendee[];
+  communityChairpersonName?: string | null;
+  currentChairpersonName?: string | null;
+  currentSecretaryName?: string | null;
 }
 
-export function ResolutionsList({ resolutions, meetingId, meetingStatus, allDocuments }: Props) {
+export function ResolutionsList({
+  resolutions,
+  meetingId,
+  meetingStatus,
+  allDocuments,
+  liveAttendees = [],
+  communityChairpersonName = null,
+  currentChairpersonName = null,
+  currentSecretaryName = null,
+}: Props) {
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
@@ -264,7 +285,17 @@ export function ResolutionsList({ resolutions, meetingId, meetingStatus, allDocu
                 {/* Veiksmai */}
                 {canModify && (
                   <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100">
-                    {res.status === "projektas" && (
+                    {res.status === "projektas" && res.procedural_type === "pirmininkas_sekretorius" && (
+                      <ChairmanSecretaryPicker
+                        resolutionId={res.id}
+                        meetingId={meetingId}
+                        liveAttendees={liveAttendees}
+                        defaultChairperson={currentChairpersonName || communityChairpersonName}
+                        defaultSecretary={currentSecretaryName}
+                      />
+                    )}
+
+                    {res.status === "projektas" && res.procedural_type !== "pirmininkas_sekretorius" && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -391,6 +422,159 @@ function QuickVoteForm({
       >
         <XCircle className="h-3.5 w-3.5" />
         Atmesta
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * Susirinkimo pirmininko ir sekretoriaus rinkimų picker'is.
+ * Rodomas tik prie procedūrinio #1 nutarimo (procedural_type='pirmininkas_sekretorius').
+ *
+ * Workflow:
+ * 1. Pirmininkas pre-fill'inamas iš bendruomenės Pirmininko (community_management
+ *    role='pirmininkas'). Galima keisti į kitą gyvai dalyvavusį narį, jei
+ *    bendruomenės Pirmininkas nedalyvauja.
+ * 2. Sekretorius pasirenkamas iš gyvai dalyvavusių narių sąrašo.
+ * 3. Paspaudus „Atidaryti balsavimą", išsaugomos pavardės į meetings lentelę,
+ *    tada atidaroma nutarimui balsavimo eilutė.
+ */
+function ChairmanSecretaryPicker({
+  resolutionId,
+  meetingId,
+  liveAttendees,
+  defaultChairperson,
+  defaultSecretary,
+}: {
+  resolutionId: string;
+  meetingId: string;
+  liveAttendees: LiveAttendee[];
+  defaultChairperson: string | null;
+  defaultSecretary: string | null;
+}) {
+  const router = useRouter();
+  const [chairperson, setChairperson] = useState(defaultChairperson || "");
+  const [secretary, setSecretary] = useState(defaultSecretary || "");
+  const [saving, setSaving] = useState(false);
+
+  // Gyvai dalyvavusių narių vardai-pavardės dropdownams
+  const attendeeNames = liveAttendees
+    .map((a) => {
+      const m = a.member;
+      return m ? `${m.first_name} ${m.last_name}` : null;
+    })
+    .filter((n): n is string => !!n)
+    .sort((a, b) => a.localeCompare(b, "lt"));
+
+  // Pirmininko opcijos – įtraukiam default (jei jis dalyvauja arba ne) + visus dalyvavusius
+  const chairpersonOptions = Array.from(
+    new Set([
+      ...(defaultChairperson ? [defaultChairperson] : []),
+      ...attendeeNames,
+    ])
+  );
+
+  // Sekretoriaus opcijos – tik dalyvavusieji, NE pirmininkas
+  const secretaryOptions = attendeeNames.filter((n) => n !== chairperson);
+
+  async function handleOpen() {
+    if (!chairperson.trim()) {
+      toast.error("Pasirinkite susirinkimo pirmininką");
+      return;
+    }
+    if (!secretary.trim()) {
+      toast.error("Pasirinkite susirinkimo sekretorių");
+      return;
+    }
+    if (chairperson === secretary) {
+      toast.error("Pirmininkas ir sekretorius negali būti tas pats asmuo");
+      return;
+    }
+    setSaving(true);
+
+    // 1. Įrašom pavardes į meetings lentelę
+    const updateRes = await updateMeetingProtocolInfo(meetingId, {
+      chairperson_name: chairperson,
+      secretary_name: secretary,
+    });
+    if (updateRes.error) {
+      setSaving(false);
+      toast.error(typeof updateRes.error === "string" ? updateRes.error : "Nepavyko išsaugoti");
+      return;
+    }
+
+    // 2. Atidarom balsavimą
+    const voteRes = await updateResolutionStatus(resolutionId, "balsuojamas", meetingId);
+    setSaving(false);
+    if (voteRes.error) {
+      toast.error(typeof voteRes.error === "string" ? voteRes.error : "Nepavyko atidaryti balsavimo");
+      return;
+    }
+    toast.success(`Pasirinkti: pirmininkas ${chairperson}, sekretorius ${secretary}. Balsavimas atidarytas.`);
+    router.refresh();
+  }
+
+  if (liveAttendees.length === 0) {
+    return (
+      <div className="w-full bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-900 flex items-start gap-2">
+        <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+        <div>
+          <p className="font-semibold">Pirmiausia užregistruokite gyvai dalyvaujančius narius</p>
+          <p className="text-xs mt-1">
+            Sekretorius turi būti pasirinktas iš gyvai dalyvavusių narių. Atidarykite
+            &bdquo;Dalyviai&ldquo; panelį dešinėje ir pridėkite atvykusius narius.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+      <div className="flex items-center gap-2 text-sm font-semibold text-blue-900">
+        <UserCheck className="h-4 w-4" />
+        Prieš atidarant balsavimą – pasirinkite susirinkimo pirmininką ir sekretorių
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">
+            Susirinkimo pirmininkas {defaultChairperson && <span className="text-gray-400">(default: bendruomenės pirmininkas)</span>}
+          </label>
+          <select
+            value={chairperson}
+            onChange={(e) => setChairperson(e.target.value)}
+            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="">Pasirinkite...</option>
+            {chairpersonOptions.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">
+            Susirinkimo sekretorius <span className="text-gray-400">(iš gyvai dalyvaujančių)</span>
+          </label>
+          <select
+            value={secretary}
+            onChange={(e) => setSecretary(e.target.value)}
+            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="">Pasirinkite...</option>
+            {secretaryOptions.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <Button
+        size="sm"
+        onClick={handleOpen}
+        loading={saving}
+        disabled={!chairperson || !secretary}
+      >
+        <Vote className="h-4 w-4" />
+        Atidaryti balsavimą
       </Button>
     </div>
   );

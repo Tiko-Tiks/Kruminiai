@@ -3,6 +3,7 @@ import { getResolutions } from "@/actions/voting";
 import { getMembers } from "@/actions/members";
 import { getDocuments } from "@/actions/documents";
 import { getVotingTokensStats } from "@/actions/tokens";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import { MEETING_STATUS_LABELS, MEETING_TYPE_LABELS } from "@/lib/constants";
@@ -15,6 +16,20 @@ import { AttendanceManager } from "./AttendanceManager";
 import { AddResolutionForm } from "./AddResolutionForm";
 import { RemoteVotingPanel } from "./RemoteVotingPanel";
 import { MeetingDocumentsPanel } from "./MeetingDocumentsPanel";
+
+async function getCommunityChairpersonName(): Promise<string | null> {
+  const supabase = createServerSupabaseClient();
+  const { data } = await supabase
+    .from("community_management")
+    .select("member:members(first_name, last_name)")
+    .eq("role", "pirmininkas")
+    .eq("is_current", true)
+    .maybeSingle();
+  const m = data?.member as { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null;
+  if (!m) return null;
+  const mm = Array.isArray(m) ? m[0] : m;
+  return mm ? `${mm.first_name} ${mm.last_name}` : null;
+}
 
 function statusVariant(status: string) {
   switch (status) {
@@ -37,6 +52,7 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
   const allMembers = await getMembers(undefined, "aktyvus");
   const allDocuments = await getDocuments();
   const tokenStats = await getVotingTokensStats(params.id);
+  const communityChairpersonName = await getCommunityChairpersonName();
 
   return (
     <div>
@@ -111,6 +127,10 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
             meetingId={meeting.id}
             meetingStatus={meeting.status}
             allDocuments={allDocuments}
+            liveAttendees={attendance.filter((a) => a.attendance_type === "fizinis")}
+            communityChairpersonName={communityChairpersonName}
+            currentChairpersonName={meeting.chairperson_name}
+            currentSecretaryName={meeting.secretary_name}
           />
         </div>
 
