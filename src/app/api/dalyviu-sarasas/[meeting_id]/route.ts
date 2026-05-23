@@ -149,11 +149,13 @@ export async function GET(
   const hasQuorum = meeting.is_repeat || totalActual >= meeting.quorum_required;
 
   // ===== Padalinam į puslapius (server-side chunking) =====
-  // A4 portretu po 25/20/15/15 mm paraščių lieka ~252mm aukščio.
-  // Eilutė su 32pt parašo lange = ~12mm. Page header (table header)
-  // pakartojamas kiekviename chunk'e per HTML markup.
-  const PAGE_1_LIVE_CAPACITY = 14; // mažiau – pirmas puslapis turi doc header + meta
-  const PAGE_N_LIVE_CAPACITY = 20;
+  // A4 portretu po 25/20/15/15 mm paraščių lieka ~252mm content vietos.
+  // Eilutė su 24pt parašo + 4pt padding = ~33pt ≈ 11.7mm.
+  // Page 1 header dalis (doc header + meta + section h3 + table header) ≈ 110mm.
+  // Footer ≈ 25mm. Available rows page 1: (252-110-25)/11.7 = 10 rows safe.
+  // Available rows page N: (252-50-25)/11.7 = 15 rows safe.
+  const PAGE_1_LIVE_CAPACITY = 10;
+  const PAGE_N_LIVE_CAPACITY = 15;
 
   const liveList = effectiveMode === "blank" ? blankList : liveAttendees;
   const livePages: AttendeeRow[][] = [];
@@ -397,11 +399,17 @@ export async function GET(
     }
     @media print {
       body { background: #fff; }
+      /* Print mode: .sheet = content-size (NE min-height: 297mm). Tai
+         užtikrina, kad sheet'as netiltų į kitą A4 puslapį dėl overflow.
+         Footer'is rodomas iš karto po content'o (ne lapo apačioje, bet
+         vis tiek matomas). Vienas .sheet = vienas A4 puslapis dėka
+         page-break-after rule. */
       .sheet {
         width: 100%;
-        min-height: 297mm;
+        min-height: 0;
         margin: 0;
         box-shadow: none;
+        display: block;
       }
       .sheet:not(:last-of-type) {
         page-break-after: always;
@@ -521,10 +529,11 @@ export async function GET(
       font-size: 12pt;
       font-weight: 500;
     }
-    /* Parašui – dvigubai daugiau vertikalios vietos */
+    /* Parašui – pakankamai vietos pasirašyti, bet ne per daug,
+       kad sheet'as netiltų į kitą puslapį */
     table.attendees td.signature {
       width: 70mm;
-      height: 32pt;
+      height: 24pt;
     }
     table.attendees td.vote-time {
       width: 45mm;

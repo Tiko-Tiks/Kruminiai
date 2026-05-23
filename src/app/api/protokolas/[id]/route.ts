@@ -128,11 +128,15 @@ export async function GET(
       }
     }
     @media print {
+      /* Print mode: .sheet = content-size (NE min-height: 297mm). Tai
+         užtikrina, kad sheet'as netiltų į kitą A4 puslapį dėl overflow.
+         Vienas .sheet = vienas A4 puslapis dėka page-break-after rule. */
       .sheet {
         width: 100%;
-        min-height: 297mm;
+        min-height: 0;
         margin: 0;
         box-shadow: none;
+        display: block;
       }
       .sheet:not(:last-of-type) {
         page-break-after: always;
