@@ -39,6 +39,24 @@ export async function GET(
     .eq("meeting_id", params.id)
     .order("registered_at");
 
+  // Gauti nuotoliu balsavimo breakdown'ą KIEKVIENAM nutarimui (vote_ballots'e
+  // saugomi tik nuotoliu / išankstiniai balsai – gyvi balsai įvedami admin'o
+  // tiesiogiai į resolutions.result_*). Kad protokole rodytume „gyvai + nuotoliu",
+  // skaičiuojam nuotoliu balsus atskirai.
+  const { data: ballots } = await supabase
+    .from("vote_ballots")
+    .select("resolution_id, vote")
+    .in("resolution_id", (resolutions || []).map((r: { id: string }) => r.id));
+
+  const remoteByResolution = new Map<string, { uz: number; pries: number; susilaike: number }>();
+  for (const b of ballots || []) {
+    const cur = remoteByResolution.get(b.resolution_id as string) || { uz: 0, pries: 0, susilaike: 0 };
+    if (b.vote === "uz") cur.uz++;
+    else if (b.vote === "pries") cur.pries++;
+    else if (b.vote === "susilaike") cur.susilaike++;
+    remoteByResolution.set(b.resolution_id as string, cur);
+  }
+
   const meetingDate = new Date(meeting.meeting_date);
   const endDate = meeting.ended_at ? new Date(meeting.ended_at) : null;
 
@@ -80,25 +98,17 @@ export async function GET(
        - Times New Roman 12pt, eilutė 1.5
        - Puslapių numeracija dešinėje viršuje (po 1-o)
        - Sectionai turi avoid page break inside */
+    /* @page margin = 0 – paraštes tvarkome per .page-container padding,
+       kad būtų garantuotos nepriklausomai nuo browser print dialog'o */
     @page {
       size: A4 portrait;
-      margin: 20mm 10mm 20mm 30mm;
-      @top-right {
-        content: counter(page);
-        font-family: 'Times New Roman', serif;
-        font-size: 10pt;
-        color: #444;
-      }
+      margin: 0;
       @bottom-center {
         content: "Puslapis " counter(page) " iš " counter(pages);
         font-family: 'Times New Roman', serif;
         font-size: 9pt;
         color: #666;
       }
-    }
-    /* Pirmas puslapis – be header'io viršuje (titulinis) */
-    @page :first {
-      @top-right { content: ""; }
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { background: #fff; }
@@ -108,26 +118,26 @@ export async function GET(
       line-height: 1.5;
       color: #000;
     }
-    /* Ekrane – atvaizduojam tarsi A4 lapas */
+    /* Paraštės VIENINTELIS šaltinis – .page-container padding (LT raštvedyba:
+       kairė 30mm, dešinė 10mm, viršus 20mm, apačia 20mm). Veikia ekrane ir
+       spausdinant nepriklausomai nuo browser nustatymų. */
     .page-container {
-      max-width: 190mm;
-      margin: 0 auto;
       padding: 20mm 10mm 20mm 30mm;
       background: #fff;
     }
     @media screen {
       body { background: #f3f4f6; padding: 20px 0; }
       .page-container {
-        box-shadow: 0 0 8px rgba(0,0,0,0.1);
-        margin: 20px auto;
+        width: 210mm;
+        min-height: 297mm;
+        margin: 0 auto;
+        box-shadow: 0 0 8px rgba(0,0,0,0.15);
       }
     }
     @media print {
-      body { background: #fff; padding: 0; }
       .page-container {
-        max-width: 100%;
+        width: 100%;
         margin: 0;
-        padding: 0;
         box-shadow: none;
       }
     }
@@ -136,9 +146,10 @@ export async function GET(
       margin-bottom: 24pt;
     }
     .header h1 {
-      font-size: 13pt;
+      font-size: 14pt;
       font-weight: bold;
       margin-bottom: 4pt;
+      letter-spacing: 0.02em;
     }
     .header .subtitle {
       font-size: 11pt;
@@ -146,39 +157,41 @@ export async function GET(
     }
     .protocol-title {
       text-align: center;
-      margin: 24pt 0 18pt;
+      margin: 28pt 0 20pt;
     }
     .protocol-title h2 {
-      font-size: 14pt;
-      font-weight: bold;
-      text-transform: uppercase;
-      margin-bottom: 6pt;
-      letter-spacing: 0.02em;
-    }
-    .protocol-title .nr { font-size: 12pt; font-weight: bold; }
-    .protocol-title .date, .protocol-title .location { font-size: 12pt; }
-    .info-block { margin: 18pt 0; }
-    .info-block p { margin-bottom: 3pt; }
-    .info-block .label { font-weight: bold; }
-
-    .agenda { margin: 18pt 0; page-break-inside: avoid; }
-    .agenda h3 {
-      font-size: 12pt;
+      font-size: 16pt;
       font-weight: bold;
       text-transform: uppercase;
       margin-bottom: 8pt;
-      text-align: center;
+      letter-spacing: 0.04em;
     }
-    .agenda ol { padding-left: 24pt; }
-    .agenda li { margin-bottom: 3pt; }
+    .protocol-title .nr { font-size: 13pt; font-weight: bold; margin-bottom: 4pt; }
+    .protocol-title .date, .protocol-title .location { font-size: 12pt; }
+    .info-block { margin: 20pt 0; }
+    .info-block p { margin-bottom: 4pt; }
+    .info-block .label { font-weight: bold; }
 
-    .decisions { margin: 18pt 0; }
-    .decisions h3 {
-      font-size: 12pt;
+    .agenda { margin: 22pt 0; page-break-inside: avoid; }
+    .agenda h3 {
+      font-size: 13pt;
       font-weight: bold;
       text-transform: uppercase;
-      margin-bottom: 12pt;
+      margin-bottom: 10pt;
       text-align: center;
+      letter-spacing: 0.03em;
+    }
+    .agenda ol { padding-left: 28pt; }
+    .agenda li { margin-bottom: 4pt; }
+
+    .decisions { margin: 22pt 0; }
+    .decisions h3 {
+      font-size: 13pt;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-bottom: 14pt;
+      text-align: center;
+      letter-spacing: 0.03em;
     }
     .decision-item {
       margin-bottom: 16pt;
@@ -268,20 +281,33 @@ export async function GET(
   <div class="decisions">
     <h3>SVARSTYTA IR NUTARTA:</h3>
     ${(resolutions || []).map((r: {
+      id: string;
       resolution_number: number;
       title: string;
+      is_procedural: boolean;
       discussion_text: string | null;
       result_for: number;
       result_against: number;
       result_abstain: number;
       decision_text: string | null;
-    }) => `
+    }) => {
+      const remote = remoteByResolution.get(r.id) || { uz: 0, pries: 0, susilaike: 0 };
+      const liveUz = r.result_for - remote.uz;
+      const livePries = r.result_against - remote.pries;
+      const liveSusilaike = r.result_abstain - remote.susilaike;
+      const totalVotes = r.result_for + r.result_against + r.result_abstain;
+      const showBreakdown = !r.is_procedural && (remote.uz + remote.pries + remote.susilaike) > 0;
+      const balsavoLine = showBreakdown
+        ? `<span class="balsavo">BALSAVO:</span> iš viso <strong>${totalVotes}</strong> (gyvai ${liveUz + livePries + liveSusilaike}, nuotoliu ${remote.uz + remote.pries + remote.susilaike}). UŽ: <strong>${r.result_for}</strong> (gyvai ${liveUz} + nuotoliu ${remote.uz}), PRIEŠ: <strong>${r.result_against}</strong> (gyvai ${livePries} + nuotoliu ${remote.pries}), SUSILAIKĖ: <strong>${r.result_abstain}</strong> (gyvai ${liveSusilaike} + nuotoliu ${remote.susilaike}).`
+        : `<span class="balsavo">BALSAVO:</span> iš viso <strong>${totalVotes}</strong>. UŽ: <strong>${r.result_for}</strong>, PRIEŠ: <strong>${r.result_against}</strong>, SUSILAIKĖ: <strong>${r.result_abstain}</strong>.`;
+      return `
     <div class="decision-item">
       <p><span class="number">${r.resolution_number}.</span> <span class="svarstyta">SVARSTYTA:</span> ${r.title}.</p>
       ${r.discussion_text ? `<p>${r.discussion_text}</p>` : ""}
-      <p><span class="balsavo">BALSAVO:</span> Už: ${r.result_for}, PRIEŠ: ${r.result_against}, SUSILAIKĖ: ${r.result_abstain}.</p>
+      <p>${balsavoLine}</p>
       ${r.decision_text ? `<p><span class="nutarta">NUTARTA:</span> ${r.decision_text}</p>` : ""}
-    </div>`).join("\n")}
+    </div>`;
+    }).join("\n")}
   </div>
 
   <p class="closing">Daugiau klausimų darbotvarkėje nebuvo, susirinkimas baigtas.</p>

@@ -201,19 +201,20 @@ export async function GET(
     }
 
     /* Visada (ekrane IR spausdinant) – .sheet turi savo padding'ą,
-       kuris veikia kaip paraštės. Nesvarbu kas su @page nutiko. */
+       kuris veikia kaip paraštės. 25mm viršuje – kad printerio hardware
+       margin'ai nesukirpdintu antraštės. */
     .sheet {
-      padding: 15mm 15mm 18mm 15mm;
+      padding: 25mm 15mm 20mm 15mm;
     }
 
     @media screen {
-      body { background: #f3f4f6; padding: 20px 0 80px; }
+      body { background: #e5e7eb; padding: 30px 0 80px; }
       .sheet {
         width: 210mm;
         min-height: 297mm;
-        margin: 0 auto;
+        margin: 0 auto 24px;
         background: #fff;
-        box-shadow: 0 0 8px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       }
     }
     @media print {
@@ -222,7 +223,9 @@ export async function GET(
         width: 100%;
         margin: 0;
         box-shadow: none;
+        page-break-after: always;
       }
+      .sheet:last-child { page-break-after: auto; }
     }
 
     .doc-label {
@@ -231,31 +234,36 @@ export async function GET(
       letter-spacing: 0.08em;
       color: #666;
       text-align: right;
-      margin-bottom: 6pt;
+      margin-bottom: 8pt;
     }
     .header {
       text-align: center;
-      margin-bottom: 10pt;
-      padding-bottom: 8pt;
-      border-bottom: 0.75pt solid #000;
+      margin-bottom: 12pt;
+      padding-bottom: 10pt;
+      border-bottom: 1pt solid #000;
     }
-    .header h1 { font-size: 12pt; font-weight: bold; margin-bottom: 2pt; letter-spacing: 0.02em; }
-    .header .subtitle { font-size: 10pt; color: #222; }
+    .header h1 {
+      font-size: 14pt;
+      font-weight: bold;
+      margin-bottom: 4pt;
+      letter-spacing: 0.03em;
+    }
+    .header .subtitle { font-size: 10.5pt; color: #222; }
 
     h2 {
-      font-size: 13pt;
+      font-size: 16pt;
       font-weight: bold;
       text-transform: uppercase;
       text-align: center;
-      margin: 12pt 0 6pt;
-      letter-spacing: 0.02em;
+      margin: 16pt 0 8pt;
+      letter-spacing: 0.04em;
     }
     h3 {
-      font-size: 11pt;
+      font-size: 12.5pt;
       font-weight: bold;
-      margin: 14pt 0 6pt;
-      padding-bottom: 3pt;
-      border-bottom: 0.5pt solid #888;
+      margin: 18pt 0 8pt;
+      padding-bottom: 4pt;
+      border-bottom: 0.75pt solid #555;
       page-break-after: avoid;
     }
     .meta {
