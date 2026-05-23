@@ -149,15 +149,14 @@ export async function GET(
   const hasQuorum = meeting.is_repeat || totalActual >= meeting.quorum_required;
 
   // ===== Padalinam į puslapius (server-side chunking) =====
-  // Balanced chunker: paskaičiuoja minimalų puslapių kiekį pagal capacity,
-  // tada tolygiai paskirsto eilutes – kad nebūtų pustuščio paskutinio puslapio.
-  // Capacity skaičiavimai (su 24pt parašo eilutės aukščiu ≈ 11mm):
-  //   Page 1: (252mm content area) - (115mm doc header) - (25mm footer) = 112mm
-  //           → 10 eilučių saugiai, max 13
-  //   Page N: (252mm) - (50mm h3 + table header) - (25mm footer) = 177mm
-  //           → 16 eilučių saugiai, max 19
+  // Capacity skaičiavimai su 20pt parašo eilutės aukščiu (≈ 10.2mm):
+  //   Page 1 fixed (doc-label + header + h2 + meta + h3 + tableHeader + footer): ~145mm
+  //   Page 1 available rows area: 252 - 145 = 107mm → 10.5 rows safe, max 12
+  //   Page N fixed (h3 + tableHeader + footer): ~55mm
+  //   Page N available rows area: 252 - 55 = 197mm → 19 rows safe, max 22
+  // Su PAGE_N=19 ir 31 dalyviais → chunks = [12, 19] = 2 pilnai užpildyti puslapiai
   const PAGE_1_LIVE_CAPACITY = 12;
-  const PAGE_N_LIVE_CAPACITY = 18;
+  const PAGE_N_LIVE_CAPACITY = 19;
 
   function balancedChunks(total: number, p1Max: number, pNMax: number): number[] {
     if (total <= 0) return [0];
@@ -420,17 +419,15 @@ export async function GET(
     }
     @media print {
       body { background: #fff; }
-      /* Print mode: .sheet = content-size (NE min-height: 297mm). Tai
-         užtikrina, kad sheet'as netiltų į kitą A4 puslapį dėl overflow.
-         Footer'is rodomas iš karto po content'o (ne lapo apačioje, bet
-         vis tiek matomas). Vienas .sheet = vienas A4 puslapis dėka
-         page-break-after rule. */
+      /* Print mode: .sheet = EXACTLY A4 (297mm), su flex layout pastumiant
+         footer'į į apačią. Content užpildo viršų, footer prilipdomas prie
+         apačios per margin-top: auto. A4 lapas pilnai užpildomas. */
       .sheet {
         width: 100%;
-        min-height: 0;
+        height: 297mm;
         margin: 0;
         box-shadow: none;
-        display: block;
+        /* Flex layout PALIEKAMAS (iš base .sheet rule) – nepriregistruoti display:block */
       }
       .sheet:not(:last-of-type) {
         page-break-after: always;
@@ -551,10 +548,10 @@ export async function GET(
       font-weight: 500;
     }
     /* Parašui – pakankamai vietos pasirašyti, bet ne per daug,
-       kad sheet'as netiltų į kitą puslapį */
+       kad sheet'as netiltų į kitą puslapį. 20pt = 7mm parašo plotas. */
     table.attendees td.signature {
       width: 70mm;
-      height: 24pt;
+      height: 20pt;
     }
     table.attendees td.vote-time {
       width: 45mm;
