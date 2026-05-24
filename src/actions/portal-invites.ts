@@ -196,10 +196,14 @@ export async function bulkCreateMemberAccounts(memberIds?: string[]): Promise<{
         })
         .eq("id", newUser.user.id);
 
-      // 3) Recovery link slaptažodžio nustatymui
+      // 3) Recovery link slaptažodžio nustatymui.
+      //    redirectTo nurodom /nustatyti-slaptazodi puslapį, kad narys
+      //    iškart matytų formą su naujo slaptažodžio laukais.
+      const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || "https://kruminiai.lt"}/auth/callback?next=/nustatyti-slaptazodi`;
       const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
         type: "recovery",
         email,
+        options: { redirectTo },
       });
       if (linkErr || !linkData?.properties?.action_link) {
         errors.push({
@@ -301,9 +305,11 @@ export async function resendPasswordSetupLink(memberId: string): Promise<{
   }
 
   const admin = createAdminSupabaseClient();
+  const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || "https://kruminiai.lt"}/auth/callback?next=/nustatyti-slaptazodi`;
   const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
     type: "recovery",
     email: member.email as string,
+    options: { redirectTo },
   });
   if (linkErr || !linkData?.properties?.action_link) {
     return { error: linkErr?.message || "Nepavyko sugeneruoti nuorodos" };
