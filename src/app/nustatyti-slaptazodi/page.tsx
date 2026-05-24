@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { KeyRound, CheckCircle2, AlertCircle } from "lucide-react";
@@ -19,7 +19,6 @@ import Link from "next/link";
  */
 export default function SetPasswordPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
