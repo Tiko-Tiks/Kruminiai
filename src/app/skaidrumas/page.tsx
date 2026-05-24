@@ -144,12 +144,12 @@ async function getFinansaiData() {
 }
 
 export const metadata = {
-  title: "Skaidrumas",
+  title: "Finansai",
   description:
-    "Krūminių kaimo bendruomenės finansų skaidrumas – nario mokesčiai pagal metus, aukos, projektai ir finansinės ataskaitos.",
+    "Krūminių kaimo bendruomenės finansai – nario mokesčiai pagal metus, aukos, projektai ir finansinės ataskaitos.",
   alternates: { canonical: "/skaidrumas" },
   openGraph: {
-    title: "Skaidrumas",
+    title: "Finansai",
     description:
       "Nario mokesčių surinkimas, aukos ir finansinės ataskaitos – atvira informacija apie bendruomenės pinigus.",
     url: "/skaidrumas",
@@ -167,12 +167,12 @@ export default async function SkaidrumasPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">
           <div className="text-center mb-10">
             <h1 className="text-3xl md:text-4xl font-bold text-green-800 mb-3">
-              Finansų skaidrumas
+              Finansai
             </h1>
             <p className="text-gray-500 max-w-2xl mx-auto">
-              Mes tikime atvirumu. Čia matosi visa informacija apie bendruomenės
-              finansus – nario mokesčius, skolas, aukas ir kaip jos naudojamos.
-              Visi kiti dokumentai – įstatai, protokolai, sutartys – yra{" "}
+              Bendruomenės finansų skaidri ataskaita – nario mokesčiai, skolos,
+              aukos ir kaip jos naudojamos. Visi kiti dokumentai – įstatai,
+              protokolai, sutartys – yra{" "}
               <a href="/dokumentai" className="text-green-700 hover:underline font-medium">
                 dokumentų archyve
               </a>

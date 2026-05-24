@@ -6,7 +6,7 @@ export const PUBLIC_NAV = [
   { label: "Projektai", href: "/projektai", requiresAuth: false },
   { label: "Susirinkimai", href: "/susirinkimai", requiresAuth: true },
   { label: "Dokumentai", href: "/dokumentai", requiresAuth: true },
-  { label: "Skaidrumas", href: "/skaidrumas", requiresAuth: true },
+  { label: "Finansai", href: "/skaidrumas", requiresAuth: true },
   { label: "Apie mus", href: "/kontaktai", requiresAuth: false },
 ];
 
