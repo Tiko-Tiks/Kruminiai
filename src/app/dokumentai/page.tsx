@@ -43,35 +43,70 @@ interface MeetingRow {
 export default async function DocumentsPage() {
   const supabase = createServerSupabaseClient();
 
-  const [{ data: documents }, { data: meetings }] = await Promise.all([
-    supabase
-      .from("documents")
-      .select(
-        "id, title, description, file_path, file_name, file_size, category, meeting_id, created_at"
-      )
-      .eq("is_public", true)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("meetings")
-      .select("id, title, meeting_date, status")
-      .in("status", ["baigtas", "vyksta", "registracija", "planuojamas"])
-      .order("meeting_date", { ascending: false }),
-  ]);
+  // Trys užklausos lygiagrečiai:
+  // 1) visi public dokumentai
+  // 2) susirinkimai (kandidatai į papkes)
+  // 3) resolution_documents junction'ai – kad žinotume, kuris dokumentas
+  //    yra prikabintas prie kurio nutarimo (ir per nutarimą – prie susirinkimo)
+  const [{ data: documents }, { data: meetings }, { data: resDocLinks }] =
+    await Promise.all([
+      supabase
+        .from("documents")
+        .select(
+          "id, title, description, file_path, file_name, file_size, category, meeting_id, created_at"
+        )
+        .eq("is_public", true)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("meetings")
+        .select("id, title, meeting_date, status")
+        .in("status", ["baigtas", "vyksta", "registracija", "planuojamas"])
+        .order("meeting_date", { ascending: false }),
+      supabase
+        .from("resolution_documents")
+        .select("document_id, resolution:resolutions(meeting_id)"),
+    ]);
 
   const docs = (documents || []) as DocRow[];
   const meetingsList = (meetings || []) as MeetingRow[];
 
-  // Suskirstom į dvi grupes:
-  //   1) Bendri dokumentai – be meeting_id (įstatai, sutartys, kt.)
-  //   2) Pagal susirinkimą – su meeting_id
-  const generalDocs = docs.filter((d) => !d.meeting_id);
-  const docsByMeeting = new Map<string, DocRow[]>();
-  for (const d of docs) {
-    if (!d.meeting_id) continue;
-    const arr = docsByMeeting.get(d.meeting_id) || [];
-    arr.push(d);
-    docsByMeeting.set(d.meeting_id, arr);
+  // Sudaroma mapping'a: document_id → set of meeting_id's (jei dokumentas
+  // yra prikabintas prie nutarimo, jis automatiškai priklauso ir susirinkimui)
+  const meetingsFromResolutions = new Map<string, Set<string>>();
+  for (const link of resDocLinks || []) {
+    const docId = link.document_id as string;
+    const res = link.resolution as { meeting_id: string } | { meeting_id: string }[] | null;
+    const meetingId = Array.isArray(res) ? res[0]?.meeting_id : res?.meeting_id;
+    if (!docId || !meetingId) continue;
+    const set = meetingsFromResolutions.get(docId) || new Set<string>();
+    set.add(meetingId);
+    meetingsFromResolutions.set(docId, set);
   }
+
+  // Suskirstom į dvi grupes su AUTO-AGREGAVIMU:
+  //   1) Bendri dokumentai – be meeting_id IR be resolution_document link'o
+  //      (įstatai, sutartys, kt. – tikrai bendri)
+  //   2) Pagal susirinkimą – DocRow gali patekti į kelis susirinkimus, jei
+  //      prikabintas prie kelių nutarimų skirtinguose susirinkimuose
+  const docsByMeeting = new Map<string, DocRow[]>();
+  const generalDocs: DocRow[] = [];
+
+  docs.forEach((d) => {
+    const meetingIds = new Set<string>();
+    if (d.meeting_id) meetingIds.add(d.meeting_id);
+    const fromRes = meetingsFromResolutions.get(d.id);
+    if (fromRes) fromRes.forEach((m) => meetingIds.add(m));
+
+    if (meetingIds.size === 0) {
+      generalDocs.push(d);
+    } else {
+      meetingIds.forEach((mId) => {
+        const arr = docsByMeeting.get(mId) || [];
+        arr.push(d);
+        docsByMeeting.set(mId, arr);
+      });
+    }
+  });
 
   // Bendrų dokumentų grupavimas pagal kategoriją
   const generalGrouped = generalDocs.reduce((acc: Record<string, DocRow[]>, doc) => {

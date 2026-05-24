@@ -354,6 +354,7 @@ Visi trys grąžina pilnai paruoštą JSONB. Niekada nedaryk tiesioginių užkla
 | 022 | `022_member_meetings_include_live_attendance.sql` | Portalo RPC fix – `get_member_active_meetings` ir `get_member_voting_history` įtraukia gyvai dalyvautus susirinkimus (nebėra reikalingas vote_ballots įrašas) |
 | 023 | `023_news_category.sql` | `news.category` stulpelis su CHECK (`bendra`/`projektas`/`susirinkimas`) – Skaidrumas tab'ai filtruoja pagal kategoriją, ne slug heuristiką |
 | 024 | `024_meeting_announcements_and_doc_linkage.sql` | `meeting_announcements` lentelė + `documents.meeting_id` FK – susirinkimo skelbimų sekimas (kanalas, URL, data) ir dokumentų grupavimas pagal susirinkimą |
+| 025 | `025_meeting_documents_auto_aggregate.sql` | `get_public_meeting_data` automatiškai sujungia dokumentus iš `documents.meeting_id` IR `resolution_documents` – admin'as įkelia tik pasirašytus PDF'us, kiti dokumentai (jau prikabinti prie nutarimų) atsiranda automatiškai |
 
 DB pakeitimai daromi **per Supabase MCP** (`apply_migration`) IR sinchronizuojami į `supabase/migrations/` lokaliam repo įrašymui.
 
