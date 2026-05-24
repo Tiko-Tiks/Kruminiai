@@ -87,7 +87,12 @@ export async function createMeeting(formData: FormData) {
 
   if (error) return { error: { _form: [error.message] } };
 
-  // Auto-sukurti 2 procedūrinius klausimus
+  // Auto-sukurti 3 procedūrinius klausimus LT raštvedybos tvarka:
+  //   1. Pirmininko/sekretoriaus rinkimai – jie ves susirinkimą
+  //   2. Pranešimo tinkamumo patvirtinimas – pirmininkas patvirtina, kad
+  //      susirinkimas buvo paskelbtas tinkamai pagal įstatus (min. 14 d.).
+  //      NUTARTA tekstas auto-generuojamas iš meeting_announcements lentelės.
+  //   3. Darbotvarkės tvirtinimas – patvirtinamas darbų sąrašas
   const proceduralItems = [
     {
       meeting_id: data.id,
@@ -99,8 +104,16 @@ export async function createMeeting(formData: FormData) {
     },
     {
       meeting_id: data.id,
-      title: "Susirinkimo darbotvarkės tvirtinimas",
+      title: "Susirinkimo pranešimo tinkamumo patvirtinimas",
       resolution_number: 2,
+      is_procedural: true,
+      procedural_type: "pranesimas",
+      created_by: user?.id ?? null,
+    },
+    {
+      meeting_id: data.id,
+      title: "Susirinkimo darbotvarkės tvirtinimas",
+      resolution_number: 3,
       is_procedural: true,
       procedural_type: "darbotvarke",
       created_by: user?.id ?? null,

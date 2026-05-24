@@ -122,6 +122,18 @@ export function revalidateMeetingPaths(meetingId: string) {
 
 ## ARCHITEKTŪRA: Susirinkimo pirmininko/sekretoriaus rinkimai
 
+**Procedūriniai klausimai naujame susirinkime** (auto-sukuriami):
+
+1. **#1 Pirmininko/sekretoriaus rinkimai** (`procedural_type=pirmininkas_sekretorius`)
+2. **#2 Pranešimo tinkamumas** (`procedural_type=pranesimas`) – pirmininkas
+   patvirtina, kad susirinkimas buvo paskelbtas tinkamai pagal įstatus.
+   NUTARTA tekstas auto-generuojamas iš `meeting_announcements` lentelės
+   (kanalai, datos, compliance status su 14 d. terminu).
+3. **#3 Darbotvarkės tvirtinimas** (`procedural_type=darbotvarke`)
+
+Procedūriniai klausimai į balsavimo srautą (SMS / portalas) neįtraukiami –
+balsuojama tik gyvai, admin įveda rezultatus.
+
 Prieš atidarant **procedūrinio #1 nutarimo** balsavimą (procedural_type=`pirmininkas_sekretorius`),
 admin'as turi pasirinkti pirmininką ir sekretorių per inline pickerį:
 

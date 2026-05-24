@@ -382,7 +382,36 @@ export async function GET(
         return `Susirinkimo ${chRole} ${chVerb} ${ch}, ${secRole} – ${sec}.`;
       }
 
-      // Procedūrinis #2: darbotvarkės tvirtinimas
+      // Procedūrinis #2: susirinkimo pranešimo tinkamumas
+      // Auto-generuoja NUTARTA iš meeting_announcements duomenų. Jei
+      // pranešimas atitinka įstatuose nurodytą terminą (>=14 d.), patvirtinta.
+      if (r.procedural_type === "pranesimas") {
+        if (r.status !== "patvirtintas") {
+          return "Susirinkimo pranešimo tinkamumas nepatvirtintas.";
+        }
+        if (announcementsList.length === 0) {
+          return "Patvirtinta, kad susirinkimas paskelbtas tinkamai.";
+        }
+        const compliancePart = compliantAnnouncement
+          ? `Pranešimas paskelbtas ${daysAdvance} d. prieš susirinkimą ir atitinka įstatuose nurodytą min. 14 d. terminą.`
+          : daysAdvance !== null
+            ? `Pranešimas paskelbtas ${daysAdvance} d. prieš susirinkimą.`
+            : "";
+        const channels = announcementsList
+          .map((a) => {
+            const dt = new Date(a.published_at).toLocaleDateString("lt-LT", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+              timeZone: "Europe/Vilnius",
+            });
+            return `${CHANNEL_LT[a.channel] || a.channel} (${dt})`;
+          })
+          .join("; ");
+        return `Patvirtinta, kad apie susirinkimą iš anksto pranešta: ${channels}. ${compliancePart}`.trim();
+      }
+
+      // Procedūrinis #3: darbotvarkės tvirtinimas
       if (r.procedural_type === "darbotvarke") {
         return r.status === "patvirtintas"
           ? "Susirinkimo darbotvarkei pritarta."
