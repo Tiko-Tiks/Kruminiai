@@ -7,7 +7,13 @@ export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Atnaujinkite savo kontaktus",
-  robots: { index: false, follow: false },
+  // robots: nuoroda token-based, privatūs duomenys – jokio indeksavimo
+  robots: { index: false, follow: false, nocache: true },
+  // Išjungiam OG ir Twitter image preview – kitaip iMessage/Android Messages
+  // sukuria didelę logotipo „kortelę" SMS preview'e (512x512 logo-md.png
+  // iš root layout'o). Šiam srautui preview nereikalingas.
+  openGraph: { images: [] },
+  twitter: { card: "summary" as const, images: [] },
 };
 
 interface TokenData {
