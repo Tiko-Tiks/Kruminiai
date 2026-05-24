@@ -167,57 +167,45 @@ export default async function DocumentsPage() {
                 </section>
               )}
 
-              {/* Susirinkimų papkės – kiekvienas susirinkimas turi savo
-                  „aplankalą" su visais susijusiais dokumentais. */}
+              {/* Susirinkimų kortelės – tik nuorodos į /susirinkimai/[id],
+                  kur narys ras visus susijusius dokumentus, skelbimus,
+                  nutarimus ir balsavimo rezultatus vienoje vietoje.
+                  Vengiame dubliavimo – meeting dokumentai gyvena tik viename
+                  šaltinyje. */}
               {meetingsWithDocs.length > 0 && (
                 <section>
-                  <h2 className="text-xl font-bold text-gray-900 mb-4">
-                    Susirinkimai
-                  </h2>
-                  <div className="space-y-4">
+                  <h2 className="text-xl font-bold text-gray-900 mb-1">Susirinkimai</h2>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Kiekvienas susirinkimo puslapis turi visus susijusius dokumentus
+                    (ataskaitas, protokolą, dalyvių sąrašą), skelbimus ir balsavimo
+                    rezultatus.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {meetingsWithDocs.map((m) => {
                       const meetingDocs = docsByMeeting.get(m.id) || [];
                       return (
-                        <div
+                        <a
                           key={m.id}
-                          className="bg-white rounded-xl border border-gray-200 overflow-hidden"
+                          href={`/susirinkimai/${m.id}`}
+                          className="group bg-white rounded-xl border border-gray-200 hover:border-green-300 hover:shadow-sm p-5 transition-all flex items-start gap-3"
                         >
-                          <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/60">
-                            <div className="flex items-start gap-3">
-                              <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                                <FolderOpen className="h-5 w-5 text-green-700" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <h3 className="font-semibold text-gray-900">{m.title}</h3>
-                                <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
-                                  {formatDateLong(m.meeting_date)}
-                                  <span className="text-gray-400 mx-1">·</span>
-                                  {meetingDocs.length}{" "}
-                                  {meetingDocs.length === 1 ? "dokumentas" : "dokumentai"}
-                                </p>
-                              </div>
-                              <a
-                                href={`/susirinkimai/${m.id}`}
-                                className="text-xs text-green-700 hover:text-green-800 font-medium hover:underline flex-shrink-0"
-                              >
-                                Susirinkimo info →
-                              </a>
-                            </div>
+                          <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                            <FolderOpen className="h-5 w-5 text-green-700" />
                           </div>
-                          <div className="divide-y divide-gray-100">
-                            {meetingDocs.map((doc) => (
-                              <DocumentLink
-                                key={doc.id}
-                                filePath={doc.file_path}
-                                title={doc.title}
-                                description={doc.description}
-                                fileSize={doc.file_size}
-                                meta={DOCUMENT_CATEGORY_LABELS[doc.category] || doc.category}
-                              />
-                            ))}
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-semibold text-gray-900 group-hover:text-green-700 transition-colors">
+                              {m.title}
+                            </h3>
+                            <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {formatDateLong(m.meeting_date)}
+                            </p>
+                            <p className="text-xs text-green-700 mt-2 font-medium">
+                              {meetingDocs.length}{" "}
+                              {meetingDocs.length === 1 ? "dokumentas" : "dokumentai"} →
+                            </p>
                           </div>
-                        </div>
+                        </a>
                       );
                     })}
                   </div>
