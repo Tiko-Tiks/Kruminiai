@@ -24,19 +24,14 @@ interface DonationRow {
 async function getFinansaiData() {
   const supabase = createServerSupabaseClient();
 
-  // Public dokumentai
+  // Tik finansinių ataskaitų dokumentai – Skaidrumas puslapis sutelktas
+  // į finansus. Visi kiti dokumentai (įstatai, protokolai, sutartys) gyvena
+  // /dokumentai puslapyje, su nuoroda iš čia.
   const { data: documents } = await supabase
     .from("documents")
     .select("id, title, file_path, file_name, category, published_at, file_size")
     .eq("is_public", true)
-    .order("published_at", { ascending: false });
-
-  // Naujienos – su category, kad Skaidrumas tab'ai filtruotų pagal tipą
-  // (projektas → „Projektai" tab; susirinkimas → „Susirinkimai" tab).
-  const { data: news } = await supabase
-    .from("news")
-    .select("id, title, slug, excerpt, category, published_at, is_pinned")
-    .eq("is_published", true)
+    .eq("category", "ataskaitos")
     .order("published_at", { ascending: false });
 
   // Nario mokesčiai – pagal metus
@@ -113,8 +108,7 @@ async function getFinansaiData() {
   );
 
   return {
-    documents: documents || [],
-    news: news || [],
+    ataskaitos: documents || [],
     yearStats,
     totalFeesCollected,
     totalDebt,
@@ -127,12 +121,12 @@ async function getFinansaiData() {
 export const metadata = {
   title: "Skaidrumas",
   description:
-    "Krūminių kaimo bendruomenės skaidrumo puslapis – metinės ataskaitos, susirinkimų protokolai, įstatai ir kiti viešai prieinami dokumentai.",
+    "Krūminių kaimo bendruomenės finansų skaidrumas – nario mokesčiai pagal metus, aukos, projektai ir finansinės ataskaitos.",
   alternates: { canonical: "/skaidrumas" },
   openGraph: {
     title: "Skaidrumas",
     description:
-      "Metinės ataskaitos, protokolai ir įstatai – atvira informacija apie bendruomenės veiklą.",
+      "Nario mokesčių surinkimas, aukos ir finansinės ataskaitos – atvira informacija apie bendruomenės pinigus.",
     url: "/skaidrumas",
   },
 };
@@ -140,11 +134,6 @@ export const metadata = {
 export default async function SkaidrumasPage() {
   const data = await getFinansaiData();
 
-  const ataskaitos = data.documents.filter((d) => d.category === "ataskaitos");
-  const protokolai = data.documents.filter((d) => d.category === "protokolai");
-  const istatai = data.documents.filter(
-    (d) => d.category === "istatai" || d.category === "sutartys"
-  );
   return (
     <div className="min-h-screen flex flex-col bg-amber-50/50">
       <PublicHeader />
@@ -153,19 +142,21 @@ export default async function SkaidrumasPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">
           <div className="text-center mb-10">
             <h1 className="text-3xl md:text-4xl font-bold text-green-800 mb-3">
-              Bendruomenės Skaidrumas
+              Finansų skaidrumas
             </h1>
             <p className="text-gray-500 max-w-2xl mx-auto">
-              Mes tikime atvirumu. Čia galite rasti viešai prieinamą informaciją apie
-              mūsų veiklą, finansus ir priimtus sprendimus.
+              Mes tikime atvirumu. Čia matosi visa informacija apie bendruomenės
+              finansus – nario mokesčius, skolas, aukas ir kaip jos naudojamos.
+              Visi kiti dokumentai – įstatai, protokolai, sutartys – yra{" "}
+              <a href="/dokumentai" className="text-green-700 hover:underline font-medium">
+                dokumentų archyve
+              </a>
+              .
             </p>
           </div>
 
           <SkaidrumasTabs
-            ataskaitos={ataskaitos}
-            protokolai={protokolai}
-            istatai={istatai}
-            news={data.news}
+            ataskaitos={data.ataskaitos}
             yearStats={data.yearStats}
             totalFeesCollected={data.totalFeesCollected}
             totalDebt={data.totalDebt}
