@@ -86,13 +86,11 @@ export function VotingFlow({ token, data }: Props) {
   const [step, setStep] = useState<Step>("contacts");
   const [email, setEmail] = useState(data.member.email || "");
   const [phone, setPhone] = useState(data.member.phone || "");
-  // Pradinė reikšmė visiems klausimams – „susilaikau" (numatytasis pasirinkimas)
-  const [votes, setVotes] = useState<Record<string, VoteChoice>>(() =>
-    data.resolutions.reduce((acc, r) => {
-      acc[r.id] = "susilaike";
-      return acc;
-    }, {} as Record<string, VoteChoice>)
-  );
+  // Pradinė reikšmė – jokio pasirinkimo. Narys turi sąmoningai paspausti
+  // vieną iš trijų mygtukų (UŽ / PRIEŠ / SUSILAIKAU) kiekvienam klausimui.
+  // Anksčiau buvo „susilaikau" by default, bet tai klaidino narius – atrodė,
+  // kad „susilaikau" yra fiksuotas / neaktyvus, nes visada būdavo geltonas.
+  const [votes, setVotes] = useState<Record<string, VoteChoice | undefined>>({});
   const [comments, setComments] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [registeringLive, setRegisteringLive] = useState(false);
@@ -126,6 +124,13 @@ export function VotingFlow({ token, data }: Props) {
       setStep("contacts");
       return;
     }
+    // Safety net – allVoted button guard turėjo užkirsti kelią, bet
+    // jei kažkas pro jį pralenda, neleidžiam siųsti su nepasirinktais.
+    if (!allVoted) {
+      toast.error("Pasirinkite atsakymą visiems klausimams prieš pateikiant balsą");
+      setStep("voting");
+      return;
+    }
     setSubmitting(true);
     const result = await castVotesByToken(
       token,
@@ -136,7 +141,7 @@ export function VotingFlow({ token, data }: Props) {
         resolution_id: r.id,
         resolution_number: r.resolution_number,
         title: r.title,
-        vote: votes[r.id],
+        vote: votes[r.id]!,
         comment: (comments[r.id] || "").trim() || null,
         documents: r.documents?.map((d) => ({
           id: d.id,
@@ -597,7 +602,7 @@ function VotingStep({
   onPreviewDoc,
 }: {
   resolutions: Resolution[];
-  votes: Record<string, VoteChoice>;
+  votes: Record<string, VoteChoice | undefined>;
   comments: Record<string, string>;
   onVote: (id: string, choice: VoteChoice) => void;
   onComment: (id: string, text: string) => void;
@@ -656,30 +661,38 @@ function VotingStep({
           <div className="grid grid-cols-3 gap-2">
             {(["uz", "pries", "susilaike"] as VoteChoice[]).map((choice) => {
               const selected = votes[r.id] === choice;
-              // Visada matomos spalvos (švelnios), pasirinkimas – sodri spalva
+              // Visi trys mygtukai – vienodai prominentiški pasirinkti
+              // (sodri spalva + varnelė). Nepasirinkti – švelnios spalvos.
               const colors = {
                 uz: selected
-                  ? "bg-green-700 text-white border-green-800 shadow-md"
-                  : "bg-green-100 text-green-800 border-green-300 hover:bg-green-200 hover:border-green-400",
+                  ? "bg-green-700 text-white border-green-800 shadow-md ring-2 ring-green-300"
+                  : "bg-green-50 text-green-800 border-green-300 hover:bg-green-100 hover:border-green-400",
                 pries: selected
-                  ? "bg-red-700 text-white border-red-800 shadow-md"
-                  : "bg-red-100 text-red-800 border-red-300 hover:bg-red-200 hover:border-red-400",
+                  ? "bg-red-700 text-white border-red-800 shadow-md ring-2 ring-red-300"
+                  : "bg-red-50 text-red-800 border-red-300 hover:bg-red-100 hover:border-red-400",
                 susilaike: selected
-                  ? "bg-yellow-500 text-white border-yellow-600 shadow-md"
-                  : "bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-200 hover:border-yellow-400",
+                  ? "bg-amber-600 text-white border-amber-700 shadow-md ring-2 ring-amber-300"
+                  : "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100 hover:border-amber-400",
               };
               return (
                 <button
                   key={choice}
                   type="button"
                   onClick={() => onVote(r.id, choice)}
-                  className={`px-4 py-4 rounded-lg border-2 font-bold text-base transition-all ${colors[choice]}`}
+                  className={`px-4 py-4 rounded-lg border-2 font-bold text-base transition-all flex items-center justify-center gap-1.5 ${colors[choice]}`}
                 >
+                  {selected && <CheckCircle2 className="h-5 w-5 flex-shrink-0" />}
                   {VOTE_LABELS[choice]}
                 </button>
               );
             })}
           </div>
+          {!votes[r.id] && (
+            <p className="mt-2 text-sm text-amber-700 font-medium flex items-center gap-1.5">
+              <AlertCircle className="h-4 w-4" />
+              Pasirinkite vieną variantą
+            </p>
+          )}
 
           {/* Komentaras / pasisakymas prie balso (neprivalomas) */}
           <div className="mt-4">
@@ -726,7 +739,7 @@ function ReviewStep({
   submitting,
 }: {
   resolutions: Resolution[];
-  votes: Record<string, VoteChoice>;
+  votes: Record<string, VoteChoice | undefined>;
   comments: Record<string, string>;
   email: string | null;
   onBack: () => void;
@@ -761,13 +774,15 @@ function ReviewStep({
                 <div className="flex-1 min-w-0">
                   <p className="text-base text-gray-900 font-semibold leading-snug">{r.title}</p>
                 </div>
-                <span
-                  className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-bold ${
-                    colors[votes[r.id]]
-                  }`}
-                >
-                  {VOTE_LABELS[votes[r.id]]}
-                </span>
+                {votes[r.id] && (
+                  <span
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-bold ${
+                      colors[votes[r.id]!]
+                    }`}
+                  >
+                    {VOTE_LABELS[votes[r.id]!]}
+                  </span>
+                )}
               </div>
               {comment && (
                 <div className="mt-3 ml-11 text-sm text-gray-700 italic bg-gray-50 px-3 py-2 rounded border-l-2 border-gray-300">
