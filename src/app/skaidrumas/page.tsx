@@ -34,11 +34,12 @@ async function getFinansaiData() {
     .eq("category", "ataskaitos")
     .order("published_at", { ascending: false });
 
-  // Nario mokesčiai – pagal metus
+  // Nario mokesčiai – visi fee_periods, NE tik metinis. Stojamieji
+  // (vienkartinis) ir tiksliniai mokėjimai irgi yra bendruomenės pajamos
+  // ir turi būti įtraukti į „Surinkta" sumas.
   const { data: feePeriods } = await supabase
     .from("fee_periods")
-    .select("id, year, amount_cents")
-    .eq("fee_type", "metinis")
+    .select("id, year, fee_type, amount_cents")
     .order("year", { ascending: false });
 
   const { data: members } = await supabase
@@ -50,30 +51,54 @@ async function getFinansaiData() {
     .from("payments")
     .select("member_id, fee_period_id, amount_cents");
 
-  const paidByYear = new Map<number, { cents: number; count: number }>();
+  // Grupuojam payments pagal metus, atskirai metinius ir kitus (stojamieji,
+  // tiksliniai, vienkartiniai), kad galėtume rodyti breakdown.
+  const paidByYear = new Map<
+    number,
+    { metinis_cents: number; metinis_count: number; kita_cents: number; kita_count: number }
+  >();
   for (const p of payments || []) {
     const fp = (feePeriods || []).find((f) => f.id === p.fee_period_id);
     if (!fp) continue;
-    const cur = paidByYear.get(fp.year) || { cents: 0, count: 0 };
-    cur.cents += p.amount_cents as number;
-    cur.count += 1;
+    const cur =
+      paidByYear.get(fp.year) || {
+        metinis_cents: 0,
+        metinis_count: 0,
+        kita_cents: 0,
+        kita_count: 0,
+      };
+    if (fp.fee_type === "metinis") {
+      cur.metinis_cents += p.amount_cents as number;
+      cur.metinis_count += 1;
+    } else {
+      cur.kita_cents += p.amount_cents as number;
+      cur.kita_count += 1;
+    }
     paidByYear.set(fp.year, cur);
   }
 
-  // Skaičiuojam kiekvienam fee_period: surinkta vs. potencialu (tik nariai,
-  // įstoję iki to metų pradžios)
-  const yearStats: YearStats[] = (feePeriods || []).map((fp) => {
+  // Metiniams skaičiuojam potencialą (X narių × 12€), kitiems – tik tai, kas surinkta
+  const metinisByYear = (feePeriods || [])
+    .filter((fp) => fp.fee_type === "metinis")
+    .sort((a, b) => (b.year as number) - (a.year as number));
+
+  const yearStats: YearStats[] = metinisByYear.map((fp) => {
     const eligible = (members || []).filter((m) => {
       const joinYear = m.join_date ? new Date(m.join_date).getFullYear() : 2012;
       return joinYear <= fp.year;
     });
-    const paid = paidByYear.get(fp.year) || { cents: 0, count: 0 };
+    const paid = paidByYear.get(fp.year) || {
+      metinis_cents: 0,
+      metinis_count: 0,
+      kita_cents: 0,
+      kita_count: 0,
+    };
     return {
       year: fp.year,
-      collected_cents: paid.cents,
+      collected_cents: paid.metinis_cents + paid.kita_cents, // metinis + stojamieji + kt.
       potential_cents: eligible.length * (fp.amount_cents as number),
-      paid_count: paid.count,
-      unpaid_count: eligible.length - paid.count,
+      paid_count: paid.metinis_count,
+      unpaid_count: eligible.length - paid.metinis_count,
     };
   });
 
