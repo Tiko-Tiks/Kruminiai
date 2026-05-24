@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Coins, FileText, FolderOpen, CalendarDays, Heart, TrendingUp, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DocumentLink } from "@/components/DocumentLink";
 
 interface DocumentRow {
   id: string;
@@ -72,12 +73,6 @@ function formatDate(dateStr: string | null) {
   });
 }
 
-function getDocumentUrl(filePath: string) {
-  if (filePath.startsWith('__api__/')) return `/api/dokumentai/${filePath.replace('__api__/', '')}`;
-  if (filePath.startsWith('__public__/')) return `/${filePath.replace('__public__/', '')}`;
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/${filePath}`;
-}
-
 function EmptyState() {
   return (
     <p className="text-center text-gray-400 py-8">
@@ -86,46 +81,20 @@ function EmptyState() {
   );
 }
 
-function DocumentTable({ documents, categoryLabel }: { documents: DocumentRow[]; categoryLabel: string }) {
+function DocumentTable({ documents }: { documents: DocumentRow[]; categoryLabel: string }) {
   if (documents.length === 0) return <EmptyState />;
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-gray-200">
-            <th className="text-left py-3 px-4 font-semibold text-gray-700 uppercase text-xs tracking-wider">
-              Data
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-700 uppercase text-xs tracking-wider">
-              {categoryLabel}
-            </th>
-            <th className="text-right py-3 px-4 font-semibold text-gray-700 uppercase text-xs tracking-wider">
-              Failas
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {documents.map((doc) => (
-            <tr key={doc.id} className="border-b border-gray-100 hover:bg-gray-50/50">
-              <td className="py-3 px-4 text-gray-500 whitespace-nowrap">
-                {formatDate(doc.published_at)}
-              </td>
-              <td className="py-3 px-4 text-gray-900">{doc.title}</td>
-              <td className="py-3 px-4 text-right">
-                <a
-                  href={getDocumentUrl(doc.file_path)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-green-700 hover:text-green-800 font-medium text-xs"
-                >
-                  Atsisiųsti
-                </a>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="divide-y divide-gray-100">
+      {documents.map((doc) => (
+        <DocumentLink
+          key={doc.id}
+          filePath={doc.file_path}
+          title={doc.title}
+          fileSize={doc.file_size}
+          meta={formatDate(doc.published_at)}
+        />
+      ))}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { PublicFooter } from "@/components/layout/PublicFooter";
 import { getDocuments } from "@/actions/documents";
 import { DOCUMENT_CATEGORY_LABELS } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
-import { FileText } from "lucide-react";
+import { DocumentLink } from "@/components/DocumentLink";
 
 export const metadata = {
   title: "Dokumentai",
@@ -48,28 +48,16 @@ export default async function DocumentsPage() {
                   <h2 className="text-lg font-semibold text-gray-900 mb-3">
                     {DOCUMENT_CATEGORY_LABELS[category] || category}
                   </h2>
-                  <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+                  <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100 overflow-hidden">
                     {docs.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between px-5 py-4">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <FileText className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                          <div className="min-w-0">
-                            <p className="font-medium text-gray-900 truncate">{doc.title}</p>
-                            {doc.description && (
-                              <p className="text-xs text-gray-500 truncate">{doc.description}</p>
-                            )}
-                            <p className="text-xs text-gray-400">{formatDate(doc.created_at)}</p>
-                          </div>
-                        </div>
-                        <a
-                          href={doc.file_path.startsWith('__api__/') ? `/api/dokumentai/${doc.file_path.replace('__api__/', '')}` : doc.file_path.startsWith('__public__/') ? `/${doc.file_path.replace('__public__/', '')}` : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/${doc.file_path}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-green-700 hover:text-green-800 font-medium text-xs flex-shrink-0"
-                        >
-                          Atsisiųsti
-                        </a>
-                      </div>
+                      <DocumentLink
+                        key={doc.id}
+                        filePath={doc.file_path}
+                        title={doc.title}
+                        description={doc.description}
+                        fileSize={doc.file_size}
+                        meta={formatDate(doc.created_at)}
+                      />
                     ))}
                   </div>
                 </div>

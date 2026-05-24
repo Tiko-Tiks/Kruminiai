@@ -3,8 +3,8 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { DOCUMENT_CATEGORY_LABELS } from "@/lib/constants";
-import { formatDate, formatFileSize } from "@/lib/utils";
-import { Plus, FileText } from "lucide-react";
+import { formatDate, formatFileSize, getDocumentPublicUrl } from "@/lib/utils";
+import { Plus, FileText, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { DeleteDocumentButton } from "./DeleteDocumentButton";
 import { VisibilityToggle } from "./VisibilityToggle";
@@ -110,7 +110,19 @@ export default async function AdminDocumentsPage({ searchParams }: PageProps) {
                             <VisibilityToggle id={doc.id} isPublic={doc.is_public} />
                           </td>
                           <td className="px-6 py-3 text-right">
-                            <DeleteDocumentButton id={doc.id} name={doc.title} />
+                            <div className="inline-flex items-center gap-2">
+                              <a
+                                href={getDocumentPublicUrl(doc.file_path)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Atidaryti peržiūrą naujame lange"
+                                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium px-2 py-1 hover:bg-blue-50 rounded"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                Peržiūrėti
+                              </a>
+                              <DeleteDocumentButton id={doc.id} name={doc.title} />
+                            </div>
                           </td>
                         </tr>
                       ))}
