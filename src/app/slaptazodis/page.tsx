@@ -18,8 +18,10 @@ export default function ForgotPasswordPage() {
     setError("");
 
     const supabase = createClient();
+    // Vedam tiesiai į slaptažodžio formą – hash fragmentas (#access_token)
+    // apdorojamas supabase-js client'o automatiškai.
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/nustatyti-slaptazodi`,
+      redirectTo: `${window.location.origin}/nustatyti-slaptazodi`,
     });
 
     if (error) {

@@ -199,7 +199,10 @@ export async function bulkCreateMemberAccounts(memberIds?: string[]): Promise<{
       // 3) Recovery link slaptažodžio nustatymui.
       //    redirectTo nurodom /nustatyti-slaptazodi puslapį, kad narys
       //    iškart matytų formą su naujo slaptažodžio laukais.
-      const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || "https://kruminiai.lt"}/auth/callback?next=/nustatyti-slaptazodi`;
+      // Recovery nuoroda naudoja hash fragmentą (#access_token=...), todėl
+  // vedam tiesiai į slaptažodžio formą – supabase-js automatiškai apdoros
+  // hash'ą per detectSessionInUrl. /auth/callback netinka (jis laukia ?code=).
+  const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || "https://kruminiai.lt"}/nustatyti-slaptazodi`;
       const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
         type: "recovery",
         email,
@@ -305,7 +308,10 @@ export async function resendPasswordSetupLink(memberId: string): Promise<{
   }
 
   const admin = createAdminSupabaseClient();
-  const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || "https://kruminiai.lt"}/auth/callback?next=/nustatyti-slaptazodi`;
+  // Recovery nuoroda naudoja hash fragmentą (#access_token=...), todėl
+  // vedam tiesiai į slaptažodžio formą – supabase-js automatiškai apdoros
+  // hash'ą per detectSessionInUrl. /auth/callback netinka (jis laukia ?code=).
+  const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || "https://kruminiai.lt"}/nustatyti-slaptazodi`;
   const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
     type: "recovery",
     email: member.email as string,

@@ -27,13 +27,46 @@ export default function SetPasswordPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const [authorized, setAuthorized] = useState(false);
 
-  // Patikrinam, ar naudotojas autentifikuotas (atvyko per recovery link).
+  // Recovery nuoroda atveda su hash fragmentu (#access_token=...&type=recovery).
+  // supabase-js client'as automatiškai apdoroja hash'ą per `detectSessionInUrl`.
+  // Klausomės onAuthStateChange – kai PASSWORD_RECOVERY event'as gaunamas,
+  // žinom, kad sessija sukurta ir galim leisti naują slaptažodį.
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
-      setAuthorized(!!data.user);
-      setAuthChecked(true);
+    let mounted = true;
+
+    // 1) Pirmas patikrinimas – jei jau yra sessija (PWA cache'as), iškart leidžiam
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      if (data.session) {
+        setAuthorized(true);
+        setAuthChecked(true);
+      }
     });
+
+    // 2) Klausomės auth state pasikeitimų – tai veikia, kai hash apdorojamas
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
+        setAuthorized(!!session);
+        setAuthChecked(true);
+      } else if (event === "INITIAL_SESSION") {
+        // Po pradinio krovimo, jei sessijos vis dar nėra – nuoroda negalioja
+        setAuthorized(!!session);
+        setAuthChecked(true);
+      }
+    });
+
+    // 3) Saugiklis – po 2 sekundžių pasibaigs „Tikrinama..." spinneris
+    const timeout = setTimeout(() => {
+      if (mounted) setAuthChecked(true);
+    }, 2000);
+
+    return () => {
+      mounted = false;
+      subscription.subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
