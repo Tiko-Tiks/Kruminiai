@@ -112,25 +112,23 @@ export function SkaidrumasTabs({
           <div className="flex items-center gap-2 mb-2">
             <AlertCircle className="h-4 w-4 text-red-600" />
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Nesumokėtų metinių
+              Nario mokesčio skola
             </p>
           </div>
           <p className="text-2xl font-bold text-red-700">{eur(totalDebt)} €</p>
-          <p className="text-xs text-gray-500 mt-1">
-            Visi metai · narių dar nesumokėtas metinis 12 € mokestis
-          </p>
+          <p className="text-xs text-gray-500 mt-1">Sukaupta per visus metus</p>
         </div>
 
         <div className="bg-white rounded-2xl border border-amber-200 p-5">
           <div className="flex items-center gap-2 mb-2">
             <Heart className="h-4 w-4 text-amber-600" />
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Liepto aukos
+              Lieptui aukota
             </p>
           </div>
           <p className="text-2xl font-bold text-amber-700">{eur(totalDonations)} €</p>
           <p className="text-xs text-gray-500 mt-1">
-            iš {eur(lieptasGoalCents)} € ({lieptasPercent}%)
+            iš {eur(lieptasGoalCents)} € tikslo ({lieptasPercent}%)
           </p>
         </div>
       </div>
@@ -250,7 +248,7 @@ export function SkaidrumasTabs({
         <div className="bg-white rounded-2xl border border-amber-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-amber-100 bg-amber-50/40 flex items-center justify-between">
             <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
-              Liepto projekto aukos
+              Aukos Liepto projektui
             </h2>
             <span className="text-xs text-amber-700 font-semibold">
               {donations.length} {donations.length === 1 ? "auka" : "aukos"}
