@@ -118,10 +118,11 @@ export function MemberSidebar() {
         {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
 
-      {/* Sidebar */}
+      {/* Sidebar – h-screen iOS Safari'yje neteisinga (ima 100vh be browser
+          UI baro), todėl naudojam h-[100dvh] (dynamic viewport height). */}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-40 h-screen w-64 flex flex-col bg-gradient-to-b from-green-800 to-green-900 text-white transition-transform",
+          "fixed left-0 top-0 z-40 h-[100dvh] w-64 flex flex-col bg-gradient-to-b from-green-800 to-green-900 text-white transition-transform",
           "lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}

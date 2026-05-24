@@ -23,6 +23,13 @@
   --sidebar-active: #3b82f6;
 }
 
+html, body {
+  /* Apsauga nuo horizontalaus scroll'o mobiliuose – kartais ilgi tekstai,
+     plačios lentelės ar grid'ai sukelia overflow ir „bėgiojantį" ekraną. */
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
 body {
   color: var(--foreground);
   background: var(--background);
