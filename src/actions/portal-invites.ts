@@ -167,9 +167,19 @@ export async function bulkCreateMemberAccounts(memberIds?: string[]): Promise<{
         },
       });
       if (createErr || !newUser?.user) {
+        // Detalus log'as serveryje, kad Vercel runtime log'uose matytume
+        console.error("[bulk-invite] createUser failed", {
+          member: memberLabel,
+          email,
+          error: createErr,
+          errorCode: createErr?.code,
+          errorStatus: createErr?.status,
+        });
         errors.push({
           member: memberLabel,
-          reason: createErr?.message || "createUser nepavyko",
+          reason:
+            createErr?.message ||
+            (createErr ? JSON.stringify(createErr) : "createUser nepavyko (no detail)"),
         });
         continue;
       }
@@ -234,9 +244,10 @@ export async function bulkCreateMemberAccounts(memberIds?: string[]): Promise<{
         } as Record<string, unknown>,
       });
     } catch (e) {
+      console.error("[bulk-invite] unexpected exception", { member: memberLabel, error: e });
       errors.push({
         member: memberLabel,
-        reason: e instanceof Error ? e.message : "Nežinoma klaida",
+        reason: e instanceof Error ? `${e.message}` : `Nežinoma klaida: ${JSON.stringify(e)}`,
       });
     }
   }

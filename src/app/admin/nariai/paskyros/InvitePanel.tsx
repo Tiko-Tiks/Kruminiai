@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { bulkCreateMemberAccounts } from "@/actions/portal-invites";
 import { toast } from "sonner";
-import { Send, Users, CheckSquare, Square } from "lucide-react";
+import { Send, Users, CheckSquare, Square, AlertCircle, X } from "lucide-react";
 
 interface Candidate {
   id: string;
@@ -21,6 +21,8 @@ export function InvitePanel({ candidates }: { candidates: Candidate[] }) {
     new Set(candidates.map((c) => c.id))
   );
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{ member: string; reason: string }[]>([]);
+  const [lastResult, setLastResult] = useState<{ created: number; emailed: number } | null>(null);
 
   if (candidates.length === 0) {
     return (
@@ -58,11 +60,13 @@ export function InvitePanel({ candidates }: { candidates: Candidate[] }) {
     if (!confirmed) return;
 
     setLoading(true);
+    setErrors([]);
     const result = await bulkCreateMemberAccounts(Array.from(selected));
     setLoading(false);
 
     if (result.error) {
       toast.error(result.error);
+      setErrors([{ member: "Sistema", reason: result.error }]);
       return;
     }
 
@@ -74,16 +78,50 @@ export function InvitePanel({ candidates }: { candidates: Candidate[] }) {
     }
     toast.success(parts.join(", ") || "Operacija atlikta");
 
-    if (result.errors && result.errors.length > 0) {
-      console.warn("Bulk invite errors:", result.errors);
-    }
-
+    setLastResult({ created: result.created || 0, emailed: result.emailed || 0 });
+    setErrors(result.errors || []);
     router.refresh();
   };
 
   return (
     <Card className="border-blue-200 bg-blue-50/30">
       <div className="p-6">
+        {/* Klaidos / rezultatai – rodom virš sąrašo, kad iškart matytųsi */}
+        {(errors.length > 0 || lastResult) && (
+          <div className="mb-4 space-y-2">
+            {lastResult && (lastResult.created > 0 || lastResult.emailed > 0) && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
+                ✓ Sukurta {lastResult.created} paskyrų, išsiųsta {lastResult.emailed} laiškų.
+              </div>
+            )}
+            {errors.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <h3 className="text-sm font-semibold text-red-900 flex items-center gap-1.5">
+                    <AlertCircle className="h-4 w-4" />
+                    {errors.length} klaida{errors.length === 1 ? "" : "(-os)"}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setErrors([])}
+                    className="text-red-700 hover:text-red-900"
+                    title="Užverti"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <ul className="space-y-1 text-sm text-red-800">
+                  {errors.map((e, i) => (
+                    <li key={i} className="font-mono text-xs">
+                      <strong>{e.member}:</strong> {e.reason}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
             <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
