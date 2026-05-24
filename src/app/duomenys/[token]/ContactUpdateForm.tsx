@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { CheckCircle2 } from "lucide-react";
 
@@ -18,7 +17,6 @@ interface Props {
 }
 
 export function ContactUpdateForm({ token, member }: Props) {
-  const router = useRouter();
   const [email, setEmail] = useState(member.email || "");
   const [phone, setPhone] = useState(member.phone || "");
   const [address, setAddress] = useState(member.address || "");
@@ -59,23 +57,28 @@ export function ContactUpdateForm({ token, member }: Props) {
     }
 
     setSuccess(true);
-    setTimeout(() => router.refresh(), 2000);
   };
 
+  // Sėkmingo išsaugojimo būsena – paprastas „Ačiū" su žalia varnele.
+  // Slepiam ir tėvinio puslapio sveikinimą per CSS (sibling negative margin),
+  // kad nebūtų dubliuoto teksto „Sveiki, Vardenis" + „Ačiū, Vardenis".
   if (success) {
     return (
-      <div className="text-center py-8">
-        <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-          <CheckCircle2 className="h-8 w-8 text-green-700" />
+      <>
+        <style>{`
+          /* Užmaskuojam Sveiki header'į page.tsx puslapyje – jis yra
+             tarp main'o ir formos, todėl nustatom display: none ant jo. */
+          [data-greeting] { display: none !important; }
+        `}</style>
+        <div className="text-center py-6">
+          <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-5">
+            <CheckCircle2 className="h-10 w-10 text-green-700" strokeWidth={2.5} />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">
+            Ačiū už papildytą informaciją!
+          </h2>
         </div>
-        <h2 className="text-lg font-bold text-gray-900 mb-2">
-          Ačiū, {member.first_name}!
-        </h2>
-        <p className="text-sm text-gray-600 leading-relaxed">
-          Jūsų duomenys išsaugoti. Dabar gausite svarbius bendruomenės
-          pranešimus el. paštu ir galėsite susikurti paskyrą portale.
-        </p>
-      </div>
+      </>
     );
   }
 

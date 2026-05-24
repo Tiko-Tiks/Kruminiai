@@ -57,7 +57,9 @@ export default async function ContactUpdatePage({
             </div>
           ) : (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-              <div className="text-center mb-6">
+              {/* Sveikinimo blokas – slepiamas per CSS po sėkmingo
+                  išsaugojimo (žr. ContactUpdateForm success state). */}
+              <div className="text-center mb-6" data-greeting>
                 <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
                   <CheckCircle2 className="h-7 w-7 text-green-700" />
                 </div>
