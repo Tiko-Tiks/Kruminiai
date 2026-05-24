@@ -96,7 +96,7 @@ export function InvitePanel({ candidates }: { candidates: Candidate[] }) {
             </p>
           </div>
           <Button
-            variant="default"
+            variant="primary"
             onClick={handleSubmit}
             disabled={loading || selected.size === 0}
             loading={loading}
