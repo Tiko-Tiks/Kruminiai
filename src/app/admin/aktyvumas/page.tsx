@@ -136,16 +136,30 @@ export default async function ActivityPage() {
 
       {/* Aiškinimas */}
       <Card className="bg-blue-50/30 border-blue-200 mb-6">
-        <div className="p-4 text-xs text-gray-700 flex items-start gap-2">
-          <Clock className="h-4 w-4 text-blue-700 flex-shrink-0 mt-0.5" />
-          <p>
-            <strong className="text-gray-900">Spalvos lentelėje:</strong>
-            <span className="text-green-700 font-medium"> žalia</span> – aktyvus
-            (per 7 d.) ·{" "}
-            <span className="text-blue-700">mėlyna</span> – neseniai (per 30 d.) ·{" "}
-            <span className="text-amber-700">gintaras</span> – seniai (per 90 d.) ·{" "}
-            <span className="text-gray-500">pilka</span> – seniau arba niekada
-          </p>
+        <div className="p-4 text-xs text-gray-700 space-y-2">
+          <div className="flex items-start gap-2">
+            <Clock className="h-4 w-4 text-blue-700 flex-shrink-0 mt-0.5" />
+            <p>
+              <strong className="text-gray-900">Prisijungimo spalvos:</strong>{" "}
+              <span className="text-green-700 font-medium">žalia</span> – per 7 d. ·{" "}
+              <span className="text-blue-700">mėlyna</span> – per 30 d. ·{" "}
+              <span className="text-amber-700">gintaras</span> – per 90 d. ·{" "}
+              <span className="text-gray-500">pilka</span> – seniau arba niekada
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <UserCheck className="h-4 w-4 text-green-700 flex-shrink-0 mt-0.5" />
+            <p>
+              <strong className="text-gray-900">Statusai:</strong>{" "}
+              <strong className="text-yellow-700">Laukia patvirtinimo</strong> – pats
+              užsiregistravo, admin&apos;as dar nepatvirtino ·{" "}
+              <strong className="text-green-700">Aktyvi</strong> – patvirtinta
+              paskyra, narys bent kartą prisijungė ·{" "}
+              <strong className="text-blue-700">Pakviesta</strong> – paskyra
+              sukurta ir patvirtinta, bet narys dar neprisijungė (negavo / neaktyvavo
+              welcome laiško)
+            </p>
+          </div>
         </div>
       </Card>
 
@@ -176,11 +190,11 @@ export default async function ActivityPage() {
                   </td>
                   <td className="px-6 py-3">
                     {!m.is_approved ? (
-                      <Badge variant="warning">Laukia</Badge>
+                      <Badge variant="warning">Laukia patvirtinimo</Badge>
                     ) : m.has_signed_in ? (
                       <Badge variant="success">Aktyvi</Badge>
                     ) : (
-                      <Badge variant="default">Nepatvirtinta</Badge>
+                      <Badge variant="info">Pakviesta</Badge>
                     )}
                   </td>
                 </tr>
