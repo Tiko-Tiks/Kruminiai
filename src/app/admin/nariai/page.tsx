@@ -3,7 +3,7 @@ import { Badge, statusBadgeVariant } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { MEMBER_STATUS_LABELS } from "@/lib/constants";
-import { Plus, ClipboardCheck, UserCog } from "lucide-react";
+import { Plus, ClipboardCheck, UserCog, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { MembersSearch } from "./MembersSearch";
 import { DeleteMemberButton } from "./DeleteMemberButton";
@@ -35,7 +35,12 @@ export default async function MembersPage({ searchParams }: Props) {
                 : `narių (${effectiveStatus})`}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Link href="/admin/nariai/kontaktai">
+            <Button variant="outline">
+              <MessageSquare className="h-4 w-4" /> Kontaktų SMS
+            </Button>
+          </Link>
           <Link href="/admin/nariai/paskyros">
             <Button variant="outline">
               <UserCog className="h-4 w-4" /> Portalų paskyros

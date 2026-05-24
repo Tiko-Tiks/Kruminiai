@@ -368,6 +368,7 @@ Visi trys grąžina pilnai paruoštą JSONB. Niekada nedaryk tiesioginių užkla
 | 024 | `024_meeting_announcements_and_doc_linkage.sql` | `meeting_announcements` lentelė + `documents.meeting_id` FK – susirinkimo skelbimų sekimas (kanalas, URL, data) ir dokumentų grupavimas pagal susirinkimą |
 | 025 | `025_meeting_documents_auto_aggregate.sql` | `get_public_meeting_data` automatiškai sujungia dokumentus iš `documents.meeting_id` IR `resolution_documents` – admin'as įkelia tik pasirašytus PDF'us, kiti dokumentai (jau prikabinti prie nutarimų) atsiranda automatiškai |
 | 026 | `026_procedural_type_pranesimas.sql` | Praplėstas `procedural_type` CHECK constraint – pridėtas naujas tipas `pranesimas` (susirinkimo pranešimo tinkamumo patvirtinimas) |
+| 027 | `027_contact_update_tokens.sql` | `contact_update_tokens` lentelė + 2 RPC – SMS magic link srautas nariams, kurie neturi el. pašto, kad galėtų patys jį pridėti per `/duomenys/[token]` |
 
 DB pakeitimai daromi **per Supabase MCP** (`apply_migration`) IR sinchronizuojami į `supabase/migrations/` lokaliam repo įrašymui.
 
