@@ -10,6 +10,13 @@ const newsSchema = z.object({
   title: z.string().min(1, "Antraštė privaloma"),
   content: z.string().min(1, "Turinys privalomas"),
   excerpt: z.string().optional().or(z.literal("")),
+  // category – atitinka DB CHECK constraint (migracija 023). „bendra"
+  // numatytoji generic naujienoms, „projektas" Liepto ir panašiems,
+  // „susirinkimas" – susirinkimų pranešimams ir rezultatams.
+  category: z
+    .enum(["bendra", "projektas", "susirinkimas"])
+    .optional()
+    .default("bendra"),
   is_published: z.string().optional(),
   is_pinned: z.string().optional(),
 });
@@ -62,6 +69,7 @@ export async function createNews(formData: FormData) {
     slug,
     content: parsed.data.content,
     excerpt: parsed.data.excerpt || null,
+    category: parsed.data.category,
     is_published: isPublished,
     is_pinned: isPinned,
     published_at: isPublished ? new Date().toISOString() : null,
@@ -102,6 +110,7 @@ export async function updateNews(id: string, formData: FormData) {
     title: parsed.data.title,
     content: parsed.data.content,
     excerpt: parsed.data.excerpt || null,
+    category: parsed.data.category,
     is_published: isPublished,
     is_pinned: isPinned,
   };

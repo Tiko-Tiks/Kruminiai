@@ -19,6 +19,7 @@ interface NewsRow {
   title: string;
   slug: string;
   excerpt: string | null;
+  category: "bendra" | "projektas" | "susirinkimas";
   published_at: string | null;
 }
 
@@ -377,41 +378,86 @@ export function SkaidrumasTabs({
         </div>
       )}
 
-      {/* Projektai */}
+      {/* Projektai – tik news.category='projektas' */}
       {activeTab === "projektai" && (
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-          {news.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {news.map((article) => (
-                <a
-                  key={article.id}
-                  href={`/naujienos/${article.slug}`}
-                  className="block px-6 py-4 hover:bg-gray-50/50 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="font-medium text-gray-900 text-sm">{article.title}</p>
-                      {article.excerpt && (
-                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">{article.excerpt}</p>
-                      )}
+          {(() => {
+            const projectNews = news.filter((n) => n.category === "projektas");
+            if (projectNews.length === 0) return <EmptyState />;
+            return (
+              <div className="divide-y divide-gray-100">
+                {projectNews.map((article) => (
+                  <a
+                    key={article.id}
+                    href={`/naujienos/${article.slug}`}
+                    className="block px-6 py-4 hover:bg-gray-50/50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-medium text-gray-900 text-sm">{article.title}</p>
+                        {article.excerpt && (
+                          <p className="text-xs text-gray-500 mt-1 line-clamp-2">{article.excerpt}</p>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
+                        {formatDate(article.published_at)}
+                      </span>
                     </div>
-                    <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
-                      {formatDate(article.published_at)}
-                    </span>
-                  </div>
-                </a>
-              ))}
-            </div>
-          )}
+                  </a>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       )}
 
-      {/* Susirinkimai */}
+      {/* Susirinkimai – news.category='susirinkimas' + protokolai */}
       {activeTab === "susirinkimai" && (
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-          <DocumentTable documents={protokolai} categoryLabel="Susirinkimas" />
+        <div className="space-y-4">
+          {(() => {
+            const meetingNews = news.filter((n) => n.category === "susirinkimas");
+            if (meetingNews.length === 0) return null;
+            return (
+              <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                <div className="px-6 py-3 border-b border-gray-100 bg-gray-50/50">
+                  <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Susirinkimų naujienos
+                  </h3>
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {meetingNews.map((article) => (
+                    <a
+                      key={article.id}
+                      href={`/naujienos/${article.slug}`}
+                      className="block px-6 py-4 hover:bg-gray-50/50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="font-medium text-gray-900 text-sm">{article.title}</p>
+                          {article.excerpt && (
+                            <p className="text-xs text-gray-500 mt-1 line-clamp-2">{article.excerpt}</p>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
+                          {formatDate(article.published_at)}
+                        </span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+            {protokolai.length > 0 && (
+              <div className="px-6 py-3 border-b border-gray-100 bg-gray-50/50">
+                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Protokolai
+                </h3>
+              </div>
+            )}
+            <DocumentTable documents={protokolai} categoryLabel="Susirinkimas" />
+          </div>
         </div>
       )}
     </>

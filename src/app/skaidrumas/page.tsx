@@ -31,10 +31,11 @@ async function getFinansaiData() {
     .eq("is_public", true)
     .order("published_at", { ascending: false });
 
-  // Naujienos (Projektai tab)
+  // Naujienos – su category, kad Skaidrumas tab'ai filtruotų pagal tipą
+  // (projektas → „Projektai" tab; susirinkimas → „Susirinkimai" tab).
   const { data: news } = await supabase
     .from("news")
-    .select("id, title, slug, excerpt, published_at, is_pinned")
+    .select("id, title, slug, excerpt, category, published_at, is_pinned")
     .eq("is_published", true)
     .order("published_at", { ascending: false });
 

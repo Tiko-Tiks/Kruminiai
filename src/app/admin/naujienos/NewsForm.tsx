@@ -62,6 +62,31 @@ export function NewsForm({ article }: Props) {
             error={errors.title?.[0]}
             required
           />
+          <div>
+            <label
+              htmlFor="category"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Kategorija *
+            </label>
+            <select
+              id="category"
+              name="category"
+              defaultValue={article?.category || "bendra"}
+              required
+              className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+            >
+              <option value="bendra">Bendra naujiena</option>
+              <option value="projektas">Projektas (aukų rinkimas, iniciatyva)</option>
+              <option value="susirinkimas">Susirinkimas (pranešimas, rezultatai)</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Kategorija nustato, kuriame Skaidrumo puslapio tab&apos;e naujiena rodoma.
+            </p>
+            {errors.category && (
+              <p className="text-xs text-red-600 mt-1">{errors.category[0]}</p>
+            )}
+          </div>
           <Textarea
             id="excerpt"
             name="excerpt"

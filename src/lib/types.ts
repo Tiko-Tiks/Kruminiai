@@ -69,12 +69,15 @@ export interface Document {
   created_by: string | null;
 }
 
+export type NewsCategory = "bendra" | "projektas" | "susirinkimas";
+
 export interface NewsArticle {
   id: string;
   title: string;
   slug: string;
   content: string;
   excerpt: string | null;
+  category: NewsCategory;
   cover_image_path: string | null;
   is_published: boolean;
   is_pinned: boolean;
