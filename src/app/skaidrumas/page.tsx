@@ -7,8 +7,9 @@ export const dynamic = "force-dynamic";
 
 interface YearStats {
   year: number;
-  collected_cents: number;
-  potential_cents: number;
+  collected_cents: number;          // visi mokėjimai (metinis + stojamieji)
+  metinis_collected_cents: number;  // tik metinis – naudojam skolai apskaičiuoti
+  potential_cents: number;          // potencialas = aktyvūs nariai × metinis tarifas
   paid_count: number;
   unpaid_count: number;
 }
@@ -95,7 +96,8 @@ async function getFinansaiData() {
     };
     return {
       year: fp.year,
-      collected_cents: paid.metinis_cents + paid.kita_cents, // metinis + stojamieji + kt.
+      collected_cents: paid.metinis_cents + paid.kita_cents, // metinis + stojamieji
+      metinis_collected_cents: paid.metinis_cents, // tik metinis – naudojam skolai
       potential_cents: eligible.length * (fp.amount_cents as number),
       paid_count: paid.metinis_count,
       unpaid_count: eligible.length - paid.metinis_count,
@@ -122,20 +124,17 @@ async function getFinansaiData() {
     0
   );
 
-  // Bendros sumos
-  const totalFeesCollected = yearStats.reduce(
-    (s, y) => s + y.collected_cents,
-    0
-  );
+  // Skola = metinis potential - metinis collected (stojamieji NEAtimti
+  // iš metinio potencialo). Niekada neigiama.
   const totalDebt = yearStats.reduce(
-    (s, y) => s + (y.potential_cents - y.collected_cents),
+    (s, y) =>
+      s + Math.max(0, y.potential_cents - y.metinis_collected_cents),
     0
   );
 
   return {
     ataskaitos: documents || [],
     yearStats,
-    totalFeesCollected,
     totalDebt,
     donations: (donations || []) as DonationRow[],
     totalDonations,
@@ -183,7 +182,6 @@ export default async function SkaidrumasPage() {
           <SkaidrumasTabs
             ataskaitos={data.ataskaitos}
             yearStats={data.yearStats}
-            totalFeesCollected={data.totalFeesCollected}
             totalDebt={data.totalDebt}
             donations={data.donations}
             totalDonations={data.totalDonations}

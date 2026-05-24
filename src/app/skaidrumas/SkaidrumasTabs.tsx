@@ -3,7 +3,6 @@
 import {
   Coins,
   Heart,
-  TrendingUp,
   AlertCircle,
   ArrowRight,
   FileText,
@@ -24,6 +23,7 @@ interface DocumentRow {
 interface YearStats {
   year: number;
   collected_cents: number;
+  metinis_collected_cents: number;
   potential_cents: number;
   paid_count: number;
   unpaid_count: number;
@@ -40,7 +40,6 @@ interface DonationRow {
 interface Props {
   ataskaitos: DocumentRow[];
   yearStats: YearStats[];
-  totalFeesCollected: number;
   totalDebt: number;
   donations: DonationRow[];
   totalDonations: number;
@@ -78,7 +77,6 @@ function EmptyState({ message = "Duomenų nėra." }: { message?: string }) {
 export function SkaidrumasTabs({
   ataskaitos,
   yearStats,
-  totalFeesCollected,
   totalDebt,
   donations,
   totalDonations,
@@ -94,7 +92,7 @@ export function SkaidrumasTabs({
   return (
     <div className="space-y-6">
       {/* Suvestinės kortelės */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="bg-white rounded-2xl border border-gray-200 p-5">
           <div className="flex items-center gap-2 mb-2">
             <Coins className="h-4 w-4 text-green-700" />
@@ -112,24 +110,15 @@ export function SkaidrumasTabs({
 
         <div className="bg-white rounded-2xl border border-gray-200 p-5">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="h-4 w-4 text-green-700" />
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Iš viso surinkta
-            </p>
-          </div>
-          <p className="text-2xl font-bold text-green-800">{eur(totalFeesCollected)} €</p>
-          <p className="text-xs text-gray-500 mt-1">visi metai</p>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-gray-200 p-5">
-          <div className="flex items-center gap-2 mb-2">
             <AlertCircle className="h-4 w-4 text-red-600" />
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Skolos
+              Nesumokėtų metinių
             </p>
           </div>
           <p className="text-2xl font-bold text-red-700">{eur(totalDebt)} €</p>
-          <p className="text-xs text-gray-500 mt-1">visi metai</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Visi metai · narių dar nesumokėtas metinis 12 € mokestis
+          </p>
         </div>
 
         <div className="bg-white rounded-2xl border border-amber-200 p-5">
@@ -183,7 +172,9 @@ export function SkaidrumasTabs({
                 </tr>
               ) : (
                 yearStats.map((y) => {
-                  const debt = y.potential_cents - y.collected_cents;
+                  // Skola = potencialas (metinis × narių) - sumokėtas metinis
+                  // (NEAtimam stojamųjų ar tikslinio, kad nesusidarytų neigiama skola)
+                  const debt = Math.max(0, y.potential_cents - y.metinis_collected_cents);
                   const totalEligible = y.paid_count + y.unpaid_count;
                   return (
                     <tr
