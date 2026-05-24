@@ -351,6 +351,7 @@ Visi trys grąžina pilnai paruoštą JSONB. Niekada nedaryk tiesioginių užkla
 | 019 | `019_unified_meeting_agenda_source.sql` | **VIENAS** darbotvarkės šaltinis: `_meeting_resolutions_jsonb` helper, perrašyti `get_public_meeting_data` + `get_voting_token_data` |
 | 020 | `020_public_meeting_data_anonymize_attendance.sql` | GDPR – `get_public_meeting_data` nebegrąžina dalyvių vardų/pavardžių, tik attendance_type counts |
 | 021 | `021_fix_handle_new_user_search_path.sql` | Trigger fix – pridėtas `SET search_path = public`, kad bulk-invite per auth.admin.createUser() veiktų |
+| 022 | `022_member_meetings_include_live_attendance.sql` | Portalo RPC fix – `get_member_active_meetings` ir `get_member_voting_history` įtraukia gyvai dalyvautus susirinkimus (nebėra reikalingas vote_ballots įrašas) |
 
 DB pakeitimai daromi **per Supabase MCP** (`apply_migration`) IR sinchronizuojami į `supabase/migrations/` lokaliam repo įrašymui.
 

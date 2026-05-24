@@ -1,4 +1,4 @@
-import { getMemberActiveMeetings, getMemberFinancialStatus, getMemberProfile } from "@/actions/portal";
+import { getMemberActiveMeetings, getMemberFinancialStatus, getMemberProfile, getMemberVotingHistory } from "@/actions/portal";
 import { formatDateLong, formatCurrency, vocative } from "@/lib/utils";
 import { Calendar, MapPin, Vote, Banknote, AlertCircle, CheckCircle2, ArrowRight, FileText, History } from "lucide-react";
 import Link from "next/link";
@@ -22,20 +22,30 @@ interface FinancialUnpaid {
   is_overdue: boolean;
 }
 
+interface HistoryItem {
+  meeting_id: string;
+  meeting_title: string;
+  meeting_date: string;
+}
+
 export default async function PortalDashboard() {
-  const [profileData, meetingsData, financialData] = await Promise.all([
+  const [profileData, meetingsData, financialData, historyData] = await Promise.all([
     getMemberProfile(),
     getMemberActiveMeetings(),
     getMemberFinancialStatus(),
+    getMemberVotingHistory(),
   ]);
 
   type ProfileResult = { profile?: { full_name: string }; member?: { first_name: string; status: string } | null; error?: string };
   type MeetingsResult = { meetings?: MeetingItem[]; error?: string };
   type FinancialResult = { unpaid?: FinancialUnpaid[]; total_debt_cents?: number; error?: string };
+  type HistoryResult = { history?: HistoryItem[]; error?: string };
 
   const profile = profileData as ProfileResult;
   const meetings = meetingsData as MeetingsResult;
   const financial = financialData as FinancialResult;
+  const history = historyData as HistoryResult;
+  const historyCount = history?.history?.length ?? 0;
 
   const noMemberLink = profile?.error === "no_member_link" || !profile?.member;
   const firstName = profile?.member?.first_name || "";
@@ -109,10 +119,10 @@ export default async function PortalDashboard() {
             <History className="h-6 w-6 text-green-700" />
             <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-gray-500" />
           </div>
-          <p className="text-2xl font-bold text-gray-900">
-            {meetings?.meetings?.filter((m) => m.has_voted).length ?? 0}
+          <p className="text-2xl font-bold text-gray-900">{historyCount}</p>
+          <p className="text-sm text-gray-500">
+            {historyCount === 1 ? "susirinkimas" : "susirinkimų"} istorijoje
           </p>
-          <p className="text-sm text-gray-500">balsavimo įrašų</p>
         </Link>
       </div>
 
