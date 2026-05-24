@@ -186,8 +186,10 @@ export async function bulkCreateMemberAccounts(memberIds?: string[]): Promise<{
       created++;
 
       // 2) Atnaujinam profiles (member_id, is_approved, role)
-      //    handle_new_user trigger'is jau sukūrė įrašą; mes tik atnaujinam.
-      await supabase
+      //    handle_new_user trigger'is jau sukūrė įrašą su is_approved=false;
+      //    mes patvirtinam. Naudojam admin client'ą, kad apeitume RLS
+      //    (anon klientas negali UPDATE'inti svetimo profilio).
+      const { error: profileUpdateErr } = await admin
         .from("profiles")
         .update({
           member_id: m.id,
@@ -195,6 +197,18 @@ export async function bulkCreateMemberAccounts(memberIds?: string[]): Promise<{
           role: "member",
         })
         .eq("id", newUser.user.id);
+      if (profileUpdateErr) {
+        console.error("[bulk-invite] profile update failed", {
+          member: memberLabel,
+          authUserId: newUser.user.id,
+          error: profileUpdateErr,
+        });
+        errors.push({
+          member: memberLabel,
+          reason: `Paskyra sukurta, bet nepavyko patvirtinti profilio: ${profileUpdateErr.message}`,
+        });
+        // Nestop'inam – tęsiam su email siuntimu, kad bent narys gautų nuorodą
+      }
 
       // 3) Recovery link slaptažodžio nustatymui.
       //    redirectTo nurodom /nustatyti-slaptazodi puslapį, kad narys
