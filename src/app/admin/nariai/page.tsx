@@ -13,14 +13,27 @@ interface Props {
 }
 
 export default async function MembersPage({ searchParams }: Props) {
-  const members = await getMembers(searchParams.paieska, searchParams.statusas);
+  // Pagal nutylėjimą rodomi TIK aktyvūs nariai – išstoję, pašalinti ir
+  // pasyvūs nariai į „bendruomenės narių" sąrašą nepatenka, kol admin'as
+  // sąmoningai nepersijungia į „Visi statusai". Tai atitinka užklausą
+  // „rodyti tik tikrai aktyvius narius".
+  const effectiveStatus = searchParams.statusas ?? "aktyvus";
+  const members = await getMembers(searchParams.paieska, effectiveStatus);
+  const showingAll = effectiveStatus === "visi";
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Nariai</h1>
-          <p className="text-sm text-gray-500 mt-1">{members.length} narių bendruomenėje</p>
+          <p className="text-sm text-gray-500 mt-1">
+            {members.length}{" "}
+            {showingAll
+              ? "narių (visi statusai)"
+              : effectiveStatus === "aktyvus"
+                ? "aktyvių narių"
+                : `narių (${effectiveStatus})`}
+          </p>
         </div>
         <div className="flex gap-2">
           <Link href="/admin/nariai/deklaracija">

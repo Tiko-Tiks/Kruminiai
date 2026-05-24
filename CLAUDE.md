@@ -187,8 +187,71 @@ const totals = {
 ```
 
 Anksčiau admin'o įvedimas OVERWRITE'indavo result_for/etc, todėl
-nuotoliu balsai pradingdavo. Protokolas rodo **pilną breakdown**:
-„BALSAVO: iš viso 39 (gyvai 31, nuotoliu 8). UŽ: 37 (gyvai 31 + nuotoliu 6)..."
+nuotoliu balsai pradingdavo.
+
+Protokole **BE gyvai/nuotoliu skaidymo** – tik bendros sumos pagal
+LT raštvedybos taisykles ir oficialų pavyzdį:
+„BALSUOTA: UŽ 37, PRIEŠ 0, SUSILAIKĖ 2."
+
+## ARCHITEKTŪRA: Protokolo struktūra (LR raštvedybos standartas)
+
+Protokolo nutarimo blokas eina tokia tvarka (LR CK 2.90–2.92 str. ir
+oficialus protokolo pavyzdys):
+
+```
+N. SVARSTYTA: [klausimo pavadinimas].
+   [diskusijos tekstas, jei yra]
+BALSUOTA: UŽ X, PRIEŠ Y, SUSILAIKĖ Z.
+NUTARTA: [sprendimo tekstas].
+```
+
+**SVARBU:**
+- Tvarka SVARSTYTA → BALSUOTA → NUTARTA (NE atvirkščiai)
+- **BALSUOTA** (beasmenė), ne „BALSAVO" (asmeninė) – atitinka raštvedybos formą
+- **NUTARTA** – „X-ui pritarta" forma (naudininko linksnis + beasmenis
+  „pritarta"). Skamba natūraliau ir profesionaliau nei „patvirtinta":
+  „Veiklos ataskaitai pritarta" (NE „Patvirtinta veiklos ataskaita")
+- Metai išsaugomi iš pavadinimo: „2025 m. veiklos ataskaitai pritarta"
+
+**Naudininko linksnis** (`getNutartaText` auto-gen):
+- ataskaita → ataskaitai (vns. dat. mot.)
+- rinkinys  → rinkiniui  (vns. dat. vyr.)
+- planai    → planams   (dgs. dat. vyr.)
+- darbotvarkė → darbotvarkei (vns. dat. mot.)
+- siūlymas → siūlymui (vns. dat. vyr.)
+- pasirengimas → pasirengimui (vns. dat. vyr.)
+
+„Pritarta" yra **beasmenė** forma – tinka visoms giminėms ir skaičiams
+be papildomo derinimo.
+
+Išimtis: „Pavedimas pirmininkui" naudoja „pavesta" (ne „pritarta"), nes
+pavedimas yra konkretus veiksmas, ne tvirtinimo objektas.
+
+Asmens giminė nustatoma per `isFemaleName()` heuristiką – LT vardai
+su -a / -ė galūne laikomi moteriškais. Naudojama:
+- Procedūrinio #1 NUTARTA tekste („sekretore – Aušra" vs „sekretoriumi – Tomas")
+- Parašų skilties etiketėse („Susirinkimo pirmininkė" / „sekretorė" moterims)
+- Veikia ir protokole, ir dalyvių sąraše
+
+Jei admin'as užpildo `resolutions.decision_text` per ResolutionsList
+formos „Sprendimas (NUTARTA)" textarea – auto-gen tekstas pakeičiamas
+į rankinį (gali būti perrašomas bet kuriuo metu prieš susirinkimo
+pabaigą).
+
+## ARCHITEKTŪRA: Narių sąrašo filtravimas
+
+`/admin/nariai` puslapis pagal **nutylėjimą rodo TIK aktyvius narius**
+(status=`aktyvus`). Pasyvūs, išstoję ir pašalinti nariai filtruojami
+iš pagrindinio rodinio.
+
+- URL be `?statusas=` → `getMembers(search, "aktyvus")`
+- Admin'as gali persijungti į „Pasyvūs", „Išstoję" arba „Visi statusai"
+  per dropdown'ą (`MembersSearch.tsx`)
+- Antraštės skaitiklis prisitaiko: „45 aktyvių narių", „76 narių (visi statusai)"
+
+Kitos vietos, kurios naudoja narių sąrašą balsavimui / dalyvavimui,
+JAU naudoja explicit filtrą `getMembers(undefined, "aktyvus")`
+(pvz., AttendanceManager, RemoteVotingPanel).
 
 ## ARCHITEKTŪRA: Anonimo RLS apėjimas per RPC
 
@@ -352,18 +415,21 @@ Naudoja `node scripts/X.mjs` su .env.local skaitymu.
 - Admin profilis susietas su Mindaugo nariu (testavimui)
 - 33 nariai sumokėjo už 2026 m. (13 banko pavedimu + 20 grynais)
 - ~43 nariai dar skolingi (vienas turi 4 m. skolą)
-- Susirinkimas: 76 nariai (70 aktyvūs + 6 pasyvūs), kvorumas 39
+- Susirinkimas: 76 nariai, kvorumas 39 (faktiškai dalyvavo 31 gyvai + 8 nuotoliu = 39)
+- **Išrinkti susirinkimo organai:**
+  - Susirinkimo pirmininkas: **Mindaugas Mameniškis** (vyr. → „pirmininku išrinktas")
+  - Susirinkimo sekretorė: **Aušra Nayyar** (mot. → „sekretore" + „Susirinkimo sekretorė:")
 - **Darbotvarkė:** 8 nutarimai (2 procedūriniai + 6 standartiniai)
   - 1–2: procedūriniai (pirmininkas/sekretorius, darbotvarkės tvirtinimas)
-  - 3: 2025 m. veiklos ataskaitos tvirtinimas
-  - 4: 2025 m. finansinių ataskaitų rinkinio tvirtinimas
-  - 5: Pavedimas pirmininkui pateikti ataskaitas Registrų centrui
-  - 6: 2026 m. veiklos planų patvirtinimas (iframe dokumentas)
-  - 7: Pritarimas Tarybos siūlomam nemokių narių šalinimui (iframe dokumentas)
-  - 8: Pasiruošimas 2027 m. Pirmininko ir Tarybos rinkimams (iframe dokumentas)
+  - 3: 2025 m. veiklos ataskaitos tvirtinimas → „2025 m. veiklos ataskaitai pritarta."
+  - 4: 2025 m. finansinių ataskaitų rinkinio tvirtinimas → „2025 m. finansinių ataskaitų rinkiniui pritarta."
+  - 5: Pavedimas pirmininkui pateikti ataskaitas Registrų centrui → „Pirmininkui pavesta pateikti..."
+  - 6: 2026 m. veiklos planų patvirtinimas → „2026 m. veiklos planams pritarta."
+  - 7: Pritarimas Tarybos siūlomam nemokių narių šalinimui → „Tarybos siūlymui ... pritarta."
+  - 8: Pasiruošimas 2027 m. Pirmininko ir Tarybos rinkimams → „Pasirengimui 2027 m. rinkimams pritarta."
 - Valdymo organai `community_management`:
   - Pirmininkas: Mindaugas Mameniškis (2023–2027)
-  - Tarybos nariai: Ramūnas Špokas, Indrė Kvaraciejienė, Jurgita Norkūnienė, Aušra Naiar, Ingrida Žydelienė
+  - Tarybos nariai: Ramūnas Špokas, Indrė Kvaraciejienė, Jurgita Norkūnienė, Aušra Nayyar, Ingrida Žydelienė
 
 ## Įstatai (2025 m. nauja redakcija)
 

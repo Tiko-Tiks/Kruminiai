@@ -2,6 +2,11 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 import { COMMUNITY_LEGAL } from "@/lib/constants";
 
+// Dalyvių sąrašas turi visada atspindėti naujausius dalyvavimo įrašus
+// ir pirmininko/sekretoriaus pavardes – jokio cache'avimo.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 /**
  * Dalyvių registracijos sąrašas – A4 priedo dokumentas prie protokolo.
  *
@@ -42,6 +47,20 @@ export async function GET(
   if (!meeting) {
     return NextResponse.json({ error: "Susirinkimas nerastas" }, { status: 404 });
   }
+
+  // Lietuviškos giminės nustatymas pagal vardą (vardai -a/-ė → moteriški).
+  // Naudojam parašų skiltyje: „Susirinkimo pirmininkas/pirmininkė",
+  // „sekretorius/sekretorė".
+  const isFemaleName = (fullName: string | null): boolean => {
+    const firstName = (fullName || "").trim().split(/\s+/)[0] || "";
+    return /[aė]$/i.test(firstName);
+  };
+  const chairLabel = isFemaleName(meeting.chairperson_name)
+    ? "Susirinkimo pirmininkė:"
+    : "Susirinkimo pirmininkas:";
+  const secretaryLabel = isFemaleName(meeting.secretary_name)
+    ? "Susirinkimo sekretorė:"
+    : "Susirinkimo sekretorius:";
 
   // ===== Surenkam visus dalyvavimo įrašus =====
   const { data: attendance } = await supabase
@@ -330,11 +349,11 @@ export async function GET(
         <table>
           <tr>
             <td style="width:50%">
-              <div class="label">Susirinkimo pirmininkas:</div>
+              <div class="label">${chairLabel}</div>
               <div class="name-line">${meeting.chairperson_name || "(vardas, pavardė, parašas)"}</div>
             </td>
             <td style="width:50%">
-              <div class="label">Susirinkimo sekretorius:</div>
+              <div class="label">${secretaryLabel}</div>
               <div class="name-line">${meeting.secretary_name || "(vardas, pavardė, parašas)"}</div>
             </td>
           </tr>
@@ -357,11 +376,11 @@ export async function GET(
         <table>
           <tr>
             <td style="width:50%">
-              <div class="label">Susirinkimo pirmininkas:</div>
+              <div class="label">${chairLabel}</div>
               <div class="name-line">(vardas, pavardė, parašas)</div>
             </td>
             <td style="width:50%">
-              <div class="label">Susirinkimo sekretorius:</div>
+              <div class="label">${secretaryLabel}</div>
               <div class="name-line">(vardas, pavardė, parašas)</div>
             </td>
           </tr>

@@ -8,14 +8,16 @@ export function MembersSearch() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(searchParams.get("paieska") || "");
-  const [status, setStatus] = useState(searchParams.get("statusas") || "visi");
+  // Pagal nutylėjimą rodom tik aktyvius – sinchroniška su page.tsx default'u.
+  const [status, setStatus] = useState(searchParams.get("statusas") || "aktyvus");
 
   const applyFilters = (newSearch?: string, newStatus?: string) => {
     const params = new URLSearchParams();
     const s = newSearch ?? search;
     const st = newStatus ?? status;
     if (s) params.set("paieska", s);
-    if (st && st !== "visi") params.set("statusas", st);
+    // "aktyvus" yra default – nereikia įrašyti į URL.
+    if (st && st !== "aktyvus") params.set("statusas", st);
     router.push(`/admin/nariai?${params.toString()}`);
   };
 
@@ -40,10 +42,10 @@ export function MembersSearch() {
         }}
         className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
       >
-        <option value="visi">Visi statusai</option>
-        <option value="aktyvus">Aktyvūs</option>
+        <option value="aktyvus">Aktyvūs (numatyta)</option>
         <option value="pasyvus">Pasyvūs</option>
         <option value="išstojęs">Išstoję</option>
+        <option value="visi">Visi statusai</option>
       </select>
     </div>
   );

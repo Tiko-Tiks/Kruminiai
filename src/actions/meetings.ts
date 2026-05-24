@@ -52,11 +52,13 @@ export async function createMeeting(formData: FormData) {
   const meetingDateTime = `${parsed.data.meeting_date}T${parsed.data.meeting_time}:00`;
   const isRepeat = parsed.data.meeting_type === "pakartotinis";
 
-  // Gauti aktyvių narių skaičių kvorumui
+  // Bendrą narių skaičių kvorumui sudaro aktyvūs IR pasyvūs nariai –
+  // pasyvūs vis dar turi balsavimo teisę, kol Taryba (5.3.1 p.) nepriima
+  // sprendimo dėl jų pašalinimo.
   const { count } = await supabase
     .from("members")
     .select("*", { count: "exact", head: true })
-    .eq("status", "aktyvus");
+    .in("status", ["aktyvus", "pasyvus"]);
 
   const totalMembers = count ?? 0;
   // Kvorumas: >50% narių (4.5), pakartotinis – 0 (4.6)

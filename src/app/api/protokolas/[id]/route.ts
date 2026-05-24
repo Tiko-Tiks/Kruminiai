@@ -2,6 +2,11 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 import { COMMUNITY_LEGAL } from "@/lib/constants";
 
+// Protokolas turi visada atspindėti naujausius nutarimų rezultatus ir
+// pirmininko/sekretoriaus pavardes – jokio cache'avimo.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
@@ -208,7 +213,7 @@ export async function GET(
     .decision-item .number { font-weight: bold; }
     .decision-item .svarstyta { font-weight: bold; text-transform: uppercase; }
     .decision-item .nutarta { font-weight: bold; text-transform: uppercase; color: #0f3d20; }
-    .decision-item .balsavo { font-weight: bold; text-transform: uppercase; }
+    .decision-item .balsuota { font-weight: bold; text-transform: uppercase; }
     .decision-item .discussion {
       margin-left: 14pt;
       font-style: italic;
@@ -279,9 +284,34 @@ export async function GET(
     const resList = (resolutions || []) as Resolution[];
 
     /**
+     * Lietuviškos asmens giminės nustatymas pagal vardą. Naudojam paprastą
+     * heuristiką: jei vardas baigiasi -a arba -ė → moteriška, kitu atveju –
+     * vyriška. Veikia visiems standartiniams LT vardams (Aušra, Indrė,
+     * Mindaugas, Saulius, Tomas, Jurgis ir t.t.).
+     */
+    const isFemaleName = (fullName: string): boolean => {
+      const firstName = (fullName || "").trim().split(/\s+/)[0] || "";
+      return /[aė]$/i.test(firstName);
+    };
+
+    /**
      * Sugeneruoja NUTARTA teksto eilutę pagal LR raštvedybos standartą.
      * Naudoja decision_text iš DB, jei pateiktas. Kitu atveju auto-generuoja
      * pagal nutarimo tipą ir balsavimo statusą.
+     *
+     * SVARBU – formulavimo principas:
+     *   • Naudojam „X-ui pritarta" formą (naudininko linksnis + „pritarta")
+     *     vietoj „X patvirtinta", nes ji natūralesnė lietuvių kalbai ir
+     *     skamba profesionaliau formaliuose dokumentuose.
+     *   • Metai iš pavadinimo įtraukiami į NUTARTA – „2025 m. veiklos
+     *     ataskaitai pritarta".
+     *   • „Pritarta" yra beasmenė forma – tinka visoms giminėms ir
+     *     skaičiams (be derinimo).
+     *   • Naudininko linksnio pavyzdžiai:
+     *       - ataskaita → ataskaitai (vns. dat. mot.)
+     *       - rinkinys  → rinkiniui  (vns. dat. vyr.)
+     *       - planai    → planams   (dgs. dat. vyr.)
+     *       - darbotvarkė → darbotvarkei (vns. dat. mot.)
      */
     const getNutartaText = (r: Resolution): string => {
       if (r.decision_text && r.decision_text.trim()) return r.decision_text;
@@ -291,45 +321,85 @@ export async function GET(
         if (r.status !== "patvirtintas") return "Pirmininko ir sekretoriaus rinkimams nepritarta.";
         const ch = meeting.chairperson_name || "—";
         const sec = meeting.secretary_name || "—";
-        return `Susirinkimo pirmininku išrinktas ${ch}, sekretoriumi – ${sec}.`;
+        // Giminės derinimas – „pirmininku išrinktas" (vyr.) / „pirmininke
+        // išrinkta" (mot.); „sekretoriumi" (vyr.) / „sekretore" (mot.).
+        const chFemale = isFemaleName(ch);
+        const secFemale = isFemaleName(sec);
+        const chRole = chFemale ? "pirmininke" : "pirmininku";
+        const chVerb = chFemale ? "išrinkta" : "išrinktas";
+        const secRole = secFemale ? "sekretore" : "sekretoriumi";
+        return `Susirinkimo ${chRole} ${chVerb} ${ch}, ${secRole} – ${sec}.`;
       }
 
       // Procedūrinis #2: darbotvarkės tvirtinimas
       if (r.procedural_type === "darbotvarke") {
         return r.status === "patvirtintas"
-          ? "Susirinkimo darbotvarkė patvirtinta."
+          ? "Susirinkimo darbotvarkei pritarta."
           : "Susirinkimo darbotvarkei nepritarta.";
       }
 
-      // Standartiniai – pagal pavadinimo raktažodžius
+      // Iš pavadinimo išgaunam metus (jei yra) – „2025 m. veiklos ataskaita..."
+      // arba „Pasiruošimas 2027 m. ... rinkimams". Metai gali būti bet kurioje
+      // pavadinimo vietoje; mes juos pakeliam į NUTARTA tekstą.
+      const yearMatch = r.title.match(/(\d{4})\s*m\./);
+      const yearPrefix = yearMatch ? `${yearMatch[1]} m. ` : "";
+
+      // Pirmosios raidės didžioji – sakinio pradžia. Jei sakinys prasideda
+      // metais („2025 m. veiklos..."), capitalize neturės įtakos.
+      const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
       const title = r.title.toLowerCase();
       if (r.status === "patvirtintas") {
-        if (title.includes("veiklos ataskait")) return "Patvirtinta veiklos ataskaita.";
-        if (title.includes("finansin") && title.includes("ataskait")) return "Patvirtintas finansinių ataskaitų rinkinys.";
-        if (title.includes("pavedim") && title.includes("registr")) return "Pavesta pirmininkui pateikti ataskaitas Registrų centrui.";
-        if (title.includes("veiklos plan")) return "Patvirtinti veiklos planai.";
-        if (title.includes("šalinim")) return "Pritarta Tarybos siūlymui dėl nemokių narių šalinimo.";
-        if (title.includes("rinkim")) return "Pritarta pasirengimui rinkimams.";
-        return `${r.title} – pritarta.`;
+        // Veiklos ataskaita → ataskaitai (vns. dat. mot.) + pritarta
+        if (title.includes("veiklos ataskait")) {
+          return cap(`${yearPrefix}veiklos ataskaitai pritarta.`);
+        }
+        // Finansinių ataskaitų rinkinys → rinkiniui (vns. dat. vyr.) + pritarta
+        if (title.includes("finansin") && title.includes("ataskait")) {
+          return cap(`${yearPrefix}finansinių ataskaitų rinkiniui pritarta.`);
+        }
+        // Pavedimas pirmininkui (Registrų centrui) – „pavesta" yra pats
+        // tinkamas veiksmažodis šiam veiksmui, neverčiam į „pritarta".
+        if (title.includes("pavedim") && title.includes("registr")) {
+          return "Pirmininkui pavesta pateikti finansinių ataskaitų rinkinį valstybės įmonei Registrų centrui.";
+        }
+        // Veiklos planai → planams (dgs. dat. vyr.) + pritarta
+        if (title.includes("veiklos plan")) {
+          return cap(`${yearPrefix}veiklos planams pritarta.`);
+        }
+        // Nemokių narių šalinimas (Tarybos kompetencija pagal įstatų 5.3.1 p.)
+        if (title.includes("šalinim") || (title.includes("nemoki") && title.includes("nari"))) {
+          return "Tarybos siūlymui dėl nemokių narių šalinimo pagal pateiktą sąrašą pritarta.";
+        }
+        // Pirmininko ir Tarybos rinkimai
+        if (title.includes("rinkim") && (title.includes("pirminink") || title.includes("taryb"))) {
+          return cap(`pasirengimui ${yearPrefix}Pirmininko ir Tarybos rinkimams pritarta.`);
+        }
+        // Bendras rinkimai atvejis
+        if (title.includes("rinkim")) {
+          return cap(`pasirengimui ${yearPrefix}rinkimams pritarta.`);
+        }
+        // Bendras atvejis
+        return `Klausimui „${r.title}" pritarta.`;
       }
-      if (r.status === "atmestas") return `${r.title} – nepritarta.`;
+      if (r.status === "atmestas") return `Klausimui „${r.title}" nepritarta.`;
       return "—";
     };
 
     const renderDecision = (r: Resolution) => {
       const totalVotes = r.result_for + r.result_against + r.result_abstain;
       const nutarta = getNutartaText(r);
-      // BALSAVO – paprastas formatas pagal LR CK 2.90–2.92 str. ir
-      // oficialų protokolo pavyzdį (be gyvai/nuotoliu skaidymo).
-      const balsavoLine = totalVotes > 0
-        ? `<span class="balsavo">BALSAVO:</span> UŽ <strong>${r.result_for}</strong>, PRIEŠ <strong>${r.result_against}</strong>, SUSILAIKĖ <strong>${r.result_abstain}</strong>.`
-        : `<span class="balsavo">BALSAVO:</span> nebalsuota.`;
+      // BALSUOTA – beasmenė forma pagal LR raštvedybos taisykles
+      // (LR CK 2.90–2.92 str.). Eilės tvarka: SVARSTYTA → BALSUOTA → NUTARTA.
+      const balsuotaLine = totalVotes > 0
+        ? `<span class="balsuota">BALSUOTA:</span> UŽ <strong>${r.result_for}</strong>, PRIEŠ <strong>${r.result_against}</strong>, SUSILAIKĖ <strong>${r.result_abstain}</strong>.`
+        : `<span class="balsuota">BALSUOTA:</span> nebalsuota.`;
       return `
       <div class="decision-item">
         <p><strong>${r.resolution_number}. <span class="svarstyta">SVARSTYTA:</span></strong> ${r.title}.</p>
         ${r.discussion_text ? `<p class="discussion">${r.discussion_text}</p>` : ""}
+        <p>${balsuotaLine}</p>
         <p><strong><span class="nutarta">NUTARTA:</span></strong> ${nutarta}</p>
-        <p>${balsavoLine}</p>
       </div>`;
     };
 
@@ -381,6 +451,16 @@ export async function GET(
       </div>
     `;
 
+    // Parašų skilties etiketės derinamos pagal giminę:
+    //   vyr. → „Susirinkimo pirmininkas / sekretorius"
+    //   mot. → „Susirinkimo pirmininkė / sekretorė"
+    const chairLabel = meeting.chairperson_name && isFemaleName(meeting.chairperson_name)
+      ? "Susirinkimo pirmininkė:"
+      : "Susirinkimo pirmininkas:";
+    const secretaryLabel = meeting.secretary_name && isFemaleName(meeting.secretary_name)
+      ? "Susirinkimo sekretorė:"
+      : "Susirinkimo sekretorius:";
+
     const closingContent = `
       <p class="closing">Daugiau klausimų darbotvarkėje nebuvo, susirinkimas baigtas.</p>
       <div class="attachments">
@@ -393,12 +473,12 @@ export async function GET(
         <table style="width:100%">
           <tr>
             <td style="width:50%;padding:16pt 0">
-              <p>Susirinkimo pirmininkas:</p>
+              <p>${chairLabel}</p>
               <br><br>
               <p>${meeting.chairperson_name || "___________________"}</p>
             </td>
             <td style="width:50%;padding:16pt 0">
-              <p>Susirinkimo sekretorius:</p>
+              <p>${secretaryLabel}</p>
               <br><br>
               <p>${meeting.secretary_name || "___________________"}</p>
             </td>
