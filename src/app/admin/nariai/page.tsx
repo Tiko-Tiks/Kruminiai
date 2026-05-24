@@ -3,7 +3,7 @@ import { Badge, statusBadgeVariant } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { MEMBER_STATUS_LABELS } from "@/lib/constants";
-import { Plus, ClipboardCheck, UserCog, MessageSquare } from "lucide-react";
+import { Plus, ClipboardCheck, UserCog, MessageSquare, Activity } from "lucide-react";
 import Link from "next/link";
 import { MembersSearch } from "./MembersSearch";
 import { DeleteMemberButton } from "./DeleteMemberButton";
@@ -36,6 +36,11 @@ export default async function MembersPage({ searchParams }: Props) {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <Link href="/admin/aktyvumas">
+            <Button variant="outline">
+              <Activity className="h-4 w-4" /> Aktyvumas
+            </Button>
+          </Link>
           <Link href="/admin/nariai/kontaktai">
             <Button variant="outline">
               <MessageSquare className="h-4 w-4" /> Kontaktų SMS
