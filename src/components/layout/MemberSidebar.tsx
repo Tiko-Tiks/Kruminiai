@@ -13,22 +13,60 @@ import {
   CalendarDays,
   User,
   LogOut,
-  ExternalLink,
   Menu,
   X,
+  Newspaper,
+  Heart,
+  TrendingUp,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SITE_NAME } from "@/lib/constants";
 import { createClient } from "@/lib/supabase";
 
-const navItems = [
-  { label: "Pradžia", href: "/portalas", icon: LayoutDashboard },
-  { label: "Balsavimai", href: "/portalas/balsavimai", icon: Vote },
-  { label: "Susirinkimai", href: "/portalas/susirinkimai", icon: CalendarDays },
-  { label: "Mano istorija", href: "/portalas/istorija", icon: History },
-  { label: "Finansai", href: "/portalas/finansai", icon: Banknote },
-  { label: "Dokumentai", href: "/portalas/dokumentai", icon: FileText },
-  { label: "Mano duomenys", href: "/portalas/profilis", icon: User },
+/**
+ * Nario portalo sidebar'as. Surūšiuotas į dvi grupes, kad nariui būtų
+ * aiški info architektūra:
+ *
+ *   MANO PASKYRA – su nariu susijusi info (jo balsavimai, mokėjimai, etc.)
+ *   BENDRUOMENĖ – bendros žinios (naujienos, projektai, dokumentai)
+ *
+ * Anksčiau buvo viena mišri navigacija + „Viešas puslapis" nuoroda,
+ * kuri vesdavo į pagrindinį tinklapį. Tai buvo nepatogu – nariai
+ * gryždavo į public layout'ą ir nebematydavo savo portalo.
+ */
+
+interface NavSection {
+  title: string;
+  items: Array<{
+    label: string;
+    href: string;
+    icon: typeof LayoutDashboard;
+  }>;
+}
+
+const sections: NavSection[] = [
+  {
+    title: "Mano paskyra",
+    items: [
+      { label: "Pradžia", href: "/portalas", icon: LayoutDashboard },
+      { label: "Balsavimai", href: "/portalas/balsavimai", icon: Vote },
+      { label: "Mano istorija", href: "/portalas/istorija", icon: History },
+      { label: "Mano mokėjimai", href: "/portalas/finansai", icon: Banknote },
+      { label: "Mano duomenys", href: "/portalas/profilis", icon: User },
+    ],
+  },
+  {
+    title: "Bendruomenė",
+    items: [
+      { label: "Naujienos", href: "/naujienos", icon: Newspaper },
+      { label: "Susirinkimai", href: "/portalas/susirinkimai", icon: CalendarDays },
+      { label: "Projektai", href: "/projektai", icon: Heart },
+      { label: "Dokumentai", href: "/portalas/dokumentai", icon: FileText },
+      { label: "Finansai", href: "/skaidrumas", icon: TrendingUp },
+      { label: "Apie mus", href: "/kontaktai", icon: Info },
+    ],
+  },
 ];
 
 export function MemberSidebar() {
@@ -63,38 +101,39 @@ export function MemberSidebar() {
         </div>
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const active = isActive(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setOpen(false)}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                active
-                  ? "bg-white/15 text-white"
-                  : "text-green-100 hover:bg-white/10 hover:text-white"
-              )}
-            >
-              <Icon className="h-5 w-5 flex-shrink-0" />
-              <span className="flex-1">{item.label}</span>
-            </Link>
-          );
-        })}
+      <nav className="flex-1 px-3 py-4 overflow-y-auto">
+        {sections.map((section, idx) => (
+          <div key={section.title} className={idx > 0 ? "mt-5" : ""}>
+            <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-green-300/80">
+              {section.title}
+            </p>
+            <div className="space-y-1">
+              {section.items.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      active
+                        ? "bg-white/15 text-white"
+                        : "text-green-100 hover:bg-white/10 hover:text-white"
+                    )}
+                  >
+                    <Icon className="h-4.5 w-4.5 flex-shrink-0" />
+                    <span className="flex-1">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
-      <div className="px-3 py-4 border-t border-green-700/30 space-y-1">
-        <Link
-          href="/"
-          onClick={() => setOpen(false)}
-          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-green-100 hover:bg-white/10 hover:text-white transition-colors"
-        >
-          <ExternalLink className="h-5 w-5" />
-          Viešas puslapis
-        </Link>
+      <div className="px-3 py-4 border-t border-green-700/30">
         <button
           onClick={handleLogout}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-green-100 hover:bg-white/10 hover:text-white transition-colors"
