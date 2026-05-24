@@ -4,7 +4,6 @@ import { formatDateLong, formatFileSize, getDocumentPublicUrl } from "@/lib/util
 import {
   Calendar,
   MapPin,
-  Users,
   ArrowLeft,
   FileText,
   ExternalLink,
@@ -40,11 +39,10 @@ interface MeetingArchiveResolution {
   documents: MeetingArchiveDoc[];
 }
 
+// Pavardės nebegrąžinamos iš get_public_meeting_data RPC (GDPR / vote secrecy)
 interface MeetingArchiveAttendee {
   id: string;
   attendance_type: "fizinis" | "nuotolinis" | "rastu";
-  first_name: string;
-  last_name: string;
 }
 
 interface MeetingArchiveData {
@@ -162,29 +160,34 @@ export default async function PortalMeetingDetailPage({
         ))}
       </div>
 
+      {/* Dalyviai – TIK SKAIČIAI (be vardų/pavardžių pagal GDPR ir
+          balsavimo slaptumo principą). Pilnas pasirašytas dalyvių sąrašas
+          yra atskiras dokumentas /dokumentai puslapyje. */}
       {totalAttended > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-1">
-            Dalyviai ({totalAttended})
+            Dalyvavimo statistika
           </h2>
           <p className="text-sm text-gray-500 mb-4">
-            Iš jų: {liveCount} gyvai, {remoteCount} nuotoliu
+            Susirinkime dalyvavo <strong className="text-gray-900">{totalAttended}</strong>{" "}
+            {totalAttended === 1 ? "narys" : "narių"}.
           </p>
-          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-            {attendance.map((a) => (
-              <li key={a.id} className="flex items-center gap-2 text-gray-700">
-                <Users className="h-3.5 w-3.5 text-gray-400" />
-                {a.first_name} {a.last_name}
-                <span className="text-xs text-gray-400 ml-auto">
-                  {a.attendance_type === "fizinis"
-                    ? "gyvai"
-                    : a.attendance_type === "nuotolinis"
-                      ? "nuotoliu"
-                      : "raštu"}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="bg-gray-50 rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-gray-900">{liveCount}</div>
+              <div className="text-xs text-gray-500 mt-1">Gyvai</div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-gray-900">{remoteCount}</div>
+              <div className="text-xs text-gray-500 mt-1">Nuotoliu</div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 text-center col-span-2 sm:col-span-1">
+              <div className="text-2xl font-bold text-green-700">
+                {totalAttended >= meeting.quorum_required ? "YRA" : "NĖRA"}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">Kvorumas</div>
+            </div>
+          </div>
           <p className="text-xs text-gray-400 mt-3 pt-3 border-t border-gray-100">
             Kvorumui reikalinga: {meeting.quorum_required} narių · Iš viso narių susirinkimo metu:{" "}
             {meeting.total_members_at_time}

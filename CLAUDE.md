@@ -253,6 +253,31 @@ Kitos vietos, kurios naudoja narių sąrašą balsavimui / dalyvavimui,
 JAU naudoja explicit filtrą `getMembers(undefined, "aktyvus")`
 (pvz., AttendanceManager, RemoteVotingPanel).
 
+## ARCHITEKTŪRA: Dalyvių pavardžių privatumas (GDPR + vote secrecy)
+
+**Vieši susirinkimo archyvai (`/susirinkimai/[id]` ir `/portalas/susirinkimai/[id]`)
+rodo TIK skaičius, NE pavardes.**
+
+Pagrindimas:
+- GDPR – nereikia viešai publikuoti narystės fakto su asmens duomenimis
+- Balsavimo slaptumas – jei matosi „kas dalyvavo", lengviau atsekti kas
+  kaip balsavo (per anti-pavyzdys: nuotolinių balsų suvestinė + nuotoliu
+  dalyvavusių sąrašas leistų atskirti kuris narys kaip balsavo)
+- LR Asociacijų įstatymo 16 str. nereikalauja viešo dalyvių sąrašo
+  publikavimo internete – tik pasirašyto **oficialaus dokumento**
+  (kuris yra atskiras PDF, prieinamas autentifikuotiems nariams)
+
+**Įgyvendinimas (migracija 020):**
+- `get_public_meeting_data` RPC grąžina attendance objektus **be**
+  `first_name`/`last_name`/`member_id` – tik `id` + `attendance_type`
+- UI skaičiuoja `attendance.length` ir filtruoja pagal type'ą
+- Niekada nepriduoti pavardžių į UI iš public RPC arba portalo RPC
+
+**Kur pavardės VIS DAR rodomos** (tikslinga):
+- `/admin/susirinkimai/[id]` – pilna AttendanceManager admin'ui
+- `/api/dalyviu-sarasas/[meeting_id]` PDF – oficialus protokolo priedas
+- `/api/protokolas/[id]` PDF – tik pirmininkas + sekretorė, ne visi dalyviai
+
 ## ARCHITEKTŪRA: Anonimo RLS apėjimas per RPC
 
 `/balsuoti/[token]` srautas yra **anonymous** – Supabase klientas neturi `authenticated` rolės, todėl RLS blokuoja tiesiogines užklausas į `members`, `payments`, `community_management` ir kt. Tačiau balsavimo iframe atvaizduoja iš trijų dokumentų:
@@ -324,6 +349,7 @@ Visi trys grąžina pilnai paruoštą JSONB. Niekada nedaryk tiesioginių užkla
 | 017 | `017_meeting_elections_data_rpc.sql` | `get_meeting_elections_data` – rinkimų pranešimo iframe duomenys |
 | 018 | `018_meeting_expulsions_data_rpc.sql` | `get_meeting_expulsions_data` – šalinamų narių iframe duomenys |
 | 019 | `019_unified_meeting_agenda_source.sql` | **VIENAS** darbotvarkės šaltinis: `_meeting_resolutions_jsonb` helper, perrašyti `get_public_meeting_data` + `get_voting_token_data` |
+| 020 | `020_public_meeting_data_anonymize_attendance.sql` | GDPR – `get_public_meeting_data` nebegrąžina dalyvių vardų/pavardžių, tik attendance_type counts |
 
 DB pakeitimai daromi **per Supabase MCP** (`apply_migration`) IR sinchronizuojami į `supabase/migrations/` lokaliam repo įrašymui.
 
