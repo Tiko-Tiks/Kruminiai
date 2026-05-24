@@ -27,45 +27,67 @@ export default function SetPasswordPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const [authorized, setAuthorized] = useState(false);
 
-  // Recovery nuoroda atveda su hash fragmentu (#access_token=...&type=recovery).
-  // supabase-js client'as automatiškai apdoroja hash'ą per `detectSessionInUrl`.
-  // Klausomės onAuthStateChange – kai PASSWORD_RECOVERY event'as gaunamas,
-  // žinom, kad sessija sukurta ir galim leisti naują slaptažodį.
+  // Recovery nuoroda iš Supabase atveda su hash fragmentu:
+  //   /nustatyti-slaptazodi#access_token=...&refresh_token=...&type=recovery
+  //
+  // @supabase/ssr createBrowserClient pagal default'ą naudoja PKCE flow
+  // (laukia ?code=...) ir todėl AUTOMATIŠKAI neapdoroja hash fragmento.
+  // Vadinasi turim rankiniu būdu parse'inti hash'ą ir kviesti setSession().
   useEffect(() => {
     const supabase = createClient();
     let mounted = true;
 
-    // 1) Pirmas patikrinimas – jei jau yra sessija (PWA cache'as), iškart leidžiam
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      if (data.session) {
-        setAuthorized(true);
+    async function init() {
+      // 1) Tikrinam, ar URL hash'e yra recovery token'ai
+      if (typeof window !== "undefined" && window.location.hash) {
+        const params = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = params.get("access_token");
+        const refreshToken = params.get("refresh_token");
+        const errorDescription = params.get("error_description");
+
+        // Klaida iš Supabase (pvz., token expired)
+        if (errorDescription) {
+          console.error("[set-password] recovery error:", errorDescription);
+          if (mounted) {
+            setAuthorized(false);
+            setAuthChecked(true);
+          }
+          return;
+        }
+
+        // Sėkmingas atvejis – nustatom sessiją iš hash'o
+        if (accessToken && refreshToken) {
+          const { error: setErr } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (mounted) {
+            if (setErr) {
+              console.error("[set-password] setSession failed:", setErr);
+              setAuthorized(false);
+            } else {
+              setAuthorized(true);
+              // Pašalinam hash iš URL (kad nerodytume token'ų)
+              window.history.replaceState(null, "", window.location.pathname);
+            }
+            setAuthChecked(true);
+          }
+          return;
+        }
+      }
+
+      // 2) Hash'o nėra – tikrinam, ar yra esama sessija (jau prisijungęs narys)
+      const { data } = await supabase.auth.getSession();
+      if (mounted) {
+        setAuthorized(!!data.session);
         setAuthChecked(true);
       }
-    });
+    }
 
-    // 2) Klausomės auth state pasikeitimų – tai veikia, kai hash apdorojamas
-    const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!mounted) return;
-      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
-        setAuthorized(!!session);
-        setAuthChecked(true);
-      } else if (event === "INITIAL_SESSION") {
-        // Po pradinio krovimo, jei sessijos vis dar nėra – nuoroda negalioja
-        setAuthorized(!!session);
-        setAuthChecked(true);
-      }
-    });
-
-    // 3) Saugiklis – po 2 sekundžių pasibaigs „Tikrinama..." spinneris
-    const timeout = setTimeout(() => {
-      if (mounted) setAuthChecked(true);
-    }, 2000);
+    init();
 
     return () => {
       mounted = false;
-      subscription.subscription.unsubscribe();
-      clearTimeout(timeout);
     };
   }, []);
 
