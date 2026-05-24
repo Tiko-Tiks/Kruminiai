@@ -353,6 +353,7 @@ Visi trys grąžina pilnai paruoštą JSONB. Niekada nedaryk tiesioginių užkla
 | 021 | `021_fix_handle_new_user_search_path.sql` | Trigger fix – pridėtas `SET search_path = public`, kad bulk-invite per auth.admin.createUser() veiktų |
 | 022 | `022_member_meetings_include_live_attendance.sql` | Portalo RPC fix – `get_member_active_meetings` ir `get_member_voting_history` įtraukia gyvai dalyvautus susirinkimus (nebėra reikalingas vote_ballots įrašas) |
 | 023 | `023_news_category.sql` | `news.category` stulpelis su CHECK (`bendra`/`projektas`/`susirinkimas`) – Skaidrumas tab'ai filtruoja pagal kategoriją, ne slug heuristiką |
+| 024 | `024_meeting_announcements_and_doc_linkage.sql` | `meeting_announcements` lentelė + `documents.meeting_id` FK – susirinkimo skelbimų sekimas (kanalas, URL, data) ir dokumentų grupavimas pagal susirinkimą |
 
 DB pakeitimai daromi **per Supabase MCP** (`apply_migration`) IR sinchronizuojami į `supabase/migrations/` lokaliam repo įrašymui.
 

@@ -44,6 +44,14 @@ export async function GET(
     .eq("meeting_id", params.id)
     .order("registered_at");
 
+  // Skelbimai – įrodymas, kad susirinkimas buvo paskelbtas tinkamai
+  // (LR Asociacijų įstatymo 8 str.; įstatuose – min. 14 d. prieš).
+  const { data: announcements } = await supabase
+    .from("meeting_announcements")
+    .select("channel, url, published_at")
+    .eq("meeting_id", params.id)
+    .order("published_at", { ascending: true });
+
   // Gauti nuotoliu balsavimo breakdown'ą KIEKVIENAM nutarimui (vote_ballots'e
   // saugomi tik nuotoliu / išankstiniai balsai – gyvi balsai įvedami admin'o
   // tiesiogiai į resolutions.result_*). Kad protokole rodytume „gyvai + nuotoliu",
@@ -64,6 +72,49 @@ export async function GET(
 
   const meetingDate = new Date(meeting.meeting_date);
   const endDate = meeting.ended_at ? new Date(meeting.ended_at) : null;
+
+  // Skelbimo atitikimo apskaičiavimas + protokolo pastraipos formavimas
+  const CHANNEL_LT: Record<string, string> = {
+    web: "bendruomenės svetainėje kruminiai.lt",
+    facebook: "Facebook puslapyje",
+    email: "el. paštu nariams",
+    sms: "SMS žinute nariams",
+    paper: "skelbimų lentoje",
+    other: "kitame kanale",
+  };
+  const announcementsList = (announcements || []) as Array<{
+    channel: string;
+    url: string | null;
+    published_at: string;
+  }>;
+  const earliestAnnounceMs = announcementsList
+    .map((a) => new Date(a.published_at).getTime())
+    .sort((a, b) => a - b)[0];
+  const daysAdvance = earliestAnnounceMs
+    ? Math.floor((meetingDate.getTime() - earliestAnnounceMs) / (1000 * 60 * 60 * 24))
+    : null;
+  const compliantAnnouncement = daysAdvance !== null && daysAdvance >= 14;
+
+  // Surenkam skelbimo pastraipą protokolui
+  let announcementParagraph = "";
+  if (announcementsList.length > 0) {
+    const parts = announcementsList.map((a) => {
+      const dt = new Date(a.published_at).toLocaleDateString("lt-LT", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        timeZone: "Europe/Vilnius",
+      });
+      return `${CHANNEL_LT[a.channel] || a.channel} (${dt})`;
+    });
+    const channels = parts.join("; ");
+    const compliance = compliantAnnouncement
+      ? `Pranešimas paskelbtas ${daysAdvance} d. prieš susirinkimą ir atitinka įstatuose nurodytą min. 14 d. terminą.`
+      : daysAdvance !== null
+        ? `Pranešimas paskelbtas ${daysAdvance} d. prieš susirinkimą.`
+        : "";
+    announcementParagraph = `Apie susirinkimą iš anksto pranešta: ${channels}. ${compliance}`.trim();
+  }
 
   // Suskirstyti dalyvius
   const attendByType = {
@@ -442,6 +493,7 @@ export async function GET(
         <p><span class="label">Bendras bendruomenės narių skaičius:</span> ${meeting.total_members_at_time}</p>
         <p><span class="label">Susirinkime dalyvauja narių:</span> ${totalAttending}${attendanceSummaryParts.length > 0 ? ` (iš jų ${attendanceSummaryParts.join(", ")})` : ""}.</p>
         <p><span class="label">Kvorumas:</span> ${hasQuorum ? "YRA" : "NĖRA"}${meeting.is_repeat ? " (pakartotinis susirinkimas)" : ""}.</p>
+        ${announcementParagraph ? `<p style="margin-top:8pt;"><span class="label">Skelbimas apie susirinkimą:</span> ${announcementParagraph}</p>` : ""}
       </div>
       <div class="agenda">
         <h3>SUSIRINKIMO DARBOTVARKĖ:</h3>

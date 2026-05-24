@@ -3,6 +3,7 @@ import { PublicFooter } from "@/components/layout/PublicFooter";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { MEETING_TYPE_LABELS, MEETING_STATUS_LABELS } from "@/lib/constants";
 import { formatDateLong, formatFileSize, getDocumentPublicUrl } from "@/lib/utils";
+import { DocumentLink } from "@/components/DocumentLink";
 import {
   Calendar,
   MapPin,
@@ -12,6 +13,12 @@ import {
   CheckCircle2,
   XCircle,
   CircleDashed,
+  Megaphone,
+  Globe,
+  Share2,
+  Mail,
+  MessageSquare,
+  FolderOpen,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -50,6 +57,22 @@ interface MeetingArchiveAttendee {
   attendance_type: "fizinis" | "nuotolinis" | "rastu";
 }
 
+interface MeetingAnnouncement {
+  id: string;
+  channel: "web" | "facebook" | "email" | "sms" | "paper" | "other";
+  url: string | null;
+  published_at: string;
+  notes: string | null;
+}
+
+interface MeetingDocument {
+  id: string;
+  title: string;
+  file_path: string;
+  file_size: number | null;
+  category: string;
+}
+
 interface MeetingArchiveData {
   error?: string;
   meeting?: {
@@ -69,7 +92,18 @@ interface MeetingArchiveData {
   };
   resolutions?: MeetingArchiveResolution[];
   attendance?: MeetingArchiveAttendee[];
+  announcements?: MeetingAnnouncement[];
+  meeting_documents?: MeetingDocument[];
 }
+
+const CHANNEL_LABELS: Record<string, { label: string; icon: typeof Globe }> = {
+  web: { label: "Svetainė (kruminiai.lt)", icon: Globe },
+  facebook: { label: "Facebook", icon: Share2 },
+  email: { label: "El. paštas nariams", icon: Mail },
+  sms: { label: "SMS nariams", icon: MessageSquare },
+  paper: { label: "Skelbimų lenta / paštas", icon: FileText },
+  other: { label: "Kitas kanalas", icon: Megaphone },
+};
 
 function statusColor(status: string) {
   switch (status) {
@@ -97,8 +131,22 @@ export default async function MeetingArchivePage({ params }: { params: { id: str
   const meeting = archive.meeting;
   const resolutions = archive.resolutions || [];
   const attendance = archive.attendance || [];
+  const announcements = archive.announcements || [];
+  const meetingDocuments = archive.meeting_documents || [];
 
   const isFinished = meeting.status === "baigtas";
+
+  // Skelbimo compliance – ankstyviausias skelbimas turi būti min. 14 d.
+  // prieš susirinkimą (LT tipinis reikalavimas asociacijos įstatuose).
+  const meetingTime = new Date(meeting.meeting_date).getTime();
+  const earliestAnnouncement = announcements
+    .map((a) => new Date(a.published_at).getTime())
+    .sort((a, b) => a - b)[0];
+  const announceDaysAdvance = earliestAnnouncement
+    ? Math.floor((meetingTime - earliestAnnouncement) / (1000 * 60 * 60 * 24))
+    : null;
+  const announcementCompliant =
+    announceDaysAdvance !== null && announceDaysAdvance >= 14;
   const totalAttended = attendance.length;
   const liveCount = attendance.filter((a) => a.attendance_type === "fizinis").length;
   const remoteCount = attendance.filter((a) => a.attendance_type === "nuotolinis").length;
@@ -150,6 +198,116 @@ export default async function MeetingArchivePage({ params }: { params: { id: str
               </p>
             )}
           </div>
+
+          {/* Skelbimai – kur ir kada paskelbta apie susirinkimą.
+              Įrodymas, kad pranešta tinkamai pagal įstatus. */}
+          {announcements.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                  <Megaphone className="h-5 w-5 text-blue-700" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-base font-semibold text-gray-900">
+                    Susirinkimas paskelbtas
+                  </h2>
+                  {announceDaysAdvance !== null && (
+                    <p
+                      className={`text-xs mt-0.5 ${announcementCompliant ? "text-green-700" : "text-amber-700"}`}
+                    >
+                      {announcementCompliant ? (
+                        <>
+                          <CheckCircle2 className="inline h-3.5 w-3.5 mr-0.5" />
+                          Atitinka įstatų reikalavimus – paskelbta{" "}
+                          {announceDaysAdvance} d. prieš susirinkimą
+                        </>
+                      ) : (
+                        <>Paskelbta {announceDaysAdvance} d. prieš susirinkimą</>
+                      )}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <ul className="space-y-2">
+                {announcements.map((a) => {
+                  const info = CHANNEL_LABELS[a.channel] || CHANNEL_LABELS.other;
+                  const Icon = info.icon;
+                  const publishedDate = new Date(a.published_at).toLocaleString(
+                    "lt-LT",
+                    {
+                      year: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      timeZone: "Europe/Vilnius",
+                    }
+                  );
+                  return (
+                    <li
+                      key={a.id}
+                      className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg"
+                    >
+                      <Icon className="h-4 w-4 text-gray-500 flex-shrink-0 mt-1" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-gray-900">
+                            {info.label}
+                          </span>
+                          <span className="text-xs text-gray-500">·</span>
+                          <span className="text-xs text-gray-600">
+                            {publishedDate}
+                          </span>
+                        </div>
+                        {a.url && (
+                          <a
+                            href={a.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-blue-700 hover:text-blue-900 hover:underline mt-1"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Žiūrėti originalą
+                          </a>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
+          {/* Susirinkimo dokumentų papkė – metinė ataskaita, finansinis
+              rinkinys, protokolas, dalyvių sąrašas ir kt. */}
+          {meetingDocuments.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                  <FolderOpen className="h-5 w-5 text-green-700" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-base font-semibold text-gray-900">
+                    Susirinkimo dokumentai ({meetingDocuments.length})
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Pasirašyti protokolai, ataskaitos ir kiti susirinkimo dokumentai
+                  </p>
+                </div>
+              </div>
+              <div className="divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden">
+                {meetingDocuments.map((doc) => (
+                  <DocumentLink
+                    key={doc.id}
+                    filePath={doc.file_path}
+                    title={doc.title}
+                    fileSize={doc.file_size}
+                    meta={doc.category}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Procedūriniai klausimai (jei užbaigta) */}
           {isFinished && procedural.length > 0 && (

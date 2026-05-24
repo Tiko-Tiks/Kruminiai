@@ -56,6 +56,7 @@ export async function createDocument(formData: FormData) {
   const description = formData.get("description") as string;
   const category = formData.get("category") as string;
   const isPublic = formData.get("is_public") === "true";
+  const meetingId = formData.get("meeting_id") as string;
 
   if (!file || !title) return { error: "Failas ir pavadinimas privalomi" };
 
@@ -74,6 +75,7 @@ export async function createDocument(formData: FormData) {
     file_name: file.name,
     file_size: file.size,
     is_public: isPublic,
+    meeting_id: meetingId && meetingId.length > 0 ? meetingId : null,
     published_at: isPublic ? new Date().toISOString().split("T")[0] : null,
     created_by: user?.id ?? null,
   };

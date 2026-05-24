@@ -3,6 +3,7 @@ import { getResolutions } from "@/actions/voting";
 import { getMembers } from "@/actions/members";
 import { getDocuments } from "@/actions/documents";
 import { getVotingTokensStats } from "@/actions/tokens";
+import { getMeetingAnnouncements } from "@/actions/announcements";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
@@ -16,6 +17,7 @@ import { AttendanceManager } from "./AttendanceManager";
 import { AddResolutionForm } from "./AddResolutionForm";
 import { RemoteVotingPanel } from "./RemoteVotingPanel";
 import { MeetingDocumentsPanel } from "./MeetingDocumentsPanel";
+import { AnnouncementsPanel } from "./AnnouncementsPanel";
 
 async function getCommunityChairpersonName(): Promise<string | null> {
   const supabase = createServerSupabaseClient();
@@ -53,6 +55,7 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
   const allDocuments = await getDocuments();
   const tokenStats = await getVotingTokensStats(params.id);
   const communityChairpersonName = await getCommunityChairpersonName();
+  const announcements = await getMeetingAnnouncements(params.id);
 
   return (
     <div>
@@ -105,6 +108,16 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
           </CardContent>
         </Card>
       )}
+
+      {/* Skelbimų panelis – fiksuojam, kur ir kada paskelbta apie susirinkimą.
+          Reikalinga įstatų atitikimui (min. 14 d. prieš susirinkimą). */}
+      <div className="mb-6">
+        <AnnouncementsPanel
+          meetingId={meeting.id}
+          meetingDate={meeting.meeting_date}
+          announcements={announcements}
+        />
+      </div>
 
       {/* Greitas dokumentų panelis – susirinkimo metu pirmininkui patogu */}
       <MeetingDocumentsPanel resolutions={resolutions} />
