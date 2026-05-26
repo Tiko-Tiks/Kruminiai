@@ -60,7 +60,17 @@ export async function createDocument(formData: FormData) {
 
   if (!file || !title) return { error: "Failas ir pavadinimas privalomi" };
 
-  const fileName = `${Date.now()}-${file.name}`;
+  // Sanitarizuojam failo vardą Supabase Storage'ui – jis priima tik ASCII
+  // (be lietuviškų diakritikos ąčęėįšųūž), be tarpų ir specialių simbolių.
+  // Originalų vardą išsaugom file_name lauke (vartotojui rodom gražiai).
+  const sanitizedFileName = file.name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "") // pašalinam diakritikos žymes
+    .replace(/[^a-zA-Z0-9._-]/g, "-") // pakeičiam viską ne-ASCII į „-"
+    .replace(/-+/g, "-")              // sumažinam kelis „-" į vieną
+    .replace(/^-+|-+$/g, "");          // pašalinam pradžios/pabaigos „-"
+  const fileName = `${Date.now()}-${sanitizedFileName}`;
+
   const { error: uploadError } = await supabase.storage
     .from("documents")
     .upload(fileName, file);
@@ -72,7 +82,7 @@ export async function createDocument(formData: FormData) {
     description: description || null,
     category: category || "kita",
     file_path: fileName,
-    file_name: file.name,
+    file_name: file.name, // originalus vardas (su lt diakritika) – tik UI tikslams
     file_size: file.size,
     is_public: isPublic,
     meeting_id: meetingId && meetingId.length > 0 ? meetingId : null,
