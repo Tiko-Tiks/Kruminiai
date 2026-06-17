@@ -14,16 +14,16 @@ export const revalidate = 60; // atnaujinama kas minutę – progresas matomas b
 export const metadata: Metadata = {
   title: "Padėk man atsinaujinti – Krūminių paplūdimio lieptas",
   description:
-    "Sovietmečio betoninis Krūminių paplūdimio lieptas vietomis suiręs ir nesaugus. Renkame lėšas jį apkalti terasinėmis lentomis ir įrengti nerūdijančio plieno kopėtėles bei turėklus.",
+    "Krūminių paplūdimio lieptas vertas antro gyvenimo. Renkame lėšas jį apkalti terasinėmis lentomis, įrengti nerūdijančio plieno turėklus ir kopėtėles – gražesnė ir saugesnė erdvė visiems.",
   alternates: { canonical: "/lieptas" },
   openGraph: {
     type: "website",
     locale: "lt_LT",
     title: "Padėk man atsinaujinti – Krūminių paplūdimio lieptas",
     description:
-      "Krūminių kaimo bendruomenė renka lėšas paplūdimio liepto atnaujinimui – apkalimas terasinėmis lentomis, nerūdijančio plieno kopėtėlės ir turėklai.",
+      "Krūminių kaimo bendruomenė atnaujina paplūdimio lieptą: terasinės lentos, nerūdijančio plieno turėklai ir kopėtėlės. Prisidėk – gražesnė ir saugesnė erdvė visiems.",
     siteName: "Krūminių kaimo bendruomenė",
-    images: [{ url: "/images/logo-md.png", width: 512, height: 512 }],
+    images: [{ url: "/images/lieptas/liepto-vizija.jpg", width: 1445, height: 1088 }],
   },
 };
 
@@ -97,6 +97,34 @@ export default async function LieptasPage() {
         </section>
 
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 space-y-10">
+          {/* Prieš / Po */}
+          <section className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 shadow-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <figure className="relative overflow-hidden rounded-xl">
+                <img
+                  src="/images/lieptas/liepto-dabar.jpg"
+                  alt="Krūminių paplūdimio liepto būklė dabar"
+                  className="w-full aspect-[4/3] object-cover"
+                  loading="lazy"
+                />
+                <figcaption className="absolute top-3 left-3 bg-gray-900/75 text-white text-xs font-semibold px-3 py-1 rounded-full">
+                  Dabar
+                </figcaption>
+              </figure>
+              <figure className="relative overflow-hidden rounded-xl">
+                <img
+                  src="/images/lieptas/liepto-vizija.jpg"
+                  alt="Atnaujinto Krūminių paplūdimio liepto vizija"
+                  className="w-full aspect-[4/3] object-cover"
+                  loading="lazy"
+                />
+                <figcaption className="absolute top-3 left-3 bg-green-700/90 text-white text-xs font-semibold px-3 py-1 rounded-full">
+                  Po atnaujinimo
+                </figcaption>
+              </figure>
+            </div>
+          </section>
+
           {/* Progresas */}
           <section className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm">
             <div className="flex items-end justify-between flex-wrap gap-3 mb-3">
@@ -305,21 +333,28 @@ export default async function LieptasPage() {
   );
 }
 
-// Paprastas markdown rendereris – tinka pradiniam pasakojimui
+// Paprastas markdown rendereris – tinka pradiniam pasakojimui.
+// HTML escape'inamas, kad DB turinyje atsiradę <script>/<img> netaptų XSS.
 function StoryMarkdown({ md }: { md: string }) {
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const lines = md.split("\n");
   const html: string[] = [];
   for (const line of lines) {
     if (line.startsWith("## ")) {
-      html.push(`<h3>${line.slice(3)}</h3>`);
+      html.push(
+        `<h3 class="text-lg font-bold text-gray-900 mt-6 mb-2 first:mt-0">${esc(line.slice(3))}</h3>`
+      );
     } else if (line.startsWith("- ")) {
-      html.push(`<li>${line.slice(2)}</li>`);
+      html.push(
+        `<li class="ml-5 list-disc text-gray-700 leading-relaxed">${esc(line.slice(2))}</li>`
+      );
     } else if (line.trim() === "") {
       html.push("");
     } else {
       // bold **text**
-      const formatted = line.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-      html.push(`<p>${formatted}</p>`);
+      const formatted = esc(line).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+      html.push(`<p class="text-gray-700 leading-relaxed mb-3">${formatted}</p>`);
     }
   }
   return <div dangerouslySetInnerHTML={{ __html: html.join("\n") }} />;
