@@ -4,6 +4,9 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { createAdminSupabaseClient, isAdminClientAvailable } from "@/lib/supabase-admin";
 import { requireAdmin } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
+import { sendEmail } from "@/lib/email";
+import { logNotification } from "@/lib/notification-log";
+import { renderMemberWelcomeEmail } from "@/lib/membership-emails";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -26,10 +29,15 @@ export async function approveUser(
 
   const { data: profile, error: profErr } = await supabase
     .from("profiles")
-    .select("id, full_name, member_id")
+    .select("id, full_name, member_id, is_approved")
     .eq("id", profileId)
     .single();
   if (profErr || !profile) return { error: "Profilis nerastas" };
+
+  // Ar tai TIKRAS patvirtinimas (false→true), ar pakartotinis? Laišką #2
+  // siunčiam tik pirmą kartą patvirtinant, kad pakartotinis paspaudimas
+  // arba atšaukimas+patvirtinimas iš naujo nedubliuotų pasveikinimo.
+  const wasApproved = profile.is_approved === true;
 
   let memberId = (profile.member_id as string | null) ?? null;
   let createdMember = false;
@@ -102,6 +110,32 @@ export async function approveUser(
     recordId: profileId,
     newData: { is_approved: true, member_id: memberId, via: "approve_user" },
   });
+
+  // Laiškas #2 – pasveikinimas tapus nariu + supažindinimas su sistema.
+  // Tik pirmą kartą patvirtinant ir jei narys turi el. paštą.
+  if (!wasApproved && memberId) {
+    const { data: member } = await supabase
+      .from("members")
+      .select("first_name, email")
+      .eq("id", memberId)
+      .single();
+    if (member?.email) {
+      const subject = "Sveiki tapę Krūminių kaimo bendruomenės nariu!";
+      const html = renderMemberWelcomeEmail({ firstName: member.first_name as string });
+      const r = await sendEmail(member.email as string, subject, html);
+      await logNotification(supabase, {
+        memberId,
+        channel: "email",
+        kind: "other",
+        recipient: member.email as string,
+        subject,
+        message: html,
+        status: r.success ? "sent" : "failed",
+        error: r.success ? null : r.error,
+        externalId: r.messageId ?? null,
+      });
+    }
+  }
 
   revalidatePath("/admin/vartotojai");
   revalidatePath("/admin/nariai");

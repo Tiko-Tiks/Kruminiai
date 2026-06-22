@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase";
+import { sendMembershipRequestEmail } from "@/actions/membership";
 import Link from "next/link";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { UserPlus, CheckCircle } from "lucide-react";
@@ -56,6 +57,14 @@ export default function RegisterPage() {
       return;
     }
 
+    // Laiškas #1 – pasveikinimas + kaip apmokėti nario mokestį. Klaida nestabdo
+    // registracijos (paskyra jau sukurta), tik tyliai užfiksuojama serveryje.
+    try {
+      await sendMembershipRequestEmail({ email, firstName, lastName });
+    } catch {
+      // ignoruojam – siuntimas best-effort
+    }
+
     setSuccess(true);
     setLoading(false);
   };
@@ -74,11 +83,12 @@ export default function RegisterPage() {
                 </div>
                 <h2 className="text-xl font-bold text-gray-900 mb-3">Registracija gauta!</h2>
                 <p className="text-sm text-gray-600 leading-relaxed mb-2">
-                  Jūsų registracija sėkmingai pateikta.
+                  Išsiuntėme jums el. laišką su mokėjimo informacija.
                 </p>
                 <p className="text-sm text-gray-600 leading-relaxed mb-6">
-                  Bendruomenės administratorius peržiūrės jūsų prašymą ir patvirtins paskyrą.
-                  Kai paskyra bus patvirtinta, galėsite prisijungti.
+                  Kad taptumėte pilnaverčiu nariu, sumokėkite stojamąjį ir nario mokestį.
+                  Gavę apmokėjimą, patvirtinsime jūsų narystę ir atsiųsime prisijungimo
+                  informaciją.
                 </p>
                 <Link
                   href="/"

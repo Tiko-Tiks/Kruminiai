@@ -1,18 +1,15 @@
 "use server";
 
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { requireAdmin } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { sendSms, normalizePhone } from "@/lib/infobip";
 import { sendEmail, renderBrandedEmail } from "@/lib/email";
 import { logNotification } from "@/lib/notification-log";
 import { vocative } from "@/lib/utils";
+import { BANK_NAME, BANK_ACCOUNT, BANK_RECIPIENT, ENTRY_FEE_EUR } from "@/lib/payment-info";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
-
-const BANK_NAME = "AB Artea bankas";
-const BANK_ACCOUNT = "LT167181200000606866";
-const BANK_RECIPIENT = "Krūminių kaimo bendruomenė";
-const ENTRY_FEE_EUR = 20;
 
 export type ChannelChoice = "both" | "email" | "sms";
 
@@ -109,7 +106,19 @@ interface ReminderResult {
 
 export async function sendOverdueReminders(channel: ChannelChoice = "both") {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) {
+    return {
+      total: 0,
+      emailsSent: 0,
+      smsSent: 0,
+      emailErrors: 0,
+      smsErrors: 0,
+      skipped: 0,
+      errors: [auth.error],
+    };
+  }
+  const user = auth.user;
 
   const { members } = await getMembersWithDebts();
   const batchId = crypto.randomUUID();

@@ -65,6 +65,10 @@ export function DonationsPanel({
     e.preventDefault();
     const form = e.currentTarget;
     const formData = new FormData(form);
+    // Suma vedama eurais – konvertuojam į centus prieš siunčiant (DB laiko centus).
+    const amountEur = parseFloat(formData.get("amount_eur") as string);
+    formData.set("amount_cents", Math.round(amountEur * 100).toString());
+    formData.delete("amount_eur");
     startTransition(async () => {
       const r = (await addDonation(formData)) as { error?: unknown; success?: boolean };
       if (r.error) {
@@ -187,10 +191,11 @@ export function DonationsPanel({
                   placeholder="Vardas Pavardė arba palikit tuščią"
                 />
                 <Input
-                  name="amount_cents"
+                  name="amount_eur"
                   type="number"
-                  label="Suma centais *"
-                  placeholder="pvz. 2000 = 20 EUR"
+                  step="0.01"
+                  label="Suma (EUR) *"
+                  placeholder="pvz. 20.00"
                   required
                 />
               </div>
