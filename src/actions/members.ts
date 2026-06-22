@@ -2,8 +2,23 @@
 
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { logAudit } from "@/lib/audit";
+import { transliterateLt } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+
+// Diakritikams atspari normalizacija paieškai: „Aušra" ir „Ausra" sutampa.
+function normalizeText(text: string): string {
+  return transliterateLt(text).toLowerCase().trim();
+}
+
+// Telefono numerio „šaknis" lyginimui – nuimam šalies/tinklo prefiksą,
+// kad nacionalinis 8 65849514 atitiktų tarptautinį +370 65849514.
+function phoneKey(raw: string): string {
+  let digits = raw.replace(/\D/g, "");
+  if (digits.startsWith("370")) digits = digits.slice(3);
+  else if (digits.startsWith("8") || digits.startsWith("0")) digits = digits.slice(1);
+  return digits;
+}
 
 const memberSchema = z.object({
   first_name: z.string().min(1, "Vardas privalomas"),
@@ -28,15 +43,35 @@ export async function getMembers(search?: string, status?: string) {
     query = query.eq("status", status);
   }
 
-  if (search) {
-    query = query.or(
-      `first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`
-    );
-  }
-
   const { data, error } = await query;
   if (error) throw error;
-  return data;
+  if (!data) return [];
+
+  const term = search?.trim();
+  if (!term) return data;
+
+  // Tiksli paieška JS pusėje (~76 nariai – pigu, o gauname diakritikams
+  // atsparų, daugiažodį ir telefono formatui atsparų atitikimą, kurio
+  // PostgREST `ilike` neduotų).
+  //
+  // Daugiažodė logika: kiekvienas paieškos žodis turi rastis varde,
+  // pavardėje ar el. pašte. „Mindaugas Mameniškis" → [mindaugas][mameniskis]
+  // – pirmas atitinka vardą, antras pavardę.
+  const tokens = normalizeText(term).split(/\s+/).filter(Boolean);
+  const queryDigits = term.replace(/\D/g, "");
+
+  return data.filter((member) => {
+    const haystack = normalizeText(
+      [member.first_name, member.last_name, member.email].filter(Boolean).join(" ")
+    );
+    if (tokens.every((token) => haystack.includes(token))) return true;
+
+    // Telefono atitikimas – lyginam tik normalizuotus skaitmenis.
+    if (queryDigits.length >= 3 && member.phone) {
+      return phoneKey(member.phone).includes(phoneKey(queryDigits));
+    }
+    return false;
+  });
 }
 
 export async function getMember(id: string) {
