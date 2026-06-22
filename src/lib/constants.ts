@@ -1,13 +1,15 @@
 export const SITE_NAME = "Krūminių kaimo bendruomenė";
 
+// `key` atitinka i18n žodyno `nav` raktą (žr. src/lib/i18n.ts); `label` –
+// lietuviškas fallback'as, jei vertimo nebūtų.
 export const PUBLIC_NAV = [
-  { label: "Pradžia", href: "/", requiresAuth: false },
-  { label: "Naujienos", href: "/naujienos", requiresAuth: false },
-  { label: "Projektai", href: "/projektai", requiresAuth: false },
-  { label: "Susirinkimai", href: "/susirinkimai", requiresAuth: true },
-  { label: "Dokumentai", href: "/dokumentai", requiresAuth: true },
-  { label: "Finansai", href: "/skaidrumas", requiresAuth: true },
-  { label: "Apie mus", href: "/kontaktai", requiresAuth: false },
+  { key: "home", label: "Pradžia", href: "/", requiresAuth: false },
+  { key: "news", label: "Naujienos", href: "/naujienos", requiresAuth: false },
+  { key: "projects", label: "Projektai", href: "/projektai", requiresAuth: false },
+  { key: "meetings", label: "Susirinkimai", href: "/susirinkimai", requiresAuth: true },
+  { key: "documents", label: "Dokumentai", href: "/dokumentai", requiresAuth: true },
+  { key: "finance", label: "Finansai", href: "/skaidrumas", requiresAuth: true },
+  { key: "about", label: "Apie mus", href: "/kontaktai", requiresAuth: false },
 ];
 
 export const ADMIN_NAV = [

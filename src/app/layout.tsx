@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { Toaster } from "sonner";
+import { cookies } from "next/headers";
+import { LocaleProvider } from "@/components/i18n/LocaleProvider";
+import { LOCALE_COOKIE, normalizeLocale } from "@/lib/i18n";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -97,11 +100,14 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = normalizeLocale(cookies().get(LOCALE_COOKIE)?.value);
   return (
-    <html lang="lt">
+    <html lang={locale}>
       <body className={`${jakarta.variable} font-sans antialiased`}>
-        {children}
-        <Toaster position="top-right" richColors />
+        <LocaleProvider locale={locale}>
+          {children}
+          <Toaster position="top-right" richColors />
+        </LocaleProvider>
       </body>
     </html>
   );
