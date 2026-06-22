@@ -55,14 +55,15 @@ export function renderMembershipRequestEmail(opts: {
 
       ${renderPaymentDetailsBlock({
         amountLabel: `${TOTAL_EUR} EUR`,
-        purpose: `Stojamasis ir nario mokestis – ${opts.fullName}`,
+        purpose: `Nario mokestis`,
       })}
 
       <p style="margin:0 0 16px;font-size:14px;line-height:1.65;color:#4b5563;">
         Kai gausime apmokėjimą, patvirtinsime jūsų narystę ir atskiru laišku atsiųsime prisijungimo prie nario portalo informaciją.
       </p>
       <p style="margin:0 0 16px;font-size:14px;line-height:1.65;color:#4b5563;">
-        Taip pat galite sumokėti <strong>grynaisiais</strong> – susitarkite asmeniškai su pirmininku.
+        Taip pat galite sumokėti <strong>grynaisiais</strong> mūsų kaimo parduotuvėje pas Jūratę
+        arba susisiekę su manimi.
       </p>
       <p style="margin:24px 0 0;font-size:14px;line-height:1.6;color:#6b7280;">
         Klausimai: <a href="mailto:info@kruminiai.lt" style="color:#15803d;">info@kruminiai.lt</a> arba +370 658 49514.
