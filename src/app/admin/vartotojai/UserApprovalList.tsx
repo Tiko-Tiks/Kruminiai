@@ -39,11 +39,21 @@ export function UserApprovalList({ profiles }: { profiles: Profile[] }) {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const handleApprove = async (id: string) => {
+  const handleApprove = async (id: string, name: string) => {
+    // Narystė patvirtinama TIK gavus apmokėjimą (stojamasis + nario mokestis).
+    if (
+      !confirm(
+        `Patvirtinti narystę: ${name}?\n\nTvirtinkite tik GAVĘ apmokėjimą (stojamasis + nario mokestis). ` +
+          `Patvirtinus, narys gaus prieigą prie portalo ir pasveikinimo laišką.`
+      )
+    ) {
+      return;
+    }
     setLoading(id);
     setError(null);
     // Patvirtinant per server action'ą – jis ne tik nustato is_approved=true,
-    // bet ir užtikrina, kad žmogus atsiranda narių registre (žr. approveUser).
+    // bet ir užtikrina, kad žmogus atsiranda narių registre + patvirtina el.
+    // paštą, kad galėtų prisijungti (žr. approveUser).
     const res = await approveUser(id);
     if (res?.error) setError(res.error);
     router.refresh();
@@ -91,7 +101,7 @@ export function UserApprovalList({ profiles }: { profiles: Profile[] }) {
                   </p>
                 </div>
                 <button
-                  onClick={() => handleApprove(profile.id)}
+                  onClick={() => handleApprove(profile.id, profile.full_name)}
                   disabled={loading === profile.id}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-700 text-white text-sm font-medium hover:bg-green-600 disabled:opacity-50 transition-colors"
                 >

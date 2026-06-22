@@ -111,29 +111,44 @@ export async function approveUser(
     newData: { is_approved: true, member_id: memberId, via: "approve_user" },
   });
 
-  // Laiškas #2 – pasveikinimas tapus nariu + supažindinimas su sistema.
-  // Tik pirmą kartą patvirtinant ir jei narys turi el. paštą.
-  if (!wasApproved && memberId) {
-    const { data: member } = await supabase
-      .from("members")
-      .select("first_name, email")
-      .eq("id", memberId)
-      .single();
-    if (member?.email) {
-      const subject = "Sveiki tapę Krūminių kaimo bendruomenės nariu!";
-      const html = renderMemberWelcomeEmail({ firstName: member.first_name as string });
-      const r = await sendEmail(member.email as string, subject, html);
-      await logNotification(supabase, {
-        memberId,
-        channel: "email",
-        kind: "other",
-        recipient: member.email as string,
-        subject,
-        message: html,
-        status: r.success ? "sent" : "failed",
-        error: r.success ? null : r.error,
-        externalId: r.messageId ?? null,
-      });
+  // Pirmą kartą patvirtinant (false→true):
+  if (!wasApproved) {
+    // 1) Patvirtinam el. paštą admin teisėmis. Be to narys, nepaspaudęs
+    //    Supabase „Confirm email" nuorodos, NEGALĖTŲ prisijungti net po
+    //    patvirtinimo (signInWithPassword grąžintų email_not_confirmed).
+    //    Admin patvirtinimas yra vartai, todėl el. paštą patvirtinti saugu.
+    if (isAdminClientAvailable()) {
+      try {
+        const admin = createAdminSupabaseClient();
+        await admin.auth.admin.updateUserById(profileId, { email_confirm: true });
+      } catch (e) {
+        console.warn("[approveUser] email_confirm nepavyko:", e);
+      }
+    }
+
+    // 2) Laiškas #2 – pasveikinimas tapus nariu + supažindinimas su sistema.
+    if (memberId) {
+      const { data: member } = await supabase
+        .from("members")
+        .select("first_name, email")
+        .eq("id", memberId)
+        .single();
+      if (member?.email) {
+        const subject = "Sveiki tapę Krūminių kaimo bendruomenės nariu!";
+        const html = renderMemberWelcomeEmail({ firstName: member.first_name as string });
+        const r = await sendEmail(member.email as string, subject, html);
+        await logNotification(supabase, {
+          memberId,
+          channel: "email",
+          kind: "other",
+          recipient: member.email as string,
+          subject,
+          message: html,
+          status: r.success ? "sent" : "failed",
+          error: r.success ? null : r.error,
+          externalId: r.messageId ?? null,
+        });
+      }
     }
   }
 

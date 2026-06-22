@@ -358,32 +358,48 @@ ir `profiles`+`auth.users` (portalo prisijungimas, valdomas `/admin/vartotojai`)
 Narys gali egzistuoti BE paskyros (dauguma – masinis importas), o paskyra
 gali egzistuoti be `members` įrašo (self-registracija).
 
-**Self-registracijos srautas (`/registracija`):**
-1. Klientinė forma → `supabase.auth.signUp({ email, password, options:{ data:{ full_name }, emailRedirectTo } })`.
-2. DB trigger'is `handle_new_user` (migr. 021) sukuria `profiles`: `role='member'`,
-   `is_approved=false`, `member_id` = esamas narys pagal el. paštą (case-insensitive)
-   arba `NULL`. **Member įrašo NEsukuria.**
-3. Žmogui rodoma „Registracija gauta" – BE auto-login. Įeiti dar negali.
-4. Admin `/admin/vartotojai` → „Laukiantys patvirtinimo" → **Patvirtinti**.
+**POLITIKA: narys patvirtinamas TIK gavus apmokėjimą** (stojamasis 20 EUR +
+metinis nario mokestis 12 EUR). Registracija ≠ narystė – žmogus tampa
+pilnaverčiu nariu tik kai admin'as patvirtina (po apmokėjimo).
 
-**Patvirtinimas – `approveUser()` (`src/actions/users.ts`, NE tiesioginis kliento UPDATE):**
+**Pilnas srautas:**
+1. **Registracija** (`/registracija`): klientinė forma → `supabase.auth.signUp`
+   (su pasirinktu slaptažodžiu + `emailRedirectTo=/auth/callback?next=/prisijungimas`).
+   Trigger'is `handle_new_user` (migr. 021) sukuria `profiles`: `role='member'`,
+   `is_approved=false`, `member_id` pagal el. paštą arba `NULL`. **Member NEsukuriamas.**
+2. **Laiškas #1** (`sendMembershipRequestEmail`, `src/actions/membership.ts`):
+   pasveikinimas + kaip apmokėti (stojamasis + metinis, banko rekvizitai iš
+   `src/lib/payment-info.ts`). Best-effort.
+3. Žmogus **apmoka** (pavedimu/grynais). Apmokėjimas kode netikrinamas – admin
+   disciplina (mygtukas „Patvirtinti" turi `confirm()` priminimą).
+4. **Admin patvirtina** `/admin/vartotojai` → **Patvirtinti** → `approveUser()`.
+
+**`approveUser()` (`src/actions/users.ts`, NE tiesioginis kliento UPDATE):**
 - `requireAdmin()` + `logAudit()`
-- nustato `is_approved=true` IR, jei `member_id` tuščias, **automatiškai sukuria
-  arba prisieja** `members` įrašą (dedup pagal el. paštą per `.ilike`, kad nebūtų
-  dublikato; naujam – `status='aktyvus'`, vardas/pavardė iš `full_name`)
-- revaliduoja `/admin/vartotojai` + `/admin/nariai`
+- nustato `is_approved=true` IR, jei `member_id` tuščias, **sukuria arba prisieja**
+  `members` įrašą (dedup pagal el. paštą; naujam – `status='aktyvus'`,
+  `join_date=CURRENT_DATE` = patvirtinimo data)
+- **patvirtina el. paštą** admin teisėmis (`admin.auth.admin.updateUserById(id,
+  { email_confirm: true })`) – kitaip narys, nepaspaudęs Supabase „Confirm email"
+  nuorodos, NEGALĖTŲ prisijungti net po patvirtinimo
+- siunčia **laišką #2** (`renderMemberWelcomeEmail`) – pasveikinimas + supažindinimas
+  su portalu. Tik pirmą kartą patvirtinant (`!wasApproved`)
 - `revokeUser()` atima tik portalo prieigą (`is_approved=false`), **nario neliečia** –
   narystės pabaiga yra Tarybos kompetencija (įstatai 5.3.1)
 
-**Vartai:** tikrasis barjeras – admin patvirtinimas (`is_approved`), enforce'inamas
-ir `/prisijungimas` puslapyje, ir `middleware.ts` (visiems 5 apsaugotiems prefiksams).
-El. pašto patvirtinimas yra antrinis ir priklauso nuo **Supabase Dashboard → Auth
-„Confirm email"** toggle'io (ne kode); net patvirtinus el. paštą, įėjimą vis tiek
-blokuoja `is_approved=false`.
+**Vartai:** tikrasis barjeras – `is_approved`, enforce'inamas ir `/prisijungimas`
+puslapyje, ir `middleware.ts` (visiems 5 apsaugotiems prefiksams). `/prisijungimas`
+atpažįsta `email_not_confirmed` ir `?error=not_approved|auth` ir parodo aiškią
+žinutę (ne klaidinantį „neteisingas slaptažodis").
+
+**Supabase „Confirm email"** (Dashboard → Auth, ne kode): jei ĮJUNGTAS,
+registrantas papildomai gauna Supabase patvirtinimo laišką. Kadangi `approveUser`
+patvirtina el. paštą pats, srautas veikia ir kai vartotojas tos nuorodos
+nepaspaudžia. **Rekomendacija: išjungti** – tada registrantas gauna tik mūsų
+brand'intus laiškus (#1, #2), o prieigą vis tiek saugo `is_approved`.
 
 **Taisyklė:** vartotojo patvirtinimas/atšaukimas – tik per `approveUser`/`revokeUser`
-server action'us (audit + member sukūrimas), niekada tiesioginiu kliento
-`profiles.update({ is_approved })`.
+server action'us, niekada tiesioginiu kliento `profiles.update({ is_approved })`.
 
 ## Konvencijos
 

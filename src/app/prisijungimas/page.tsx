@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { LogIn } from "lucide-react";
@@ -14,6 +14,18 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  // Parodyti priežastį, kai vartotojas atkeliauja po peradresavimo
+  // (middleware → ?error=not_approved, auth/callback → ?error=auth).
+  // Skaitom iš window (ne useSearchParams), kad nereikėtų Suspense ribos.
+  useEffect(() => {
+    const err = new URLSearchParams(window.location.search).get("error");
+    if (err === "not_approved") {
+      setError("Jūsų paskyra dar nepatvirtinta. Laukite administratoriaus patvirtinimo.");
+    } else if (err === "auth") {
+      setError("Nuoroda negaliojanti arba pasenusi. Bandykite prisijungti iš naujo.");
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -23,7 +35,15 @@ export default function LoginPage() {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      setError("Neteisingas el. paštas arba slaptažodis");
+      const code = (error as { code?: string }).code;
+      const msg = (error.message || "").toLowerCase();
+      if (code === "email_not_confirmed" || msg.includes("not confirmed") || msg.includes("not been confirmed")) {
+        setError(
+          "Jūsų el. paštas dar nepatvirtintas. Patikrinkite pašto dėžutę ir paspauskite patvirtinimo nuorodą, arba palaukite, kol administratorius patvirtins narystę."
+        );
+      } else {
+        setError("Neteisingas el. paštas arba slaptažodis");
+      }
       setLoading(false);
       return;
     }

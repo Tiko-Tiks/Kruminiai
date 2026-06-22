@@ -99,8 +99,8 @@ export default function SetPasswordPage() {
       setError("Slaptažodžiai nesutampa");
       return;
     }
-    if (password.length < 6) {
-      setError("Slaptažodis turi būti bent 6 simbolių");
+    if (password.length < 8) {
+      setError("Slaptažodis turi būti bent 8 simbolių");
       return;
     }
 
@@ -204,9 +204,9 @@ export default function SetPasswordPage() {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Bent 6 simboliai"
+                    placeholder="Bent 8 simboliai"
                     required
-                    minLength={6}
+                    minLength={8}
                     autoFocus
                     className="block w-full rounded-lg border border-gray-300 bg-blue-50/50 px-4 py-3 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500 placeholder:text-gray-400"
                   />
@@ -226,7 +226,7 @@ export default function SetPasswordPage() {
                     onChange={(e) => setConfirm(e.target.value)}
                     placeholder="Pakartokite tą patį slaptažodį"
                     required
-                    minLength={6}
+                    minLength={8}
                     className="block w-full rounded-lg border border-gray-300 bg-blue-50/50 px-4 py-3 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500 placeholder:text-gray-400"
                   />
                 </div>
