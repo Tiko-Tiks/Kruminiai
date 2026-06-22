@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase";
+import { approveUser, revokeUser } from "@/actions/users";
 import { useRouter } from "next/navigation";
 import { CheckCircle, XCircle, Clock } from "lucide-react";
 
@@ -36,20 +36,25 @@ function getRoleLabel(profile: Profile): { label: string; tone: "admin" | "board
 
 export function UserApprovalList({ profiles }: { profiles: Profile[] }) {
   const [loading, setLoading] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   const handleApprove = async (id: string) => {
     setLoading(id);
-    const supabase = createClient();
-    await supabase.from("profiles").update({ is_approved: true }).eq("id", id);
+    setError(null);
+    // Patvirtinant per server action'ą – jis ne tik nustato is_approved=true,
+    // bet ir užtikrina, kad žmogus atsiranda narių registre (žr. approveUser).
+    const res = await approveUser(id);
+    if (res?.error) setError(res.error);
     router.refresh();
     setLoading(null);
   };
 
   const handleRevoke = async (id: string) => {
     setLoading(id);
-    const supabase = createClient();
-    await supabase.from("profiles").update({ is_approved: false }).eq("id", id);
+    setError(null);
+    const res = await revokeUser(id);
+    if (res?.error) setError(res.error);
     router.refresh();
     setLoading(null);
   };
@@ -59,6 +64,12 @@ export function UserApprovalList({ profiles }: { profiles: Profile[] }) {
 
   return (
     <div className="space-y-8">
+      {error && (
+        <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg border border-red-200">
+          {error}
+        </div>
+      )}
+
       {/* Laukiantys patvirtinimo */}
       <div>
         <h2 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
