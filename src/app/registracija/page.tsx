@@ -25,18 +25,25 @@ export default function RegisterPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setError("Slaptažodis turi būti bent 6 simbolių");
+    if (password.length < 8) {
+      setError("Slaptažodis turi būti bent 8 simbolių");
       return;
     }
 
     setLoading(true);
 
     const supabase = createClient();
+    // Jei Supabase Auth „Confirm email" įjungtas, patvirtinimo nuoroda turi
+    // grįžti į /auth/callback (PKCE ?code srautas) ir tada į /prisijungimas.
+    // Be emailRedirectTo nuoroda eitų į numatytąjį Site URL.
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (typeof window !== "undefined" ? window.location.origin : "https://kruminiai.lt");
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        emailRedirectTo: `${siteUrl}/auth/callback?next=/prisijungimas`,
         data: {
           full_name: `${firstName} ${lastName}`,
         },

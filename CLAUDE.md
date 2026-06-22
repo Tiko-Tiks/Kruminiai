@@ -40,7 +40,13 @@
 /api/rinkimai/[meeting_id]                 HTML dokumentas iframe'ui (rinkimų pranešimas)
 ```
 
-Middleware: `src/middleware.ts` valdo prieigą + role-based redirect (`/admin` ↔ `/portalas`).
+Middleware: `src/middleware.ts` valdo prieigą. Apsaugoti prefiksai (matcher):
+`/admin`, `/portalas`, `/dokumentai`, `/skaidrumas`, `/susirinkimai`. Logika:
+neprisijungusį → `/prisijungimas?from=`; prisijungusį, bet **nepatvirtintą**
+(`is_approved=false`) → `signOut()` + `/prisijungimas?error=not_approved`
+(galioja VISIEMS 5 prefiksams); narį, bandantį `/admin` → `/portalas`
+(vienkryptis – admin'as `/portalas` pasiekia laisvai); `/susirinkimai` – tik
+admin arba `members.status='aktyvus'` narys, kitaip `/portalas?error=members_only`.
 
 `PublicHeader` (`src/components/layout/PublicHeader.tsx`) yra **auth-aware**: neprisijungusiems lankytojams paslepiami tabai, kurie reikalauja auth (`requiresAuth: true` PUBLIC_NAV punktuose – Susirinkimai / Dokumentai / Skaidrumas). Prisijungusiems – vietoj „Prisijungti/Tapti nariu" mygtukų rodomas „Mano paskyra" link'as į `/portalas`.
 
@@ -300,6 +306,85 @@ Pagrindimas:
 
 Visi trys grąžina pilnai paruoštą JSONB. Niekada nedaryk tiesioginių užklausų į apsaugotas lenteles šiuose route'uose – tik per RPC.
 
+## ARCHITEKTŪRA: RLS modelis (migracija 028 – saugumo užveržimas)
+
+**Anksčiau** visos lentelės turėjo `Authenticated full access` politikas su
+`USING (true)` – bet kuris prisijungęs vartotojas per PostgREST API galėjo
+skaityti `vote_ballots` (balsavimo slaptumo pažeidimas), `meeting_voting_tokens`
+(balsuoti už kitus), `members`/`payments` (PII) ir per `profiles` UPDATE be
+WITH CHECK pasikelti `role='super_admin'`.
+
+**Dabar (028) galioja principas „rašo tik admin, skaito pagal poreikį":**
+
+| Lentelė | SELECT | INSERT/UPDATE/DELETE |
+|---|---|---|
+| `members` | savo įrašą / admin visus | admin |
+| `payments` | admin (nariui – `get_member_financial_status`) | admin |
+| `vote_ballots` | **tik savo balsus** / admin visus | admin |
+| `meeting_voting_tokens`, `meeting_attendance`, `membership_declarations` | admin | admin |
+| `meetings`, `resolutions`, `resolution_documents`, `fee_periods` | authenticated | admin |
+| `documents` | vieši visiems / nevieši patvirtintiems | admin |
+| `news` | publikuotos | admin |
+| `profiles` | savo / admin visus | savo (be jautrių laukų) / admin |
+| `audit_log` | admin | INSERT tik `user_id=auth.uid()` |
+
+**Pagalbinės funkcijos:** `public.is_admin()` ir `public.is_approved_member()`
+(SECURITY DEFINER, naudojamos RLS politikose).
+
+**`profiles` privilegijų apsauga:** trigger'is `protect_profile_privileges`
+neleidžia ne-admin'ui keisti `role`, `is_approved`, `member_id` (apsauga nuo
+eskalacijos net jei RLS UPDATE praleistų).
+
+**Taisyklės naujam kodui:**
+- **Niekada** nekurk `USING (true)` politikų rašymui – naudok `public.is_admin()`.
+- Admin server action'ai, kurie daro daugiau nei DB mutacijas (SMS/email,
+  service-role, failų trynimas), turi kviesti `requireAdmin()` iš
+  `src/lib/authz.ts` – RLS vienas jų neapsaugo.
+- Service-role klientas (`createAdminSupabaseClient`) **apeina RLS** – prieš
+  jį naudojant visada `requireAdmin()`.
+- Nario duomenims portale – per SECURITY DEFINER RPC, ne tiesiogine užklausa.
+- Storage `documents`/`images`: įkelti/trinti gali tik admin; vieši failai
+  pasiekiami per public URL (bucket'ų listinimas išjungtas).
+
+**Likę advisor įspėjimai (tikslingi):** token-based anon RPC (SMS magic link
+srautas) ir SECURITY DEFINER RPC su vidiniu `auth.uid()`/token tikrinimu –
+PostgREST linteris juos žymi, bet jie saugūs. `auth_leaked_password_protection`
+įjungiamas **Supabase Dashboard → Auth** (ne per migraciją).
+
+## ARCHITEKTŪRA: Naujo nario registracija ir patvirtinimas
+
+**Du sluoksniai:** `members` (bendruomenės registras, rodomas `/admin/nariai`)
+ir `profiles`+`auth.users` (portalo prisijungimas, valdomas `/admin/vartotojai`).
+Narys gali egzistuoti BE paskyros (dauguma – masinis importas), o paskyra
+gali egzistuoti be `members` įrašo (self-registracija).
+
+**Self-registracijos srautas (`/registracija`):**
+1. Klientinė forma → `supabase.auth.signUp({ email, password, options:{ data:{ full_name }, emailRedirectTo } })`.
+2. DB trigger'is `handle_new_user` (migr. 021) sukuria `profiles`: `role='member'`,
+   `is_approved=false`, `member_id` = esamas narys pagal el. paštą (case-insensitive)
+   arba `NULL`. **Member įrašo NEsukuria.**
+3. Žmogui rodoma „Registracija gauta" – BE auto-login. Įeiti dar negali.
+4. Admin `/admin/vartotojai` → „Laukiantys patvirtinimo" → **Patvirtinti**.
+
+**Patvirtinimas – `approveUser()` (`src/actions/users.ts`, NE tiesioginis kliento UPDATE):**
+- `requireAdmin()` + `logAudit()`
+- nustato `is_approved=true` IR, jei `member_id` tuščias, **automatiškai sukuria
+  arba prisieja** `members` įrašą (dedup pagal el. paštą per `.ilike`, kad nebūtų
+  dublikato; naujam – `status='aktyvus'`, vardas/pavardė iš `full_name`)
+- revaliduoja `/admin/vartotojai` + `/admin/nariai`
+- `revokeUser()` atima tik portalo prieigą (`is_approved=false`), **nario neliečia** –
+  narystės pabaiga yra Tarybos kompetencija (įstatai 5.3.1)
+
+**Vartai:** tikrasis barjeras – admin patvirtinimas (`is_approved`), enforce'inamas
+ir `/prisijungimas` puslapyje, ir `middleware.ts` (visiems 5 apsaugotiems prefiksams).
+El. pašto patvirtinimas yra antrinis ir priklauso nuo **Supabase Dashboard → Auth
+„Confirm email"** toggle'io (ne kode); net patvirtinus el. paštą, įėjimą vis tiek
+blokuoja `is_approved=false`.
+
+**Taisyklė:** vartotojo patvirtinimas/atšaukimas – tik per `approveUser`/`revokeUser`
+server action'us (audit + member sukūrimas), niekada tiesioginiu kliento
+`profiles.update({ is_approved })`.
+
 ## Konvencijos
 
 ### Bendros
@@ -369,6 +454,8 @@ Visi trys grąžina pilnai paruoštą JSONB. Niekada nedaryk tiesioginių užkla
 | 025 | `025_meeting_documents_auto_aggregate.sql` | `get_public_meeting_data` automatiškai sujungia dokumentus iš `documents.meeting_id` IR `resolution_documents` – admin'as įkelia tik pasirašytus PDF'us, kiti dokumentai (jau prikabinti prie nutarimų) atsiranda automatiškai |
 | 026 | `026_procedural_type_pranesimas.sql` | Praplėstas `procedural_type` CHECK constraint – pridėtas naujas tipas `pranesimas` (susirinkimo pranešimo tinkamumo patvirtinimas) |
 | 027 | `027_contact_update_tokens.sql` | `contact_update_tokens` lentelė + 2 RPC – SMS magic link srautas nariams, kurie neturi el. pašto, kad galėtų patys jį pridėti per `/duomenys/[token]` |
+| 028 | `028_security_hardening.sql` | **RLS užveržimas** – pašalintos `Authenticated full access` (USING true) politikos; rašo tik admin (`is_admin()`), nariai mato tik savo `vote_ballots`/`members`/`profiles`; `protect_profile_privileges` trigger'is (anti-eskalacija); storage tik admin; `get_transparency_fee_stats` RPC |
+| 029 | `029_function_grants_fix.sql` | Funkcijų EXECUTE higiena – atimtas default `PUBLIC` grant'as nuo vidinių/nario RPC (anon nebegali kviesti), token srauto RPC palikti anon |
 
 DB pakeitimai daromi **per Supabase MCP** (`apply_migration`) IR sinchronizuojami į `supabase/migrations/` lokaliam repo įrašymui.
 

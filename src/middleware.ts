@@ -45,9 +45,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Prisijungę – tikrinti rolę + nario statusą
+  // Prisijungę – tikrinti patvirtinimą (VISIEMS apsaugotiems keliams),
+  // rolę ir nario statusą. is_approved patikra turi dengti ir /dokumentai
+  // bei /skaidrumas – kitaip prisijungęs, bet nepatvirtintas vartotojas
+  // juos pasiektų (rolės/statuso nukreipimai žemiau lieka specifiniai keliui).
   const isMeetingsPath = path.startsWith("/susirinkimai");
-  if (user && (isAdminPath || isPortalPath || isMeetingsPath)) {
+  if (user && requiresAuth) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role, is_approved, member_id, members!profiles_member_id_fkey(status)")
