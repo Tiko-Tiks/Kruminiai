@@ -37,6 +37,7 @@ export function renderMembershipRequestEmail(opts: {
 
   if (locale === "en") {
     return renderBrandedEmail({
+      locale,
       preheader: `Welcome! To become a member, pay the joining fee (${ENTRY_FEE_EUR} EUR) and the annual membership fee (${MEMBERSHIP_FEE_EUR} EUR).`,
       body: `
         <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">Hello, ${opts.firstName}!</h1>
@@ -75,6 +76,7 @@ export function renderMembershipRequestEmail(opts: {
   }
 
   return renderBrandedEmail({
+    locale,
     preheader: `Sveiki! Kad taptumėte nariu, sumokėkite stojamąjį (${ENTRY_FEE_EUR} EUR) ir metinį nario mokestį (${MEMBERSHIP_FEE_EUR} EUR).`,
     body: `
       <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">Sveiki, ${vocative(opts.firstName)}!</h1>
@@ -125,6 +127,7 @@ export function renderMemberWelcomeEmail(opts: {
 
   if (locale === "en") {
     return renderBrandedEmail({
+      locale,
       preheader: "Your membership is confirmed! Here is how to use the member portal.",
       body: `
         <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">Welcome, ${opts.firstName}!</h1>
@@ -164,6 +167,7 @@ export function renderMemberWelcomeEmail(opts: {
   }
 
   return renderBrandedEmail({
+    locale,
     preheader: "Jūsų narystė patvirtinta! Štai kaip naudotis nario portalu.",
     body: `
       <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">Sveiki tapę nariu, ${vocative(opts.firstName)}!</h1>

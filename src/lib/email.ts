@@ -74,6 +74,7 @@ function htmlToText(html: string): string {
 export function renderBrandedEmail(opts: {
   preheader?: string;       // peržiūros tekstas inbox'e (paslėptas)
   body: string;             // pagrindinio turinio HTML
+  locale?: "lt" | "en";     // poraštės teisinio sakinio kalba (LT numatyta)
 }): string {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://kruminiai.lt";
   const logoUrl = `${baseUrl}/images/logo-md.png`;
@@ -128,7 +129,9 @@ ${opts.preheader ? `<div style="display:none;max-height:0;overflow:hidden;font-s
         </tr>
       </table>
       <p style="margin:16px auto 0;max-width:600px;font-family:${bodyFont};font-size:11px;color:#9ca3af;text-align:center;line-height:1.5;">
-        Šis pranešimas išsiųstas Krūminių kaimo bendruomenės nariui. Jei gavote jį per klaidą, susisiekite <a href="mailto:info@kruminiai.lt" style="color:#9ca3af;">info@kruminiai.lt</a>.
+        ${opts.locale === "en"
+          ? `This message was sent to a member of the Krūminiai Village Community. If you received it by mistake, please contact <a href="mailto:info@kruminiai.lt" style="color:#9ca3af;">info@kruminiai.lt</a>.`
+          : `Šis pranešimas išsiųstas Krūminių kaimo bendruomenės nariui. Jei gavote jį per klaidą, susisiekite <a href="mailto:info@kruminiai.lt" style="color:#9ca3af;">info@kruminiai.lt</a>.`}
       </p>
     </td>
   </tr>

@@ -7,7 +7,7 @@ import { sendSms, normalizePhone } from "@/lib/infobip";
 import { sendEmail, renderBrandedEmail } from "@/lib/email";
 import { logNotification } from "@/lib/notification-log";
 import { vocative } from "@/lib/utils";
-import { BANK_NAME, BANK_ACCOUNT, BANK_RECIPIENT, ENTRY_FEE_EUR } from "@/lib/payment-info";
+import { BANK_ACCOUNT, BANK_RECIPIENT, ENTRY_FEE_EUR, renderPaymentDetailsBlock } from "@/lib/payment-info";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 
@@ -29,6 +29,7 @@ interface MemberWithDebt {
   phone: string | null;
   join_date: string | null;
   status: string;
+  language: string;
   unpaidPeriods: FeePeriod[];
   totalCents: number;
 }
@@ -43,7 +44,7 @@ export async function getMembersWithDebts() {
 
   const { data: members } = await supabase
     .from("members")
-    .select("id, first_name, last_name, email, phone, join_date, status")
+    .select("id, first_name, last_name, email, phone, join_date, status, language")
     .in("status", ["aktyvus", "pasyvus"]);
 
   const { data: periods } = await supabase
@@ -82,6 +83,7 @@ export async function getMembersWithDebts() {
       phone: m.phone,
       join_date: m.join_date,
       status: m.status,
+      language: (m as { language?: string }).language === "en" ? "en" : "lt",
       unpaidPeriods: unpaid,
       totalCents: unpaid.reduce((s, p) => s + p.amount_cents, 0),
     });
@@ -143,92 +145,14 @@ export async function sendOverdueReminders(channel: ChannelChoice = "both") {
 
     // Email
     if ((channel === "both" || channel === "email") && m.email && m.email.trim()) {
-      const periodsRows = m.unpaidPeriods
-        .map(
-          (p) => `
-            <tr>
-              <td style="padding:8px 12px 8px 0;border-bottom:1px solid #fee2e2;color:#374151;">${p.year} m. metinis mokestis</td>
-              <td style="padding:8px 0;border-bottom:1px solid #fee2e2;text-align:right;font-weight:600;color:#991b1b;">${(p.amount_cents / 100).toFixed(2)} EUR</td>
-            </tr>`
-        )
-        .join("");
-
-      const html = renderBrandedEmail({
-        preheader: `SVARBU: pradelsta ${totalEur} EUR (${yearsCount} m.). Skubiai sumokėkite arba būsite šalinami.`,
-        body: `
-          <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">Sveiki, ${vocative(m.first_name)}!</h1>
-
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#fef3f2;border-left:3px solid #dc2626;border-radius:4px;margin:0 0 20px;">
-            <tr>
-              <td style="padding:16px 20px;">
-                <div style="font-size:13px;color:#991b1b;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Pradelsti mokesčiai</div>
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="font-size:14px;">
-                  ${periodsRows}
-                  <tr>
-                    <td style="padding:10px 12px 0 0;font-weight:700;color:#111827;">Iš viso skola:</td>
-                    <td style="padding:10px 0 0;text-align:right;font-weight:700;font-size:18px;color:#991b1b;">${totalEur} EUR</td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-
-          <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#374151;">
-            Pagal Krūminių kaimo bendruomenės įstatų <strong>3.5 punktą</strong>, jei narys nustatytu laiku nesumoka nario mokesčio, narystė gali būti nutraukta Tarybos sprendimu.
-          </p>
-
-          <p style="margin:0 0 20px;font-size:14px;line-height:1.65;color:#4b5563;background:#fffbeb;border-left:3px solid #f59e0b;padding:12px 16px;border-radius:4px;">
-            <strong style="color:#92400e;">Įsidėmėkit:</strong> jei narystė nutraukiama, vėliau norint vėl tapti nariu, reikės sumokėti <strong>${ENTRY_FEE_EUR} EUR stojamąjį mokestį</strong> bei einamųjų metų nario mokestį.
-          </p>
-
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f0fdf4;border-left:3px solid #15803d;border-radius:4px;margin:24px 0;">
-            <tr>
-              <td style="padding:18px 22px;">
-                <div style="font-size:13px;color:#166534;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">Mokėjimo rekvizitai</div>
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="font-size:14px;color:#374151;line-height:1.7;">
-                  <tr>
-                    <td style="padding-right:12px;color:#6b7280;">Gavėjas:</td>
-                    <td style="font-weight:600;color:#111827;">${BANK_RECIPIENT}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding-right:12px;color:#6b7280;">Sąskaita:</td>
-                    <td style="font-family:monospace;font-weight:600;color:#111827;">${BANK_ACCOUNT}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding-right:12px;color:#6b7280;">Bankas:</td>
-                    <td style="color:#111827;">${BANK_NAME}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding-right:12px;color:#6b7280;">Suma:</td>
-                    <td style="font-weight:700;color:#15803d;">${totalEur} EUR</td>
-                  </tr>
-                  <tr>
-                    <td style="padding-right:12px;color:#6b7280;">Paskirtis:</td>
-                    <td style="color:#111827;">Nario mokestis (${yearsList}) – ${fullName}</td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-
-          <p style="margin:0 0 16px;font-size:14px;line-height:1.65;color:#4b5563;">
-            Taip pat galite sumokėti <strong>grynais</strong> – susitarkite asmeniškai su pirmininku.
-          </p>
-          <p style="margin:0 0 16px;font-size:14px;line-height:1.65;color:#4b5563;">
-            Mokėjimų istorija: <a href="https://kruminiai.lt/portalas/finansai" style="color:#15803d;text-decoration:underline;">kruminiai.lt/portalas/finansai</a>
-          </p>
-          <p style="margin:24px 0 8px;font-size:14px;line-height:1.6;color:#6b7280;">
-            Klausimai: <a href="mailto:info@kruminiai.lt" style="color:#15803d;">info@kruminiai.lt</a> arba +370 658 49514.
-          </p>
-          <p style="margin:24px 0 0;font-size:15px;line-height:1.7;color:#374151;">
-            Pagarbiai,<br>
-            <strong style="font-family:Arial,Helvetica,sans-serif;font-weight:700;font-size:15px;color:#0f3d20;">Mindaugas Mameniškis</strong><br>
-            <span style="color:#6b7280;font-size:13px;">Bendruomenės pirmininkas</span>
-          </p>
-        `,
+      const { subject, html } = buildOverdueEmail(m.language === "en" ? "en" : "lt", {
+        firstName: m.first_name,
+        fullName,
+        unpaidPeriods: m.unpaidPeriods,
+        totalEur,
+        yearsCount,
+        yearsList,
       });
-
-      const subject = `SVARBU: pradelstas nario mokestis ${totalEur} EUR – ${BANK_RECIPIENT}`;
       const r = await sendEmail(m.email.trim(), subject, html);
       await logNotification(supabase, {
         memberId: m.id,
@@ -255,12 +179,12 @@ export async function sendOverdueReminders(channel: ChannelChoice = "both") {
     if ((channel === "both" || channel === "sms") && m.phone) {
       const normalized = normalizePhone(m.phone);
       if (normalized) {
-        const yearsLabel =
-          yearsCount === 1
-            ? `${m.unpaidPeriods[0].year}m.`
-            : `${yearsCount}m. (${m.unpaidPeriods.map((p) => p.year).join(",")})`;
-        // ~155 simb. limit – 1 SMS
-        const text = `KKB: PRADELSTAS nario mokestis ${yearsLabel} ${totalEur} EUR. Sumokekite ${BANK_ACCOUNT}. Nesumokejus busite salinami; naujam istojimui +${ENTRY_FEE_EUR}EUR.`;
+        // ~155 simb. limit – 1 SMS (be lt diakritikos – GSM-7)
+        const text = buildOverdueSms(m.language === "en" ? "en" : "lt", {
+          unpaidPeriods: m.unpaidPeriods,
+          yearsCount,
+          totalEur,
+        });
         const r = await sendSms(m.phone, text);
         await logNotification(supabase, {
           memberId: m.id,
@@ -358,4 +282,167 @@ export async function previewUnpaidMembers(feePeriodId: string) {
 // (paliekamas backwards-compat'ui esamai admin UI)
 export async function sendPaymentReminders(_feePeriodId: string, channel: ChannelChoice = "both") {
   return sendOverdueReminders(channel);
+}
+
+// =============================================================================
+// Pradelsto mokesčio priminimo laiško/SMS šablonai (dvikalbiai – pagal members.language)
+// =============================================================================
+interface OverdueEmailData {
+  firstName: string;
+  fullName: string;
+  unpaidPeriods: FeePeriod[];
+  totalEur: string;
+  yearsCount: number;
+  yearsList: string;
+}
+
+function buildOverdueEmail(
+  locale: "lt" | "en",
+  d: OverdueEmailData
+): { subject: string; html: string } {
+  const paymentBlock = renderPaymentDetailsBlock({
+    amountLabel: `${d.totalEur} EUR`,
+    purpose:
+      locale === "en"
+        ? `Membership fee (${d.yearsList}) – ${d.fullName}`
+        : `Nario mokestis (${d.yearsList}) – ${d.fullName}`,
+    locale,
+  });
+
+  if (locale === "en") {
+    const rows = d.unpaidPeriods
+      .map(
+        (p) => `
+            <tr>
+              <td style="padding:8px 12px 8px 0;border-bottom:1px solid #fee2e2;color:#374151;">${p.year} annual membership fee</td>
+              <td style="padding:8px 0;border-bottom:1px solid #fee2e2;text-align:right;font-weight:600;color:#991b1b;">${(p.amount_cents / 100).toFixed(2)} EUR</td>
+            </tr>`
+      )
+      .join("");
+    const html = renderBrandedEmail({
+      locale: "en",
+      preheader: `IMPORTANT: ${d.totalEur} EUR overdue (${d.yearsCount} year(s)). Please pay promptly.`,
+      body: `
+          <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">Hello, ${d.firstName}!</h1>
+
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#fef3f2;border-left:3px solid #dc2626;border-radius:4px;margin:0 0 20px;">
+            <tr>
+              <td style="padding:16px 20px;">
+                <div style="font-size:13px;color:#991b1b;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Overdue fees</div>
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="font-size:14px;">
+                  ${rows}
+                  <tr>
+                    <td style="padding:10px 12px 0 0;font-weight:700;color:#111827;">Total owed:</td>
+                    <td style="padding:10px 0 0;text-align:right;font-weight:700;font-size:18px;color:#991b1b;">${d.totalEur} EUR</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#374151;">
+            Under <strong>clause 3.5</strong> of the Krūminiai Village Community statutes, if a member does not pay the membership fee on time, membership may be terminated by a decision of the Board.
+          </p>
+
+          <p style="margin:0 0 20px;font-size:14px;line-height:1.65;color:#4b5563;background:#fffbeb;border-left:3px solid #f59e0b;padding:12px 16px;border-radius:4px;">
+            <strong style="color:#92400e;">Please note:</strong> if membership is terminated, rejoining later will require paying a <strong>${ENTRY_FEE_EUR} EUR joining fee</strong> plus the current year's membership fee.
+          </p>
+
+          ${paymentBlock}
+
+          <p style="margin:0 0 16px;font-size:14px;line-height:1.65;color:#4b5563;">
+            You can also pay in <strong>cash</strong> – please arrange this with the chairperson.
+          </p>
+          <p style="margin:0 0 16px;font-size:14px;line-height:1.65;color:#4b5563;">
+            Payment history: <a href="https://kruminiai.lt/portalas/finansai" style="color:#15803d;text-decoration:underline;">kruminiai.lt/portalas/finansai</a>
+          </p>
+          <p style="margin:24px 0 8px;font-size:14px;line-height:1.6;color:#6b7280;">
+            Questions: <a href="mailto:info@kruminiai.lt" style="color:#15803d;">info@kruminiai.lt</a> or +370 658 49514.
+          </p>
+          <p style="margin:24px 0 0;font-size:15px;line-height:1.7;color:#374151;">
+            Kind regards,<br>
+            <strong style="font-family:Arial,Helvetica,sans-serif;font-weight:700;font-size:15px;color:#0f3d20;">Mindaugas Mameniškis</strong><br>
+            <span style="color:#6b7280;font-size:13px;">Community chairperson</span>
+          </p>
+        `,
+    });
+    return {
+      subject: `IMPORTANT: overdue membership fee ${d.totalEur} EUR – ${BANK_RECIPIENT}`,
+      html,
+    };
+  }
+
+  const rows = d.unpaidPeriods
+    .map(
+      (p) => `
+            <tr>
+              <td style="padding:8px 12px 8px 0;border-bottom:1px solid #fee2e2;color:#374151;">${p.year} m. metinis mokestis</td>
+              <td style="padding:8px 0;border-bottom:1px solid #fee2e2;text-align:right;font-weight:600;color:#991b1b;">${(p.amount_cents / 100).toFixed(2)} EUR</td>
+            </tr>`
+    )
+    .join("");
+  const html = renderBrandedEmail({
+    locale: "lt",
+    preheader: `SVARBU: pradelsta ${d.totalEur} EUR (${d.yearsCount} m.). Skubiai sumokėkite arba būsite šalinami.`,
+    body: `
+          <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">Sveiki, ${vocative(d.firstName)}!</h1>
+
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#fef3f2;border-left:3px solid #dc2626;border-radius:4px;margin:0 0 20px;">
+            <tr>
+              <td style="padding:16px 20px;">
+                <div style="font-size:13px;color:#991b1b;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Pradelsti mokesčiai</div>
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="font-size:14px;">
+                  ${rows}
+                  <tr>
+                    <td style="padding:10px 12px 0 0;font-weight:700;color:#111827;">Iš viso skola:</td>
+                    <td style="padding:10px 0 0;text-align:right;font-weight:700;font-size:18px;color:#991b1b;">${d.totalEur} EUR</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#374151;">
+            Pagal Krūminių kaimo bendruomenės įstatų <strong>3.5 punktą</strong>, jei narys nustatytu laiku nesumoka nario mokesčio, narystė gali būti nutraukta Tarybos sprendimu.
+          </p>
+
+          <p style="margin:0 0 20px;font-size:14px;line-height:1.65;color:#4b5563;background:#fffbeb;border-left:3px solid #f59e0b;padding:12px 16px;border-radius:4px;">
+            <strong style="color:#92400e;">Įsidėmėkit:</strong> jei narystė nutraukiama, vėliau norint vėl tapti nariu, reikės sumokėti <strong>${ENTRY_FEE_EUR} EUR stojamąjį mokestį</strong> bei einamųjų metų nario mokestį.
+          </p>
+
+          ${paymentBlock}
+
+          <p style="margin:0 0 16px;font-size:14px;line-height:1.65;color:#4b5563;">
+            Taip pat galite sumokėti <strong>grynais</strong> – susitarkite asmeniškai su pirmininku.
+          </p>
+          <p style="margin:0 0 16px;font-size:14px;line-height:1.65;color:#4b5563;">
+            Mokėjimų istorija: <a href="https://kruminiai.lt/portalas/finansai" style="color:#15803d;text-decoration:underline;">kruminiai.lt/portalas/finansai</a>
+          </p>
+          <p style="margin:24px 0 8px;font-size:14px;line-height:1.6;color:#6b7280;">
+            Klausimai: <a href="mailto:info@kruminiai.lt" style="color:#15803d;">info@kruminiai.lt</a> arba +370 658 49514.
+          </p>
+          <p style="margin:24px 0 0;font-size:15px;line-height:1.7;color:#374151;">
+            Pagarbiai,<br>
+            <strong style="font-family:Arial,Helvetica,sans-serif;font-weight:700;font-size:15px;color:#0f3d20;">Mindaugas Mameniškis</strong><br>
+            <span style="color:#6b7280;font-size:13px;">Bendruomenės pirmininkas</span>
+          </p>
+        `,
+  });
+  return {
+    subject: `SVARBU: pradelstas nario mokestis ${d.totalEur} EUR – ${BANK_RECIPIENT}`,
+    html,
+  };
+}
+
+function buildOverdueSms(
+  locale: "lt" | "en",
+  d: { unpaidPeriods: FeePeriod[]; yearsCount: number; totalEur: string }
+): string {
+  const yearsCsv = d.unpaidPeriods.map((p) => p.year).join(",");
+  if (locale === "en") {
+    const yearsLabel = d.yearsCount === 1 ? `${d.unpaidPeriods[0].year}` : `${d.yearsCount}yr (${yearsCsv})`;
+    return `KKB: OVERDUE membership fee ${yearsLabel} ${d.totalEur} EUR. Pay to ${BANK_ACCOUNT}. Unpaid may end membership; rejoining +${ENTRY_FEE_EUR}EUR.`;
+  }
+  const yearsLabel = d.yearsCount === 1 ? `${d.unpaidPeriods[0].year}m.` : `${d.yearsCount}m. (${yearsCsv})`;
+  return `KKB: PRADELSTAS nario mokestis ${yearsLabel} ${d.totalEur} EUR. Sumokekite ${BANK_ACCOUNT}. Nesumokejus busite salinami; naujam istojimui +${ENTRY_FEE_EUR}EUR.`;
 }

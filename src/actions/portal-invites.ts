@@ -6,6 +6,7 @@ import { sendEmail, renderBrandedEmail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { vocative } from "@/lib/utils";
+import crypto from "crypto";
 
 export interface MemberAccountStatus {
   id: string;
@@ -108,7 +109,7 @@ export async function bulkCreateMemberAccounts(memberIds?: string[]): Promise<{
   // Atrenkam aktyvius+pasyvius su email, kurie dar neturi paskyros
   let memQ = supabase
     .from("members")
-    .select("id, first_name, last_name, email, status")
+    .select("id, first_name, last_name, email, status, language")
     .in("status", ["aktyvus", "pasyvus"])
     .not("email", "is", null);
   if (memberIds && memberIds.length > 0) {
@@ -152,11 +153,9 @@ export async function bulkCreateMemberAccounts(memberIds?: string[]): Promise<{
     const memberLabel = `${m.first_name} ${m.last_name}`;
     const email = m.email as string;
     try {
-      // 1) Sukuriam auth.users (su atsitiktiniu slaptažodžiu)
-      const tempPassword =
-        Math.random().toString(36).slice(-12) +
-        Math.random().toString(36).slice(-4).toUpperCase() +
-        "1!";
+      // 1) Sukuriam auth.users (su kriptografiškai atsitiktiniu slaptažodžiu –
+      //    Math.random() nuspėjamas, todėl netinka slaptažodžiams)
+      const tempPassword = crypto.randomBytes(24).toString("base64url") + "A1!";
 
       const { data: newUser, error: createErr } = await admin.auth.admin.createUser({
         email,
@@ -230,15 +229,19 @@ export async function bulkCreateMemberAccounts(memberIds?: string[]): Promise<{
         continue;
       }
 
-      // 4) Brand'intas welcome email
+      // 4) Brand'intas welcome email – nario kalba
+      const memberLocale = (m as { language?: string }).language === "en" ? "en" : "lt";
       const html = renderWelcomeEmail({
         name: m.first_name as string,
         email,
         resetUrl: linkData.properties.action_link,
+        locale: memberLocale,
       });
       const emailResult = await sendEmail(
         email,
-        "Jūsų paskyra sukurta – Krūminių kaimo bendruomenė",
+        memberLocale === "en"
+          ? "Your account has been created – Krūminiai Village Community"
+          : "Jūsų paskyra sukurta – Krūminių kaimo bendruomenė",
         html
       );
       if (emailResult.success) {
@@ -314,12 +317,13 @@ export async function resendPasswordSetupLink(memberId: string): Promise<{
 
   const { data: member } = await supabase
     .from("members")
-    .select("id, first_name, last_name, email")
+    .select("id, first_name, last_name, email, language")
     .eq("id", memberId)
     .single();
   if (!member || !member.email) {
     return { error: "Narys neturi el. pašto arba nerastas" };
   }
+  const memberLocale = (member as { language?: string }).language === "en" ? "en" : "lt";
 
   const admin = createAdminSupabaseClient();
   // Recovery nuoroda naudoja hash fragmentą (#access_token=...), todėl
@@ -340,10 +344,13 @@ export async function resendPasswordSetupLink(memberId: string): Promise<{
     email: member.email as string,
     resetUrl: linkData.properties.action_link,
     isResend: true,
+    locale: memberLocale,
   });
   const result = await sendEmail(
     member.email as string,
-    "Slaptažodžio nustatymas – Krūminių kaimo bendruomenė",
+    memberLocale === "en"
+      ? "Set your password – Krūminiai Village Community"
+      : "Slaptažodžio nustatymas – Krūminių kaimo bendruomenė",
     html
   );
   if (!result.success) {
@@ -358,7 +365,41 @@ function renderWelcomeEmail(opts: {
   email: string;
   resetUrl: string;
   isResend?: boolean;
+  locale?: "lt" | "en";
 }): string {
+  const locale = opts.locale === "en" ? "en" : "lt";
+
+  if (locale === "en") {
+    const intro = opts.isResend
+      ? `<p style="font-size:15px;line-height:1.6;margin:0 0 16px;color:#1f2937;">Hello ${opts.name},</p>
+         <p style="font-size:14px;line-height:1.6;margin:0 0 16px;color:#374151;">Here is a new link to set / change your password.</p>`
+      : `<p style="font-size:15px;line-height:1.6;margin:0 0 16px;color:#1f2937;">Hello ${opts.name},</p>
+         <p style="font-size:14px;line-height:1.6;margin:0 0 16px;color:#374151;">An account has been created for you in the Krūminiai Village Community member portal. With it you can:</p>
+         <ul style="font-size:14px;line-height:1.7;margin:0 0 20px;padding-left:20px;color:#374151;">
+           <li>see your membership-fee history and balance</li>
+           <li>vote directly during general meetings (no SMS needed)</li>
+           <li>read community documents (minutes, reports, statutes)</li>
+           <li>see meeting results and agendas</li>
+           <li>update your contact details</li>
+         </ul>`;
+    return renderBrandedEmail({
+      locale: "en",
+      preheader: opts.isResend
+        ? "New password-setup link"
+        : "Your account has been created. Set your password.",
+      body: `
+        ${intro}
+        <p style="font-size:14px;line-height:1.6;margin:0 0 8px;color:#374151;">First, set your password:</p>
+        <div style="text-align:center;margin:24px 0;">
+          <a href="${opts.resetUrl}" style="display:inline-block;background-color:#15803d;color:#ffffff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">Set password</a>
+        </div>
+        <p style="font-size:13px;line-height:1.6;margin:0 0 6px;color:#6b7280;">After setting your password, sign in with the email:</p>
+        <p style="font-size:14px;line-height:1.6;margin:0 0 20px;color:#1f2937;font-weight:600;">${opts.email}</p>
+        <p style="font-size:13px;line-height:1.6;margin:24px 0 0;color:#6b7280;font-style:italic;">If the link no longer works (it usually lasts 24 h), use the "Forgot password" option on kruminiai.lt/prisijungimas.</p>
+      `,
+    });
+  }
+
   const greetingName = vocative(opts.name);
   const intro = opts.isResend
     ? `<p style="font-size:15px;line-height:1.6;margin:0 0 16px;color:#1f2937;">Sveiki, ${greetingName},</p>
@@ -374,6 +415,7 @@ function renderWelcomeEmail(opts: {
        </ul>`;
 
   return renderBrandedEmail({
+    locale: "lt",
     preheader: opts.isResend
       ? "Nauja slaptažodžio nustatymo nuoroda"
       : `Jūsų paskyra sukurta. Nustatykite slaptažodį.`,
