@@ -170,6 +170,53 @@ export interface Dictionary {
     historySectionTitle: string;
     noPayments: string;
   };
+  footer: {
+    tagline: string;
+    linksHeading: string;
+    linkNews: string;
+    linkDocuments: string;
+    linkContacts: string;
+    contactsHeading: string;
+    companyCodeLabel: string;
+    emailLabel: string;
+    phoneLabel: string;
+    rightsReserved: string;
+  };
+  about: {
+    pageTitle: string;
+    visionTitle: string;
+    visionBody: string;
+    missionTitle: string;
+    missionBody1: string;
+    missionBody2: string;
+    fundingTitle: string;
+    fundingIntro: string;
+    fundingMembersTitle: string;
+    fundingMembersDesc: string;
+    fundingGroundsTitle: string;
+    fundingGroundsDesc: string;
+    fundingBridgeTitle: string;
+    fundingBridgeDesc: string;
+    fundingEventsTitle: string;
+    fundingEventsDesc: string;
+    fundingTransparencyTitle: string;
+    fundingTransparencyDesc: string;
+    impactTitle: string;
+    impactCommunityTitle: string;
+    impactCommunityDesc: string;
+    impactLivingTitle: string;
+    impactLivingDesc: string;
+    impactTraditionsTitle: string;
+    impactTraditionsDesc: string;
+    impactTransparencyTitle: string;
+    impactTransparencyDesc: string;
+    valuesTitle: string;
+    value1: string;
+    value2: string;
+    value3: string;
+    value4: string;
+    value5: string;
+  };
 }
 
 const lt: Dictionary = {
@@ -340,6 +387,66 @@ const lt: Dictionary = {
     historySectionTitle: "Mokėjimo istorija",
     noPayments: "Mokėjimų dar nėra",
   },
+  footer: {
+    tagline: "Kartu kuriame savo kaimą. Geresnę ateitį mūsų bendruomenei ir žmonėms.",
+    linksHeading: "Nuorodos",
+    linkNews: "Naujienos",
+    linkDocuments: "Dokumentai",
+    linkContacts: "Kontaktai",
+    contactsHeading: "Kontaktai",
+    companyCodeLabel: "Įmonės kodas:",
+    emailLabel: "El. paštas:",
+    phoneLabel: "Tel.:",
+    rightsReserved: "Visos teisės saugomos.",
+  },
+  about: {
+    pageTitle: "Apie mus",
+    visionTitle: "Mūsų vizija",
+    visionBody:
+      "Krūminių bendruomenė siekia tapti pavyzdžiu kaimo bendruomenės modeliui Lietuvoje – aktyvi, moderni ir socialiai atsakinga bendruomenė, kurioje kiekvienas narys jaučiasi vertinamas ir turi galimybę prisidėti prie bendro gėrio kūrimo. Mes tikime, kad kaimo gyvensena gali būti patraukli ir moderni, derinant tradicinės kaimo kultūros privalumus su šiuolaikinėmis galimybėmis.",
+    missionTitle: "Mūsų misija",
+    missionBody1:
+      "Telkiame Krūminių ir aplinkinių kaimų – Valkininkų, Užuperkasio, Bucivonių, Urkionių, Jakėnų, Paversekio – gyventojus bendriems projektams ir iniciatyvoms, kurios pagerina gyvenimo kokybę regione. Skatiname kaimynystę, savanoriškumą ir tarpusavio pagarbą.",
+    missionBody2:
+      "Aktyviai bendradarbiaujame su vietos verslais, savivaldybe ir kitomis organizacijomis kuriant darnią aplinką, kurioje visi – nuo jauniausiųjų iki vyriausiųjų – gali rasti veiklų ir prisidėti prie bendruomenės gyvenimo.",
+    fundingTitle: "Veiklos finansavimas",
+    fundingIntro:
+      "Krūminių bendruomenė veikia ne pelno principu – visos gautos pajamos reinvestuojamos į bendruomenės gerovę: teritorijos priežiūrą, renginius ir bendros infrastruktūros gerinimą.",
+    fundingMembersTitle: "Narių įnašai",
+    fundingMembersDesc:
+      "Stojamasis mokestis (20 €) ir metinis nario mokestis (12 €) sudaro bazinį finansavimą bendruomenės administraciniam darbui ir renginių organizavimui.",
+    fundingGroundsTitle: "Teritorijos priežiūra",
+    fundingGroundsDesc:
+      "Lėšos skiriamos paplūdimio (smėlio užvežimas), žaidimų aikštelės remontui ir bendrosios teritorijos priežiūrai (žolės pjovimas, kuras, elektra).",
+    fundingBridgeTitle: "Paplūdimio liepto atnaujinimas",
+    fundingBridgeDesc:
+      "Liepto laikas atsinaujinti. Tikslas 4 000 EUR – renkamos iš bendruomenės narių ir kaimo svečių aukų atskirai nuo nario mokesčio biudžeto.",
+    fundingEventsTitle: "Renginiai",
+    fundingEventsDesc:
+      "Mindauginės (liepos 6 d.) ir Eglutės puošimas (gruodis) – tradicinės kasmetinės bendruomenės šventės. Papildomi renginiai pagal narių iniciatyvą.",
+    fundingTransparencyTitle: "Skaidrumas",
+    fundingTransparencyDesc:
+      "Visi finansiniai srautai yra skaidrūs ir prieinami bendruomenės nariams. Reguliariai teikiame finansines ir metines ataskaitas.",
+    impactTitle: "Socialinis poveikis",
+    impactCommunityTitle: "Bendruomeniškumas",
+    impactCommunityDesc:
+      "Telkiame kaimo gyventojus bendriems projektams ir renginiams, stipriname kaimyniškus ryšius.",
+    impactLivingTitle: "Gyvenamoji aplinka",
+    impactLivingDesc:
+      "Prižiūrime paplūdimį, žaidimų aikštelę ir bendrąją teritoriją – gerinama gyvenimo kokybė kaime.",
+    impactTraditionsTitle: "Tradicijos",
+    impactTraditionsDesc:
+      "Mindauginės, Eglutės puošimas ir kiti bendruomenės renginiai puoselėja kaimo tradicijas.",
+    impactTransparencyTitle: "Skaidrumas",
+    impactTransparencyDesc:
+      "Visi finansiniai srautai ir veiklos sprendimai yra atviri – pasitikėjimas ir atskaitomybė nariams.",
+    valuesTitle: "Mūsų vertybės",
+    value1: "Bendruomeniškumas ir solidarumas",
+    value2: "Atsakingumas ir skaidrumas",
+    value3: "Socialinė atsakomybė ir įtraukimas",
+    value4: "Pagarba aplinkai ir tradicijoms",
+    value5: "Lygios galimybės visiems",
+  },
 };
 
 const en: Dictionary = {
@@ -509,6 +616,66 @@ const en: Dictionary = {
       "You can pay your fees by bank transfer to the community account. Contact the chairperson for the payment details.",
     historySectionTitle: "Payment history",
     noPayments: "No payments yet",
+  },
+  footer: {
+    tagline: "Together we build our village. A better future for our community and its people.",
+    linksHeading: "Links",
+    linkNews: "News",
+    linkDocuments: "Documents",
+    linkContacts: "Contacts",
+    contactsHeading: "Contacts",
+    companyCodeLabel: "Company code:",
+    emailLabel: "Email:",
+    phoneLabel: "Phone:",
+    rightsReserved: "All rights reserved.",
+  },
+  about: {
+    pageTitle: "About us",
+    visionTitle: "Our vision",
+    visionBody:
+      "The Krūminiai community aspires to become a model for rural communities in Lithuania – active, modern and socially responsible, where every member feels valued and has the opportunity to contribute to the common good. We believe that rural life can be attractive and modern, combining the strengths of traditional village culture with the opportunities of today.",
+    missionTitle: "Our mission",
+    missionBody1:
+      "We bring together the residents of Krūminiai and the neighbouring villages – Valkininkai, Užuperkasis, Bucivoniai, Urkioniai, Jakėnai and Paversekis – for shared projects and initiatives that improve quality of life in the region. We encourage neighbourliness, volunteering and mutual respect.",
+    missionBody2:
+      "We actively cooperate with local businesses, the municipality and other organisations to create a harmonious environment where everyone – from the youngest to the oldest – can find activities and take part in community life.",
+    fundingTitle: "How our activities are funded",
+    fundingIntro:
+      "The Krūminiai community operates on a not-for-profit basis – all income received is reinvested into the community's wellbeing: grounds maintenance, events and improving shared infrastructure.",
+    fundingMembersTitle: "Member contributions",
+    fundingMembersDesc:
+      "The joining fee (€20) and the annual membership fee (€12) provide the basic funding for the community's administrative work and for organising events.",
+    fundingGroundsTitle: "Grounds maintenance",
+    fundingGroundsDesc:
+      "Funds go towards the beach (bringing in sand), repairing the playground and maintaining the shared grounds (mowing, fuel, electricity).",
+    fundingBridgeTitle: "Renewing the beach footbridge",
+    fundingBridgeDesc:
+      "It is time for the footbridge to be renewed. The goal is €4,000 – raised from donations by community members and village guests, separately from the membership-fee budget.",
+    fundingEventsTitle: "Events",
+    fundingEventsDesc:
+      "Mindauginės (6 July) and the Christmas tree decorating (December) are the community's traditional annual celebrations. Additional events take place on members' initiative.",
+    fundingTransparencyTitle: "Transparency",
+    fundingTransparencyDesc:
+      "All financial flows are transparent and accessible to community members. We provide financial and annual reports regularly.",
+    impactTitle: "Social impact",
+    impactCommunityTitle: "Community spirit",
+    impactCommunityDesc:
+      "We bring villagers together for shared projects and events, strengthening neighbourly ties.",
+    impactLivingTitle: "Living environment",
+    impactLivingDesc:
+      "We maintain the beach, the playground and the shared grounds – improving quality of life in the village.",
+    impactTraditionsTitle: "Traditions",
+    impactTraditionsDesc:
+      "Mindauginės, the Christmas tree decorating and other community events keep village traditions alive.",
+    impactTransparencyTitle: "Transparency",
+    impactTransparencyDesc:
+      "All financial flows and operational decisions are open – trust and accountability to members.",
+    valuesTitle: "Our values",
+    value1: "Community spirit and solidarity",
+    value2: "Responsibility and transparency",
+    value3: "Social responsibility and inclusion",
+    value4: "Respect for the environment and traditions",
+    value5: "Equal opportunities for all",
   },
 };
 
