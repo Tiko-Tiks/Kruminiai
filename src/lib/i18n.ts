@@ -80,6 +80,48 @@ export interface Dictionary {
     membershipAnnualFeeLabel: string;
     membershipCta: string;
   };
+  lieptas: {
+    projectNotFound: string;
+    heroEyebrow: string;
+    beforeBadge: string;
+    afterBadge: string;
+    beforePhotoAlt: string;
+    afterPhotoAlt: string;
+    progressRaisedPrefix: string;
+    progressGoalSuffix: string;
+    donorsLabel: string;
+    remainingPrefix: string;
+    remainingSuffix: string;
+    howToDonateHeading: string;
+    howToDonateIntro: string;
+    qrInstruction: string;
+    qrSupportedApps: string;
+    manualTransferHeading: string;
+    fieldRecipient: string;
+    fieldIban: string;
+    fieldBank: string;
+    fieldPurpose: string;
+    bankName: string;
+    suggestedAmountsHeading: string;
+    otherAmount: string;
+    boardCostHint: string;
+    cashDonationHeading: string;
+    communityAddress: string;
+    supportersHeading: string;
+    supportersTransparency: string;
+    anonymousDonor: string;
+    noDonorsTitle: string;
+    noDonorsSubtitle: string;
+    shareHeading: string;
+    shareIntro: string;
+    printableNotice: string;
+    printableLinkWord: string;
+    copyToastSuccess: string;
+    copyToastError: string;
+    copyAriaLabel: string;
+    copyLabel: string;
+    copiedLabel: string;
+  };
 }
 
 const lt: Dictionary = {
@@ -153,6 +195,53 @@ const lt: Dictionary = {
     membershipAnnualFeeLabel: "Metinis nario mokestis",
     membershipCta: "Pateikti prašymą",
   },
+  lieptas: {
+    projectNotFound: "Projektas nerastas.",
+    heroEyebrow: "Pilotinis projektas · {year} m.",
+    beforeBadge: "Dabar",
+    afterBadge: "Po atnaujinimo",
+    beforePhotoAlt: "Krūminių paplūdimio liepto būklė dabar",
+    afterPhotoAlt: "Atnaujinto Krūminių paplūdimio liepto vizija",
+    progressRaisedPrefix: "surinkta iš",
+    progressGoalSuffix: "tikslo",
+    donorsLabel: "aukotojai (-os)",
+    remainingPrefix: "Liko surinkti:",
+    remainingSuffix: ". Kiekviena auka svarbi – net 5 € yra svari pagalba!",
+    howToDonateHeading: "Kaip paaukoti?",
+    howToDonateIntro:
+      "Greičiausias būdas – nuskenuokite QR kodą savo banko aplikacija. Forma atsidarys su jau užpildytais duomenimis. Jums tereikia įvesti sumą ir patvirtinti pavedimą.",
+    qrInstruction: "📱 Atidarykite banko aplikaciją → „Naujas pavedimas\" → „Skenuoti QR\"",
+    qrSupportedApps:
+      "Geriausiai veikia Swedbank, SEB, Luminor, Šiaulių/Artea aplikacijose. Jei jūsų app'as nepalaiko – pavedimą įveskite rankomis (rekvizitai dešinėje).",
+    manualTransferHeading: "Pavedimas rankomis",
+    fieldRecipient: "Gavėjas:",
+    fieldIban: "IBAN:",
+    fieldBank: "Bankas:",
+    fieldPurpose: "Paskirtis:",
+    bankName: "AB Artea bankas",
+    suggestedAmountsHeading: "Pasiūlytos sumos",
+    otherAmount: "arba kita suma",
+    boardCostHint:
+      "💡 Vienos terasinės lentos kaina ~12 € – jūsų indėlis tampa konkrečia statybine medžiaga.",
+    cashDonationHeading: "Norite paaukoti grynais?",
+    communityAddress: "Beržų g. 8, Krūminių k., Varėnos r.",
+    supportersHeading: "Mūsų rėmėjai",
+    supportersTransparency:
+      "Skaidrumas – kiekviena auka užregistruota viešai. Anoniminiai aukotojai parodyti kaip „Anonimas\".",
+    anonymousDonor: "Anonimas",
+    noDonorsTitle: "Aukotojų dar nėra – būkite pirmas! 💚",
+    noDonorsSubtitle: "Jūsų auka padarys liepto atnaujinimą realybe.",
+    shareHeading: "Pasidalinkit su draugais!",
+    shareIntro:
+      "Kuo daugiau žmonių sužinos, tuo greičiau atnaujinsim lieptą. Nukopijuokit nuorodą ir pasidalinkit:",
+    printableNotice: "Spausdintinę versiją (A4 su QR kodu) galite atsisiųsti",
+    printableLinkWord: "čia",
+    copyToastSuccess: "IBAN nukopijuotas",
+    copyToastError: "Nepavyko nukopijuoti – pažymėk ir nukopijuok rankomis",
+    copyAriaLabel: "Kopijuoti IBAN",
+    copyLabel: "Kopijuoti",
+    copiedLabel: "Nukopijuota",
+  },
 };
 
 const en: Dictionary = {
@@ -225,6 +314,53 @@ const en: Dictionary = {
     membershipAnnualFeeAmount: "€12",
     membershipAnnualFeeLabel: "Annual membership fee",
     membershipCta: "Submit an application",
+  },
+  lieptas: {
+    projectNotFound: "Project not found.",
+    heroEyebrow: "Pilot project · {year}",
+    beforeBadge: "Now",
+    afterBadge: "After renewal",
+    beforePhotoAlt: "Current condition of the Krūminiai beach footbridge",
+    afterPhotoAlt: "Vision of the renewed Krūminiai beach footbridge",
+    progressRaisedPrefix: "raised of the",
+    progressGoalSuffix: "goal",
+    donorsLabel: "donors",
+    remainingPrefix: "Still to raise:",
+    remainingSuffix: ". Every donation matters – even 5 € is meaningful help!",
+    howToDonateHeading: "How to donate?",
+    howToDonateIntro:
+      "The fastest way is to scan the QR code with your banking app. The transfer form will open with the details already filled in. You only need to enter the amount and confirm the transfer.",
+    qrInstruction: "📱 Open your banking app → \"New transfer\" → \"Scan QR\"",
+    qrSupportedApps:
+      "Works best in the Swedbank, SEB, Luminor and Šiaulių/Artea apps. If your app does not support it, enter the transfer manually (details on the right).",
+    manualTransferHeading: "Manual transfer",
+    fieldRecipient: "Recipient:",
+    fieldIban: "IBAN:",
+    fieldBank: "Bank:",
+    fieldPurpose: "Purpose:",
+    bankName: "AB Artea bankas",
+    suggestedAmountsHeading: "Suggested amounts",
+    otherAmount: "or another amount",
+    boardCostHint:
+      "💡 One terrace board costs about 12 € – your contribution becomes a real building material.",
+    cashDonationHeading: "Would you like to donate in cash?",
+    communityAddress: "Beržų g. 8, Krūminiai village, Varėna district",
+    supportersHeading: "Our supporters",
+    supportersTransparency:
+      "Transparency – every donation is recorded publicly. Anonymous donors are shown as \"Anonymous\".",
+    anonymousDonor: "Anonymous",
+    noDonorsTitle: "No donors yet – be the first! 💚",
+    noDonorsSubtitle: "Your donation will make renewing the footbridge a reality.",
+    shareHeading: "Share with friends!",
+    shareIntro:
+      "The more people who find out, the sooner we will renew the footbridge. Copy the link and share it:",
+    printableNotice: "You can download a printable version (A4 with QR code)",
+    printableLinkWord: "here",
+    copyToastSuccess: "IBAN copied",
+    copyToastError: "Could not copy – select and copy manually",
+    copyAriaLabel: "Copy IBAN",
+    copyLabel: "Copy",
+    copiedLabel: "Copied",
   },
 };
 

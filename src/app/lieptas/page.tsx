@@ -3,6 +3,7 @@ import { generateSepaQrSvg } from "@/lib/sepa-qr";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { formatDate } from "@/lib/utils";
+import { getDict } from "@/lib/i18n-server";
 import { Heart, Phone, Mail, Copy } from "lucide-react";
 import { CopyIbanButton } from "./CopyIbanButton";
 import Link from "next/link";
@@ -29,6 +30,7 @@ export const metadata: Metadata = {
 
 export default async function LieptasPage() {
   const supabase = createServerSupabaseClient();
+  const t = getDict().lieptas;
 
   const { data: project } = await supabase
     .from("fundraising_projects")
@@ -42,7 +44,7 @@ export default async function LieptasPage() {
       <div className="min-h-screen flex flex-col">
         <PublicHeader />
         <main className="flex-1 flex items-center justify-center p-8">
-          <p className="text-gray-500">Projektas nerastas.</p>
+          <p className="text-gray-500">{t.projectNotFound}</p>
         </main>
         <PublicFooter />
       </div>
@@ -85,7 +87,7 @@ export default async function LieptasPage() {
         <section className="bg-gradient-to-br from-green-800 via-green-700 to-green-900 text-white">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12 md:py-16">
             <p className="text-sm uppercase tracking-widest text-green-200 mb-2 font-medium">
-              Pilotinis projektas · {new Date().getFullYear()} m.
+              {t.heroEyebrow.replace("{year}", String(new Date().getFullYear()))}
             </p>
             <h1 className="text-3xl md:text-5xl font-bold leading-tight mb-4">
               {project.title}
@@ -103,23 +105,23 @@ export default async function LieptasPage() {
               <figure className="relative overflow-hidden rounded-xl">
                 <img
                   src="/images/lieptas/liepto-dabar.jpg"
-                  alt="Krūminių paplūdimio liepto būklė dabar"
+                  alt={t.beforePhotoAlt}
                   className="w-full aspect-[4/3] object-cover"
                   loading="lazy"
                 />
                 <figcaption className="absolute top-3 left-3 bg-gray-900/75 text-white text-xs font-semibold px-3 py-1 rounded-full">
-                  Dabar
+                  {t.beforeBadge}
                 </figcaption>
               </figure>
               <figure className="relative overflow-hidden rounded-xl">
                 <img
                   src="/images/lieptas/liepto-vizija.jpg"
-                  alt="Atnaujinto Krūminių paplūdimio liepto vizija"
+                  alt={t.afterPhotoAlt}
                   className="w-full aspect-[4/3] object-cover"
                   loading="lazy"
                 />
                 <figcaption className="absolute top-3 left-3 bg-green-700/90 text-white text-xs font-semibold px-3 py-1 rounded-full">
-                  Po atnaujinimo
+                  {t.afterBadge}
                 </figcaption>
               </figure>
             </div>
@@ -133,12 +135,12 @@ export default async function LieptasPage() {
                   {totalEur} €
                 </div>
                 <p className="text-sm text-gray-500 mt-1">
-                  surinkta iš <span className="font-semibold">{goalEur} €</span> tikslo
+                  {t.progressRaisedPrefix} <span className="font-semibold">{goalEur} €</span> {t.progressGoalSuffix}
                 </p>
               </div>
               <div className="text-right">
                 <div className="text-2xl font-bold text-gray-900">{percent}%</div>
-                <p className="text-xs text-gray-500">{donorCount} aukotojai (-os)</p>
+                <p className="text-xs text-gray-500">{donorCount} {t.donorsLabel}</p>
               </div>
             </div>
 
@@ -150,8 +152,7 @@ export default async function LieptasPage() {
             </div>
 
             <p className="text-sm text-gray-600 mt-4">
-              Liko surinkti: <strong className="text-gray-900">{remainingEur} €</strong>.
-              Kiekviena auka svarbi – net 5 € yra svari pagalba!
+              {t.remainingPrefix} <strong className="text-gray-900">{remainingEur} €</strong>{t.remainingSuffix}
             </p>
           </section>
 
@@ -159,13 +160,9 @@ export default async function LieptasPage() {
           <section className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm">
             <h2 className="text-2xl font-bold text-gray-900 mb-1 flex items-center gap-2">
               <Heart className="h-6 w-6 text-red-500" />
-              Kaip paaukoti?
+              {t.howToDonateHeading}
             </h2>
-            <p className="text-sm text-gray-600 mb-6">
-              Greičiausias būdas – nuskenuokite QR kodą savo banko aplikacija. Forma
-              atsidarys su jau užpildytais duomenimis. Jums tereikia įvesti sumą ir
-              patvirtinti pavedimą.
-            </p>
+            <p className="text-sm text-gray-600 mb-6">{t.howToDonateIntro}</p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
               {/* QR */}
@@ -175,11 +172,10 @@ export default async function LieptasPage() {
                   dangerouslySetInnerHTML={{ __html: qrSvg }}
                 />
                 <p className="text-sm text-gray-700 mt-3 font-semibold">
-                  📱 Atidarykite banko aplikaciją → &bdquo;Naujas pavedimas&ldquo; → &bdquo;Skenuoti QR&ldquo;
+                  {t.qrInstruction}
                 </p>
                 <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-                  Geriausiai veikia Swedbank, SEB, Luminor, Šiaulių/Artea aplikacijose.
-                  Jei jūsų app&apos;as nepalaiko – pavedimą įveskite rankomis (rekvizitai dešinėje).
+                  {t.qrSupportedApps}
                 </p>
               </div>
 
@@ -187,26 +183,26 @@ export default async function LieptasPage() {
               <div className="space-y-4">
                 <div>
                   <h3 className="font-semibold text-gray-900 mb-2 text-sm uppercase tracking-wide">
-                    Pavedimas rankomis
+                    {t.manualTransferHeading}
                   </h3>
                   <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
                     <div className="flex justify-between gap-2">
-                      <span className="text-gray-500">Gavėjas:</span>
+                      <span className="text-gray-500">{t.fieldRecipient}</span>
                       <span className="font-medium text-gray-900 text-right">{project.recipient}</span>
                     </div>
                     <div className="flex justify-between gap-2 items-center">
-                      <span className="text-gray-500">IBAN:</span>
+                      <span className="text-gray-500">{t.fieldIban}</span>
                       <span className="flex items-center gap-2">
                         <span className="font-mono font-medium text-gray-900 text-right text-xs sm:text-sm">{project.iban}</span>
                         <CopyIbanButton iban={project.iban} />
                       </span>
                     </div>
                     <div className="flex justify-between gap-2">
-                      <span className="text-gray-500">Bankas:</span>
-                      <span className="text-gray-900 text-right">AB Artea bankas</span>
+                      <span className="text-gray-500">{t.fieldBank}</span>
+                      <span className="text-gray-900 text-right">{t.bankName}</span>
                     </div>
                     <div className="flex justify-between gap-2">
-                      <span className="text-gray-500">Paskirtis:</span>
+                      <span className="text-gray-500">{t.fieldPurpose}</span>
                       <span className="font-medium text-gray-900 text-right">{project.purpose_text}</span>
                     </div>
                   </div>
@@ -214,7 +210,7 @@ export default async function LieptasPage() {
 
                 <div>
                   <h3 className="font-semibold text-gray-900 mb-2 text-sm uppercase tracking-wide">
-                    Pasiūlytos sumos
+                    {t.suggestedAmountsHeading}
                   </h3>
                   <div className="flex flex-wrap gap-2">
                     {suggestedAmounts.map((amt) => (
@@ -226,12 +222,10 @@ export default async function LieptasPage() {
                       </span>
                     ))}
                     <span className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-full text-sm border border-gray-200">
-                      arba kita suma
+                      {t.otherAmount}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    💡 <strong>Vienos terasinės lentos kaina ~12 €</strong> – jūsų indėlis tampa konkrečia statybinė medžiaga.
-                  </p>
+                  <p className="text-xs text-gray-500 mt-2">{t.boardCostHint}</p>
                 </div>
               </div>
             </div>
@@ -239,7 +233,7 @@ export default async function LieptasPage() {
             {/* Grynais */}
             <div className="mt-6 pt-6 border-t border-gray-100">
               <h3 className="font-semibold text-gray-900 mb-2 text-sm uppercase tracking-wide">
-                Norite paaukoti grynais?
+                {t.cashDonationHeading}
               </h3>
               <div className="flex flex-wrap gap-4 text-sm text-gray-700">
                 {project.contact_phone && (
@@ -252,7 +246,7 @@ export default async function LieptasPage() {
                     <Mail className="h-4 w-4" /> {project.contact_email}
                   </a>
                 )}
-                <span className="text-gray-500">Beržų g. 8, Krūminių k., Varėnos r.</span>
+                <span className="text-gray-500">{t.communityAddress}</span>
               </div>
             </div>
           </section>
@@ -267,18 +261,14 @@ export default async function LieptasPage() {
           {/* Aukotojų sąrašas */}
           <section className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm">
             <h2 className="text-xl font-bold text-gray-900 mb-1">
-              Mūsų rėmėjai ({donorCount})
+              {t.supportersHeading} ({donorCount})
             </h2>
-            <p className="text-sm text-gray-500 mb-5">
-              Skaidrumas – kiekviena auka užregistruota viešai. Anoniminiai aukotojai parodyti kaip &bdquo;Anonimas&ldquo;.
-            </p>
+            <p className="text-sm text-gray-500 mb-5">{t.supportersTransparency}</p>
 
             {donorCount === 0 ? (
               <div className="text-center py-10">
-                <p className="text-gray-400 mb-2">Aukotojų dar nėra – būkite pirmas! 💚</p>
-                <p className="text-sm text-gray-500">
-                  Jūsų auka padarys liepto atnaujinimą realybe.
-                </p>
+                <p className="text-gray-400 mb-2">{t.noDonorsTitle}</p>
+                <p className="text-sm text-gray-500">{t.noDonorsSubtitle}</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-100">
@@ -286,7 +276,7 @@ export default async function LieptasPage() {
                   <div key={d.id} className="py-3 flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-900">
-                        {d.is_anonymous || !d.donor_name ? "Anonimas" : (d.donor_name as string)}
+                        {d.is_anonymous || !d.donor_name ? t.anonymousDonor : (d.donor_name as string)}
                       </p>
                       {d.donor_message && (
                         <p className="text-sm text-gray-600 italic mt-0.5">
@@ -308,10 +298,8 @@ export default async function LieptasPage() {
 
           {/* Pasidalink */}
           <section className="bg-amber-50 border border-amber-200 rounded-2xl p-6 sm:p-8 text-center">
-            <h2 className="text-lg font-bold text-amber-900 mb-2">Pasidalinkit su draugais!</h2>
-            <p className="text-sm text-amber-800 mb-4">
-              Kuo daugiau žmonių sužinos, tuo greičiau atnaujinsim lieptą. Nukopijuokit nuorodą ir pasidalinkit:
-            </p>
+            <h2 className="text-lg font-bold text-amber-900 mb-2">{t.shareHeading}</h2>
+            <p className="text-sm text-amber-800 mb-4">{t.shareIntro}</p>
             <div className="inline-flex items-center gap-2 bg-white border border-amber-300 rounded-full px-4 py-2 text-sm">
               <span className="font-mono text-gray-900">kruminiai.lt/lieptas</span>
               <Copy className="h-4 w-4 text-gray-400" />
@@ -319,9 +307,9 @@ export default async function LieptasPage() {
           </section>
 
           <p className="text-xs text-center text-gray-400">
-            Spausdintinę versiją (A4 su QR kodu) galite atsisiųsti{" "}
+            {t.printableNotice}{" "}
             <Link href="/lieptas/spausdinti" className="text-green-700 hover:underline">
-              čia
+              {t.printableLinkWord}
             </Link>
             .
           </p>
