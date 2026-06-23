@@ -113,7 +113,7 @@ export async function sendContactUpdateSmsBatch(memberIds: string[]): Promise<{
   // Gaunam narių duomenis – tik tuos, kurie turi telefoną
   const { data: members } = await supabase
     .from("members")
-    .select("id, first_name, last_name, phone")
+    .select("id, first_name, last_name, phone, language")
     .in("id", memberIds)
     .in("status", ["aktyvus", "pasyvus"])
     .not("phone", "is", null);
@@ -149,7 +149,12 @@ export async function sendContactUpdateSmsBatch(memberIds: string[]): Promise<{
       }
 
       // 2) Siunčiam SMS – GSM-7 saugomas tekstas (be diakritikos), <=160 simb.
-      const text = `Sveiki, ${firstName.normalize("NFD").replace(/[̀-ͯ]/g, "")}. Atnaujinkite kontaktus Kruminiu bendruomenes sistemoje: ${siteUrl.replace(/^https?:\/\//, "")}/duomenys/${token}`;
+      const cleanName = firstName.normalize("NFD").replace(/[̀-ͯ]/g, "");
+      const linkBase = `${siteUrl.replace(/^https?:\/\//, "")}/duomenys/${token}`;
+      const text =
+        (m as { language?: string }).language === "en"
+          ? `Hello, ${cleanName}. Please update your contact details in the Kruminiai community system: ${linkBase}`
+          : `Sveiki, ${cleanName}. Atnaujinkite kontaktus Kruminiu bendruomenes sistemoje: ${linkBase}`;
       const smsResult = await sendSms(phone, text);
 
       // Log į notification_log

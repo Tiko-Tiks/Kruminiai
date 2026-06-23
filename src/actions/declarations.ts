@@ -1,6 +1,7 @@
 "use server";
 
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { requireAdmin } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { sendSms, normalizePhone } from "@/lib/infobip";
 import { sendEmail, renderBrandedEmail } from "@/lib/email";
@@ -34,7 +35,9 @@ const EXPIRES_AT = "2026-05-23 14:00:00+00"; // iki susirinkimo
 // =============================================================================
 export async function generateAndSendDeclarations() {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { success: false as const, error: auth.error };
+  const user = auth.user;
 
   // Tik skolingi nariai – kurie pilnai atsiskaitė, jiems siūsti nereikia
   // (mokėjimas reiškia, kad jie tęsia narystę).
@@ -85,7 +88,10 @@ export async function generateAndSendDeclarations() {
     }
 
     const url = `${baseUrl}/deklaracija/${token}`;
-    const text = `Sveiki, ${m.first_name}. Galbut pamirsote nario mokesti. Patvirtinkit duomenis ir mokejima: ${url}`;
+    const text =
+      m.language === "en"
+        ? `Hello, ${m.first_name}. You may have forgotten your membership fee. Confirm your details and payment: ${url}`
+        : `Sveiki, ${m.first_name}. Galbut pamirsote nario mokesti. Patvirtinkit duomenis ir mokejima: ${url}`;
 
     const result = await sendSms(m.phone, text);
     await logNotification(supabase, {
@@ -147,7 +153,9 @@ export async function sendOverdueDeclarationReminders(
   channel: ChannelChoice = "both"
 ) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { success: false as const, error: auth.error };
+  const user = auth.user;
 
   if (!memberIds || memberIds.length === 0) {
     return { success: false as const, error: "Nepasirinkti nariai" };
@@ -206,80 +214,14 @@ export async function sendOverdueDeclarationReminders(
 
     // 2) Email
     if ((channel === "both" || channel === "email") && m.email && m.email.trim()) {
-      const periodsRows = m.unpaidPeriods
-        .map(
-          (p) => `
-            <tr>
-              <td style="padding:8px 12px 8px 0;border-bottom:1px solid #fee2e2;color:#374151;">${p.year} m. metinis mokestis</td>
-              <td style="padding:8px 0;border-bottom:1px solid #fee2e2;text-align:right;font-weight:700;color:#991b1b;">${(p.amount_cents / 100).toFixed(2)} EUR</td>
-            </tr>`
-        )
-        .join("");
-
-      const html = renderBrandedEmail({
-        preheader: `Pradelstas nario mokestis ${totalEur} EUR. Patvirtinkit narystę spustelėję mygtuką.`,
-        body: `
-          <h1 style="margin:0 0 16px;font-size:22px;font-weight:700;color:#0f3d20;">Sveiki, ${vocative(m.first_name)}!</h1>
-          <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#374151;">
-            Primename, kad pagal mūsų duomenis turite <strong>nesumokėtą Krūminių kaimo bendruomenės nario mokestį</strong>.
-          </p>
-
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#fef3f2;border-left:3px solid #dc2626;border-radius:4px;margin:0 0 20px;">
-            <tr>
-              <td style="padding:16px 20px;">
-                <div style="font-size:13px;color:#991b1b;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Pradelsti mokesčiai</div>
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="font-size:14px;">
-                  ${periodsRows}
-                  <tr>
-                    <td style="padding:10px 12px 0 0;font-weight:700;color:#111827;">Iš viso skola:</td>
-                    <td style="padding:10px 0 0;text-align:right;font-weight:700;font-size:18px;color:#991b1b;">${totalEur} EUR</td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-
-          <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:#374151;">
-            Prašome <strong>patvirtinti narystę</strong> ir pasirinkti tolesnius veiksmus (sumokėti grynais, sumokėti pavedimu arba išstoti) paspaudę mygtuką žemiau:
-          </p>
-
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0;">
-            <tr>
-              <td style="border-radius:8px;background:#15803d;">
-                <a href="${url}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:8px;font-family:Arial,Helvetica,sans-serif;">Patvirtinti narystę</a>
-              </td>
-            </tr>
-          </table>
-
-          <p style="margin:24px 0 16px;font-size:13px;color:#6b7280;line-height:1.6;">
-            Jei mygtukas neveikia, nukopijuokite šią nuorodą į naršyklę:<br>
-            <a href="${url}" style="color:#15803d;word-break:break-all;">${url}</a>
-          </p>
-
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f0fdf4;border-left:3px solid #15803d;border-radius:4px;margin:24px 0 16px;">
-            <tr>
-              <td style="padding:16px 20px;">
-                <div style="font-size:13px;color:#166534;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">Mokėjimo rekvizitai (jei sumokėsite iškart)</div>
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="font-size:14px;color:#374151;line-height:1.7;">
-                  <tr><td style="padding-right:12px;color:#6b7280;">Gavėjas:</td><td style="font-weight:600;color:#111827;">${BANK_RECIPIENT}</td></tr>
-                  <tr><td style="padding-right:12px;color:#6b7280;">Sąskaita:</td><td style="font-family:monospace;font-weight:600;color:#111827;">${BANK_ACCOUNT}</td></tr>
-                  <tr><td style="padding-right:12px;color:#6b7280;">Bankas:</td><td style="color:#111827;">${BANK_NAME}</td></tr>
-                  <tr><td style="padding-right:12px;color:#6b7280;">Suma:</td><td style="font-weight:700;color:#15803d;">${totalEur} EUR</td></tr>
-                  <tr><td style="padding-right:12px;color:#6b7280;">Paskirtis:</td><td style="color:#111827;">Nario mokestis (${yearsList}) – ${m.first_name} ${m.last_name}</td></tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-
-          <p style="margin:24px 0 0;font-size:14px;line-height:1.6;color:#374151;">
-            Pagarbiai,<br>
-            <strong style="font-size:15px;color:#0f3d20;">Mindaugas Mameniškis</strong><br>
-            <span style="color:#6b7280;font-size:13px;">Bendruomenės pirmininkas</span>
-          </p>
-        `,
+      const { subject, html } = buildDeclarationEmail(m.language === "en" ? "en" : "lt", {
+        firstName: m.first_name,
+        lastName: m.last_name,
+        unpaidPeriods: m.unpaidPeriods,
+        totalEur,
+        yearsList,
+        url,
       });
-
-      const subject = `Krūminių bendruomenė: nario mokesčio skola ${totalEur} EUR – patvirtinkit narystę`;
       const r = await sendEmail(m.email.trim(), subject, html);
       await logNotification(supabase, {
         memberId: m.id,
@@ -307,7 +249,10 @@ export async function sendOverdueDeclarationReminders(
       const normalized = normalizePhone(m.phone);
       if (normalized) {
         // ~135 simb. – telpa į 1 SMS (GSM-7, be lt diakritikos)
-        const text = `Sveiki, ${m.first_name}. Pradelstas nario mokestis ${totalEur} EUR. Patvirtinkit naryste: ${url}`;
+        const text =
+          m.language === "en"
+            ? `Hello, ${m.first_name}. Overdue membership fee ${totalEur} EUR. Confirm your membership: ${url}`
+            : `Sveiki, ${m.first_name}. Pradelstas nario mokestis ${totalEur} EUR. Patvirtinkit naryste: ${url}`;
         const r = await sendSms(m.phone, text);
         await logNotification(supabase, {
           memberId: m.id,
@@ -373,7 +318,7 @@ export async function resendDeclarationSms() {
 
   const { data: tokens } = await supabase
     .from("membership_declarations")
-    .select("token, member_id, members(first_name, last_name, phone)")
+    .select("token, member_id, members(first_name, last_name, phone, language)")
     .is("submitted_at", null);
 
   if (!tokens || tokens.length === 0) {
@@ -390,7 +335,10 @@ export async function resendDeclarationSms() {
     if (!member?.phone) continue;
 
     const url = `${baseUrl}/deklaracija/${t.token}`;
-    const text = `Sveiki, ${member.first_name}. Priminam del nario mokescio - patvirtinkit duomenis: ${url}`;
+    const text =
+      (member as { language?: string }).language === "en"
+        ? `Hello, ${member.first_name}. A reminder about your membership fee - please confirm your details: ${url}`
+        : `Sveiki, ${member.first_name}. Priminam del nario mokescio - patvirtinkit duomenis: ${url}`;
 
     const r = await sendSms(member.phone, text);
     await logNotification(supabase, {
@@ -467,4 +415,175 @@ export async function submitDeclaration(
   if (error) return { error: error.message };
   if (data?.error) return { error: data.error };
   return { success: true };
+}
+
+// =============================================================================
+// Deklaracijos priminimo laiško šablonas (dvikalbis – pagal members.language)
+// =============================================================================
+function buildDeclarationEmail(
+  locale: "lt" | "en",
+  d: {
+    firstName: string;
+    lastName: string;
+    unpaidPeriods: { year: number; amount_cents: number }[];
+    totalEur: string;
+    yearsList: string;
+    url: string;
+  }
+): { subject: string; html: string } {
+  if (locale === "en") {
+    const rows = d.unpaidPeriods
+      .map(
+        (p) => `
+            <tr>
+              <td style="padding:8px 12px 8px 0;border-bottom:1px solid #fee2e2;color:#374151;">${p.year} annual membership fee</td>
+              <td style="padding:8px 0;border-bottom:1px solid #fee2e2;text-align:right;font-weight:700;color:#991b1b;">${(p.amount_cents / 100).toFixed(2)} EUR</td>
+            </tr>`
+      )
+      .join("");
+    const html = renderBrandedEmail({
+      locale: "en",
+      preheader: `Overdue membership fee ${d.totalEur} EUR. Please confirm your membership using the button.`,
+      body: `
+          <h1 style="margin:0 0 16px;font-size:22px;font-weight:700;color:#0f3d20;">Hello, ${d.firstName}!</h1>
+          <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#374151;">
+            This is a reminder that, according to our records, you have an <strong>unpaid Krūminiai Village Community membership fee</strong>.
+          </p>
+
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#fef3f2;border-left:3px solid #dc2626;border-radius:4px;margin:0 0 20px;">
+            <tr>
+              <td style="padding:16px 20px;">
+                <div style="font-size:13px;color:#991b1b;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Overdue fees</div>
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="font-size:14px;">
+                  ${rows}
+                  <tr>
+                    <td style="padding:10px 12px 0 0;font-weight:700;color:#111827;">Total owed:</td>
+                    <td style="padding:10px 0 0;text-align:right;font-weight:700;font-size:18px;color:#991b1b;">${d.totalEur} EUR</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:#374151;">
+            Please <strong>confirm your membership</strong> and choose how to proceed (pay in cash, pay by bank transfer, or withdraw) by clicking the button below:
+          </p>
+
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0;">
+            <tr>
+              <td style="border-radius:8px;background:#15803d;">
+                <a href="${d.url}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:8px;font-family:Arial,Helvetica,sans-serif;">Confirm membership</a>
+              </td>
+            </tr>
+          </table>
+
+          <p style="margin:24px 0 16px;font-size:13px;color:#6b7280;line-height:1.6;">
+            If the button does not work, copy this link into your browser:<br>
+            <a href="${d.url}" style="color:#15803d;word-break:break-all;">${d.url}</a>
+          </p>
+
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f0fdf4;border-left:3px solid #15803d;border-radius:4px;margin:24px 0 16px;">
+            <tr>
+              <td style="padding:16px 20px;">
+                <div style="font-size:13px;color:#166534;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">Payment details (if you pay now)</div>
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="font-size:14px;color:#374151;line-height:1.7;">
+                  <tr><td style="padding-right:12px;color:#6b7280;">Recipient:</td><td style="font-weight:600;color:#111827;">${BANK_RECIPIENT}</td></tr>
+                  <tr><td style="padding-right:12px;color:#6b7280;">Account:</td><td style="font-family:monospace;font-weight:600;color:#111827;">${BANK_ACCOUNT}</td></tr>
+                  <tr><td style="padding-right:12px;color:#6b7280;">Bank:</td><td style="color:#111827;">${BANK_NAME}</td></tr>
+                  <tr><td style="padding-right:12px;color:#6b7280;">Amount:</td><td style="font-weight:700;color:#15803d;">${d.totalEur} EUR</td></tr>
+                  <tr><td style="padding-right:12px;color:#6b7280;">Reference:</td><td style="color:#111827;">Membership fee (${d.yearsList}) – ${d.firstName} ${d.lastName}</td></tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          <p style="margin:24px 0 0;font-size:14px;line-height:1.6;color:#374151;">
+            Kind regards,<br>
+            <strong style="font-size:15px;color:#0f3d20;">Mindaugas Mameniškis</strong><br>
+            <span style="color:#6b7280;font-size:13px;">Community chairperson</span>
+          </p>
+        `,
+    });
+    return {
+      subject: `Krūminiai Village Community: ${d.totalEur} EUR membership-fee debt – please confirm your membership`,
+      html,
+    };
+  }
+
+  const rows = d.unpaidPeriods
+    .map(
+      (p) => `
+            <tr>
+              <td style="padding:8px 12px 8px 0;border-bottom:1px solid #fee2e2;color:#374151;">${p.year} m. metinis mokestis</td>
+              <td style="padding:8px 0;border-bottom:1px solid #fee2e2;text-align:right;font-weight:700;color:#991b1b;">${(p.amount_cents / 100).toFixed(2)} EUR</td>
+            </tr>`
+    )
+    .join("");
+  const html = renderBrandedEmail({
+    locale: "lt",
+    preheader: `Pradelstas nario mokestis ${d.totalEur} EUR. Patvirtinkit narystę spustelėję mygtuką.`,
+    body: `
+          <h1 style="margin:0 0 16px;font-size:22px;font-weight:700;color:#0f3d20;">Sveiki, ${vocative(d.firstName)}!</h1>
+          <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#374151;">
+            Primename, kad pagal mūsų duomenis turite <strong>nesumokėtą Krūminių kaimo bendruomenės nario mokestį</strong>.
+          </p>
+
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#fef3f2;border-left:3px solid #dc2626;border-radius:4px;margin:0 0 20px;">
+            <tr>
+              <td style="padding:16px 20px;">
+                <div style="font-size:13px;color:#991b1b;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Pradelsti mokesčiai</div>
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="font-size:14px;">
+                  ${rows}
+                  <tr>
+                    <td style="padding:10px 12px 0 0;font-weight:700;color:#111827;">Iš viso skola:</td>
+                    <td style="padding:10px 0 0;text-align:right;font-weight:700;font-size:18px;color:#991b1b;">${d.totalEur} EUR</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:#374151;">
+            Prašome <strong>patvirtinti narystę</strong> ir pasirinkti tolesnius veiksmus (sumokėti grynais, sumokėti pavedimu arba išstoti) paspaudę mygtuką žemiau:
+          </p>
+
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0;">
+            <tr>
+              <td style="border-radius:8px;background:#15803d;">
+                <a href="${d.url}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:8px;font-family:Arial,Helvetica,sans-serif;">Patvirtinti narystę</a>
+              </td>
+            </tr>
+          </table>
+
+          <p style="margin:24px 0 16px;font-size:13px;color:#6b7280;line-height:1.6;">
+            Jei mygtukas neveikia, nukopijuokite šią nuorodą į naršyklę:<br>
+            <a href="${d.url}" style="color:#15803d;word-break:break-all;">${d.url}</a>
+          </p>
+
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f0fdf4;border-left:3px solid #15803d;border-radius:4px;margin:24px 0 16px;">
+            <tr>
+              <td style="padding:16px 20px;">
+                <div style="font-size:13px;color:#166534;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">Mokėjimo rekvizitai (jei sumokėsite iškart)</div>
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="font-size:14px;color:#374151;line-height:1.7;">
+                  <tr><td style="padding-right:12px;color:#6b7280;">Gavėjas:</td><td style="font-weight:600;color:#111827;">${BANK_RECIPIENT}</td></tr>
+                  <tr><td style="padding-right:12px;color:#6b7280;">Sąskaita:</td><td style="font-family:monospace;font-weight:600;color:#111827;">${BANK_ACCOUNT}</td></tr>
+                  <tr><td style="padding-right:12px;color:#6b7280;">Bankas:</td><td style="color:#111827;">${BANK_NAME}</td></tr>
+                  <tr><td style="padding-right:12px;color:#6b7280;">Suma:</td><td style="font-weight:700;color:#15803d;">${d.totalEur} EUR</td></tr>
+                  <tr><td style="padding-right:12px;color:#6b7280;">Paskirtis:</td><td style="color:#111827;">Nario mokestis (${d.yearsList}) – ${d.firstName} ${d.lastName}</td></tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          <p style="margin:24px 0 0;font-size:14px;line-height:1.6;color:#374151;">
+            Pagarbiai,<br>
+            <strong style="font-size:15px;color:#0f3d20;">Mindaugas Mameniškis</strong><br>
+            <span style="color:#6b7280;font-size:13px;">Bendruomenės pirmininkas</span>
+          </p>
+        `,
+  });
+  return {
+    subject: `Krūminių bendruomenė: nario mokesčio skola ${d.totalEur} EUR – patvirtinkit narystę`,
+    html,
+  };
 }

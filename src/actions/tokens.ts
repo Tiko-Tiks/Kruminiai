@@ -1,6 +1,7 @@
 "use server";
 
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { requireAdmin } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { sendSms, normalizePhone } from "@/lib/infobip";
 import { sendEmail, renderBrandedEmail } from "@/lib/email";
@@ -27,7 +28,9 @@ function getBaseUrl(): string {
 // =============================================================================
 export async function generateAndSendVotingTokens(meetingId: string) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { success: false as const, error: auth.error };
+  const user = auth.user;
 
   // Susirinkimas
   const { data: meeting, error: meetingErr } = await supabase
@@ -42,7 +45,7 @@ export async function generateAndSendVotingTokens(meetingId: string) {
   // kol Taryba nepriima sprendimo dėl jų pašalinimo (įstatų 5.3.1 p.).
   const { data: members, error: membersErr } = await supabase
     .from("members")
-    .select("id, first_name, last_name, phone, email, status")
+    .select("id, first_name, last_name, phone, email, status, language")
     .in("status", ["aktyvus", "pasyvus"]);
 
   if (membersErr) return { success: false as const, error: membersErr.message };
@@ -96,7 +99,10 @@ export async function generateAndSendVotingTokens(meetingId: string) {
 
     // SMS be lt diakritikos (GSM-7 = 160 simb./SMS), su trumpu tokenu telpa i 1 SMS.
     const url = `${baseUrl}/balsuoti/${token}`;
-    const text = `Visuotinis susirinkimas 2026-05-23 18:00. Balsuokite: ${url}`;
+    const text =
+      (m as { language?: string }).language === "en"
+        ? `General meeting 2026-05-23 18:00. Vote: ${url}`
+        : `Visuotinis susirinkimas 2026-05-23 18:00. Balsuokite: ${url}`;
 
     const result = await sendSms(m.phone, text);
     await logNotification(supabase, {
@@ -145,10 +151,14 @@ export async function generateAndSendVotingTokens(meetingId: string) {
 // =============================================================================
 export async function resendVotingSms(meetingId: string) {
   const supabase = createServerSupabaseClient();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) {
+    return { success: false as const, error: auth.error, smsSent: 0, errors: [] as string[] };
+  }
 
   const { data: tokens } = await supabase
     .from("meeting_voting_tokens")
-    .select("token, member_id, members(first_name, last_name, phone)")
+    .select("token, member_id, members(first_name, last_name, phone, language)")
     .eq("meeting_id", meetingId)
     .is("voted_at", null);
 
@@ -166,7 +176,10 @@ export async function resendVotingSms(meetingId: string) {
     if (!member?.phone) continue;
 
     const url = `${baseUrl}/balsuoti/${t.token}`;
-    const text = `Priminimas: balsavimas 2026-05-23 18:00. Balsuokite: ${url}`;
+    const text =
+      (member as { language?: string }).language === "en"
+        ? `Reminder: voting 2026-05-23 18:00. Vote: ${url}`
+        : `Priminimas: balsavimas 2026-05-23 18:00. Balsuokite: ${url}`;
 
     const result = await sendSms(member.phone, text);
     await logNotification(supabase, {
@@ -197,6 +210,10 @@ export async function resendVotingSms(meetingId: string) {
 // =============================================================================
 export async function getVotingTokensStats(meetingId: string) {
   const supabase = createServerSupabaseClient();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) {
+    return { total: 0, sent: 0, viewed: 0, voted: 0, liveIntent: 0, pending: 0, tokens: [] };
+  }
 
   const { data: tokens } = await supabase
     .from("meeting_voting_tokens")
@@ -242,7 +259,8 @@ export async function castVotesByToken(
   firstName: string,
   email: string | null,
   phone: string | null,
-  votes: VoteWithDetails[]
+  votes: VoteWithDetails[],
+  locale: "lt" | "en" = "lt"
 ) {
   const supabase = createServerSupabaseClient();
 
@@ -266,9 +284,17 @@ export async function castVotesByToken(
     return { success: true };
   }
 
-  // Po balsavimo siųsti patvirtinimą su pilnais balsų rezultatais
-  const greeting = firstName ? `Sveiki, ${vocative(firstName)}!` : "Sveiki!";
-  const votedAt = new Date().toLocaleString("lt-LT", {
+  // Po balsavimo siųsti patvirtinimą su pilnais balsų rezultatais (kalba – pagal
+  // balsavimo puslapio svetainės kalbą; nario įrašas anon RPC sraute nepasiekiamas).
+  const en = locale === "en";
+  const greeting = firstName
+    ? en
+      ? `Hello, ${firstName}!`
+      : `Sveiki, ${vocative(firstName)}!`
+    : en
+      ? "Hello!"
+      : "Sveiki!";
+  const votedAt = new Date().toLocaleString(en ? "en-GB" : "lt-LT", {
     timeZone: "Europe/Vilnius",
     day: "2-digit",
     month: "2-digit",
@@ -277,11 +303,17 @@ export async function castVotesByToken(
     minute: "2-digit",
   });
 
-  const voteLabels: Record<string, { label: string; color: string; bg: string }> = {
-    uz: { label: "Už", color: "#166534", bg: "#dcfce7" },
-    pries: { label: "Prieš", color: "#991b1b", bg: "#fee2e2" },
-    susilaike: { label: "Susilaikė", color: "#374151", bg: "#f3f4f6" },
-  };
+  const voteLabels: Record<string, { label: string; color: string; bg: string }> = en
+    ? {
+        uz: { label: "For", color: "#166534", bg: "#dcfce7" },
+        pries: { label: "Against", color: "#991b1b", bg: "#fee2e2" },
+        susilaike: { label: "Abstained", color: "#374151", bg: "#f3f4f6" },
+      }
+    : {
+        uz: { label: "Už", color: "#166534", bg: "#dcfce7" },
+        pries: { label: "Prieš", color: "#991b1b", bg: "#fee2e2" },
+        susilaike: { label: "Susilaikė", color: "#374151", bg: "#f3f4f6" },
+      };
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const docUrl = (filePath: string) =>
@@ -321,7 +353,41 @@ export async function castVotesByToken(
     })
     .join("");
 
-  const body = `
+  const body = en
+    ? `
+    <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">${greeting}</h1>
+    <p style="margin:0 0 20px;font-size:15px;line-height:1.7;color:#374151;">
+      Your vote on the items of the Krūminiai Village Community ordinary general members' meeting of <strong style="color:#111827;">23 May 2026</strong> has been successfully registered.
+    </p>
+
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f0fdf4;border-left:3px solid #15803d;border-radius:4px;margin:24px 0;">
+      <tr>
+        <td style="padding:16px 20px;">
+          <div style="font-size:14px;color:#166534;font-weight:600;">✓ Vote registered</div>
+          <div style="margin-top:4px;font-size:13px;color:#374151;">${votedAt} (Europe/Vilnius)</div>
+          <div style="margin-top:8px;font-size:13px;color:#4b5563;line-height:1.5;">
+            You will be counted as a <strong>remote participant</strong> for establishing the meeting quorum.
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <h2 style="margin:32px 0 12px;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:700;color:#0f3d20;">Your votes by agenda item</h2>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;">
+      ${votesHtml}
+    </table>
+
+    <p style="margin:32px 0 8px;font-size:14px;line-height:1.6;color:#6b7280;">
+      If you noticed a mistake or have any questions, write to <a href="mailto:info@kruminiai.lt" style="color:#15803d;text-decoration:underline;">info@kruminiai.lt</a>.
+    </p>
+
+    <p style="margin:24px 0 0;font-size:15px;line-height:1.7;color:#374151;">
+      Kind regards,<br>
+      <strong style="font-family:Arial,Helvetica,sans-serif;font-weight:700;font-size:15px;color:#0f3d20;">Mindaugas Mameniškis</strong><br>
+      <span style="color:#6b7280;font-size:13px;">Community chairperson</span>
+    </p>
+  `
+    : `
     <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">${greeting}</h1>
     <p style="margin:0 0 20px;font-size:15px;line-height:1.7;color:#374151;">
       Jūsų balsas dėl <strong style="color:#111827;">2026 m. gegužės 23 d.</strong> Krūminių kaimo bendruomenės eilinio visuotinio narių susirinkimo klausimų sėkmingai užregistruotas.
@@ -356,11 +422,16 @@ export async function castVotesByToken(
   `;
 
   const html = renderBrandedEmail({
-    preheader: `Jūsų balsas dėl 2026-05-23 visuotinio susirinkimo užregistruotas (${votes.length} klausimai).`,
+    locale,
+    preheader: en
+      ? `Your vote for the 23 May 2026 general meeting has been registered (${votes.length} items).`
+      : `Jūsų balsas dėl 2026-05-23 visuotinio susirinkimo užregistruotas (${votes.length} klausimai).`,
     body,
   });
 
-  const subject = "Jūsų balsas užregistruotas – Krūminių bendruomenė";
+  const subject = en
+    ? "Your vote has been registered – Krūminiai Village Community"
+    : "Jūsų balsas užregistruotas – Krūminių bendruomenė";
   const sendResult = await sendEmail(email, subject, html).catch(() => null);
   await logNotification(supabase, {
     memberId: null, // tokenu pagrįstas srautas; member_id žinomas tik per RPC, čia praleidžiam

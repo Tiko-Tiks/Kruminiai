@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { castVotesByToken, registerLiveIntentByToken } from "@/actions/tokens";
 import { VOTE_LABELS } from "@/lib/constants";
+import { useLocale } from "@/components/i18n/LocaleProvider";
 
 // PDF Viewer įkraunamas tik kliente (react-pdf reikalauja browser API)
 const PdfViewer = dynamic(() => import("@/components/PdfViewer").then((m) => m.PdfViewer), {
@@ -83,6 +84,7 @@ type Step = "contacts" | "voting" | "review" | "done_voted" | "done_live";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function VotingFlow({ token, data }: Props) {
+  const locale = useLocale();
   const [step, setStep] = useState<Step>("contacts");
   const [email, setEmail] = useState(data.member.email || "");
   const [phone, setPhone] = useState(data.member.phone || "");
@@ -148,7 +150,8 @@ export function VotingFlow({ token, data }: Props) {
           title: d.title,
           file_path: d.file_path,
         })),
-      }))
+      })),
+      locale
     );
     setSubmitting(false);
 
