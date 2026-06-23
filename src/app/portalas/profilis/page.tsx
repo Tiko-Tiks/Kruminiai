@@ -1,6 +1,7 @@
 import { getMemberProfile } from "@/actions/portal";
 import { ProfileForm } from "./ProfileForm";
 import { formatDate } from "@/lib/utils";
+import { getDict } from "@/lib/i18n-server";
 import { User, AlertCircle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -27,12 +28,13 @@ interface ProfileData {
 
 export default async function PortalProfilePage() {
   const data = (await getMemberProfile()) as ProfileData;
+  const t = getDict().portalProfile;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Mano duomenys</h1>
-        <p className="text-sm text-gray-500 mt-1">Atnaujinkite savo kontaktus</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t.pageTitle}</h1>
+        <p className="text-sm text-gray-500 mt-1">{t.pageSubtitle}</p>
       </div>
 
       {!data.member && (
@@ -40,11 +42,8 @@ export default async function PortalProfilePage() {
           <div className="flex gap-3">
             <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold mb-1">Paskyra dar nesusieta su nario duomenimis</p>
-              <p>
-                Susisiekite su bendruomenės administratoriumi, kad jūsų paskyrą susietų su nario
-                įrašu.
-              </p>
+              <p className="font-semibold mb-1">{t.noMemberLinkTitle}</p>
+              <p>{t.noMemberLinkBody}</p>
             </div>
           </div>
         </div>
@@ -63,7 +62,7 @@ export default async function PortalProfilePage() {
                   {data.member.first_name} {data.member.last_name}
                 </h2>
                 <p className="text-sm text-gray-500">
-                  Narys nuo {formatDate(data.member.join_date)} ·{" "}
+                  {t.memberSincePrefix} {formatDate(data.member.join_date)} ·{" "}
                   <span
                     className={
                       data.member.status === "aktyvus"
@@ -71,13 +70,13 @@ export default async function PortalProfilePage() {
                         : "text-gray-500"
                     }
                   >
-                    {data.member.status === "aktyvus" ? "Aktyvus" : data.member.status}
+                    {data.member.status === "aktyvus" ? t.statusActive : data.member.status}
                   </span>
                 </p>
               </div>
             </div>
             <p className="text-xs text-gray-500 border-t border-gray-100 pt-3">
-              Norint pakeisti vardą ar pavardę, susisiekite su administratoriumi.
+              {t.changeNameNotice}
             </p>
           </div>
 

@@ -1,7 +1,6 @@
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
-import { DOCUMENT_CATEGORY_LABELS } from "@/lib/constants";
 import { formatDate, formatDateLong } from "@/lib/utils";
 import { getDict } from "@/lib/i18n-server";
 import { DocumentLink } from "@/components/DocumentLink";
@@ -44,6 +43,7 @@ interface MeetingRow {
 export default async function DocumentsPage() {
   const supabase = createServerSupabaseClient();
   const t = getDict().documents;
+  const cat = getDict().docCategories as Record<string, string>;
 
   // Trys užklausos lygiagrečiai:
   // 1) visi public dokumentai
@@ -145,7 +145,7 @@ export default async function DocumentsPage() {
                     {Object.entries(generalGrouped).map(([category, list]) => (
                       <div key={category}>
                         <h3 className="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wider">
-                          {DOCUMENT_CATEGORY_LABELS[category] || category}
+                          {cat[category] || category}
                         </h3>
                         <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100 overflow-hidden">
                           {list.map((doc) => (

@@ -3,8 +3,8 @@
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useState, useTransition, useEffect } from "react";
 import { Search, X } from "lucide-react";
-import { DOCUMENT_CATEGORY_LABELS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 interface Props {
   totalCount: number;
@@ -12,6 +12,8 @@ interface Props {
 }
 
 export function PortalDocFilters({ totalCount, filteredCount }: Props) {
+  const t = useT().portalDocuments;
+  const categories = useT().docCategories as Record<string, string>;
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -43,7 +45,7 @@ export function PortalDocFilters({ totalCount, filteredCount }: Props) {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
         <input
           type="search"
-          placeholder="Ieškoti dokumentų..."
+          placeholder={t.searchPlaceholder}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full pl-10 pr-9 py-2 text-sm rounded-lg border border-gray-300 focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
@@ -60,8 +62,8 @@ export function PortalDocFilters({ totalCount, filteredCount }: Props) {
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        <Chip active={category === "visos"} onClick={() => setCategory(null)} label="Visos" />
-        {Object.entries(DOCUMENT_CATEGORY_LABELS).map(([key, label]) => (
+        <Chip active={category === "visos"} onClick={() => setCategory(null)} label={t.filterAll} />
+        {Object.entries(categories).map(([key, label]) => (
           <Chip
             key={key}
             active={category === key}
@@ -71,12 +73,12 @@ export function PortalDocFilters({ totalCount, filteredCount }: Props) {
         ))}
         <span className="ml-auto text-xs text-gray-500">
           {isPending ? (
-            "Filtruojama..."
+            t.filtering
           ) : filteredCount === totalCount ? (
-            `${totalCount} dokumentų`
+            `${totalCount} ${t.docsCountWord}`
           ) : (
             <>
-              <strong>{filteredCount}</strong> iš {totalCount}
+              <strong>{filteredCount}</strong> {t.ofWord} {totalCount}
             </>
           )}
         </span>

@@ -339,6 +339,44 @@ export interface Dictionary {
     voteAgainst: string;
     voteAbstain: string;
   };
+  portalProfile: {
+    pageTitle: string;
+    pageSubtitle: string;
+    noMemberLinkTitle: string;
+    noMemberLinkBody: string;
+    memberSincePrefix: string;
+    statusActive: string;
+    changeNameNotice: string;
+    contactsHeading: string;
+    emailLabel: string;
+    emailPlaceholder: string;
+    phoneLabel: string;
+    phonePlaceholder: string;
+    addressLabel: string;
+    addressPlaceholder: string;
+    saveButton: string;
+    saveErrorFallback: string;
+    saveSuccessToast: string;
+  };
+  portalDocuments: {
+    pageTitle: string;
+    pageSubtitle: string;
+    emptyTitle: string;
+    emptyHint: string;
+    searchPlaceholder: string;
+    filterAll: string;
+    filtering: string;
+    docsCountWord: string;
+    ofWord: string;
+    yearSuffix: string;
+  };
+  docCategories: {
+    protokolai: string;
+    ataskaitos: string;
+    istatai: string;
+    sutartys: string;
+    kita: string;
+  };
 }
 
 const lt: Dictionary = {
@@ -698,6 +736,45 @@ const lt: Dictionary = {
     voteAgainst: "Prieš",
     voteAbstain: "Susilaikau",
   },
+  portalProfile: {
+    pageTitle: "Mano duomenys",
+    pageSubtitle: "Atnaujinkite savo kontaktus",
+    noMemberLinkTitle: "Paskyra dar nesusieta su nario duomenimis",
+    noMemberLinkBody:
+      "Susisiekite su bendruomenės administratoriumi, kad jūsų paskyrą susietų su nario įrašu.",
+    memberSincePrefix: "Narys nuo",
+    statusActive: "Aktyvus",
+    changeNameNotice: "Norint pakeisti vardą ar pavardę, susisiekite su administratoriumi.",
+    contactsHeading: "Kontaktai",
+    emailLabel: "El. paštas",
+    emailPlaceholder: "vardenis@email.com",
+    phoneLabel: "Telefonas",
+    phonePlaceholder: "+370 6XX XXXXX",
+    addressLabel: "Adresas",
+    addressPlaceholder: "Gatvė ir namo numeris",
+    saveButton: "Išsaugoti",
+    saveErrorFallback: "Klaida",
+    saveSuccessToast: "Duomenys atnaujinti",
+  },
+  portalDocuments: {
+    pageTitle: "Dokumentai",
+    pageSubtitle: "Bendruomenės dokumentų archyvas",
+    emptyTitle: "Dokumentų nerasta",
+    emptyHint: "Pabandykite pakeisti paieškos kriterijus",
+    searchPlaceholder: "Ieškoti dokumentų...",
+    filterAll: "Visos",
+    filtering: "Filtruojama...",
+    docsCountWord: "dokumentų",
+    ofWord: "iš",
+    yearSuffix: " m.",
+  },
+  docCategories: {
+    protokolai: "Protokolai",
+    ataskaitos: "Ataskaitos",
+    istatai: "Įstatai",
+    sutartys: "Sutartys",
+    kita: "Kita",
+  },
 };
 
 const en: Dictionary = {
@@ -1056,6 +1133,45 @@ const en: Dictionary = {
     voteFor: "For",
     voteAgainst: "Against",
     voteAbstain: "Abstain",
+  },
+  portalProfile: {
+    pageTitle: "My details",
+    pageSubtitle: "Update your contact details",
+    noMemberLinkTitle: "Account is not yet linked to member records",
+    noMemberLinkBody:
+      "Please contact the community administrator to have your account linked to a member record.",
+    memberSincePrefix: "Member since",
+    statusActive: "Active",
+    changeNameNotice: "To change your first or last name, please contact the administrator.",
+    contactsHeading: "Contact details",
+    emailLabel: "Email",
+    emailPlaceholder: "name@email.com",
+    phoneLabel: "Phone",
+    phonePlaceholder: "+370 6XX XXXXX",
+    addressLabel: "Address",
+    addressPlaceholder: "Street and house number",
+    saveButton: "Save",
+    saveErrorFallback: "Error",
+    saveSuccessToast: "Details updated",
+  },
+  portalDocuments: {
+    pageTitle: "Documents",
+    pageSubtitle: "Community document archive",
+    emptyTitle: "No documents found",
+    emptyHint: "Try changing your search criteria",
+    searchPlaceholder: "Search documents...",
+    filterAll: "All",
+    filtering: "Filtering...",
+    docsCountWord: "documents",
+    ofWord: "of",
+    yearSuffix: "",
+  },
+  docCategories: {
+    protokolai: "Minutes",
+    ataskaitos: "Reports",
+    istatai: "Articles of association",
+    sutartys: "Contracts",
+    kita: "Other",
   },
 };
 
