@@ -28,6 +28,7 @@ const memberSchema = z.object({
   address: z.string().optional().or(z.literal("")),
   join_date: z.string().min(1, "Data privaloma"),
   status: z.enum(["aktyvus", "pasyvus", "išstojęs"]),
+  language: z.enum(["lt", "en"]).optional(),
   notes: z.string().optional().or(z.literal("")),
 });
 

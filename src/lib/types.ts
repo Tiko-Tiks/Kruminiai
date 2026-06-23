@@ -17,6 +17,7 @@ export interface Member {
   address: string | null;
   join_date: string;
   status: MemberStatus;
+  language: "lt" | "en";
   notes: string | null;
   created_at: string;
   updated_at: string;

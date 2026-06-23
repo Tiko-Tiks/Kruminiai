@@ -6,10 +6,11 @@ import { sendMembershipRequestEmail } from "@/actions/membership";
 import Link from "next/link";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { UserPlus, CheckCircle } from "lucide-react";
-import { useT } from "@/components/i18n/LocaleProvider";
+import { useT, useLocale } from "@/components/i18n/LocaleProvider";
 
 export default function RegisterPage() {
   const t = useT().auth;
+  const locale = useLocale();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -62,7 +63,7 @@ export default function RegisterPage() {
     // Laiškas #1 – pasveikinimas + kaip apmokėti nario mokestį. Klaida nestabdo
     // registracijos (paskyra jau sukurta), tik tyliai užfiksuojama serveryje.
     try {
-      await sendMembershipRequestEmail({ email, firstName, lastName });
+      await sendMembershipRequestEmail({ email, firstName, lastName, locale });
     } catch {
       // ignoruojam – siuntimas best-effort
     }

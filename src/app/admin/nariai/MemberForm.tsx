@@ -117,6 +117,18 @@ export function MemberForm({ member }: Props) {
               ]}
             />
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Select
+              id="language"
+              name="language"
+              label="El. laiškų kalba"
+              defaultValue={(member as { language?: string })?.language || "lt"}
+              options={[
+                { value: "lt", label: "Lietuvių" },
+                { value: "en", label: "English" },
+              ]}
+            />
+          </div>
           <Textarea
             id="notes"
             name="notes"

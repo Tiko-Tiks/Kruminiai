@@ -127,15 +127,20 @@ export async function approveUser(
     }
 
     // 2) Laiškas #2 – pasveikinimas tapus nariu + supažindinimas su sistema.
+    //    Kalba – pagal nario `language` lauką (admin gali nustatyti 'en').
     if (memberId) {
       const { data: member } = await supabase
         .from("members")
-        .select("first_name, email")
+        .select("first_name, email, language")
         .eq("id", memberId)
         .single();
       if (member?.email) {
-        const subject = "Sveiki tapę Krūminių kaimo bendruomenės nariu!";
-        const html = renderMemberWelcomeEmail({ firstName: member.first_name as string });
+        const locale = member.language === "en" ? "en" : "lt";
+        const subject =
+          locale === "en"
+            ? "Welcome to the Krūminiai Village Community!"
+            : "Sveiki tapę Krūminių kaimo bendruomenės nariu!";
+        const html = renderMemberWelcomeEmail({ firstName: member.first_name as string, locale });
         const r = await sendEmail(member.email as string, subject, html);
         await logNotification(supabase, {
           memberId,

@@ -401,6 +401,35 @@ brand'intus laiškus (#1, #2), o prieigą vis tiek saugo `is_approved`.
 **Taisyklė:** vartotojo patvirtinimas/atšaukimas – tik per `approveUser`/`revokeUser`
 server action'us, niekada tiesioginiu kliento `profiles.update({ is_approved })`.
 
+## ARCHITEKTŪRA: Dvikalbystė (i18n) – LT/EN
+
+**Tikslas:** lankytojai (pvz. garbės narys anglakalbis) gali matyti puslapį +
+nario portalą angliškai. Numatyta kalba – **lietuvių**.
+
+**Mechanizmas (cookie-pagrįstas, BE `/[locale]` maršrutų):**
+- `src/lib/i18n.ts` – `Locale` tipas, LT/EN žodynai (namespace'ai: `nav`, `header`,
+  `footer`, `home`, `lieptas`, `transparency`, `portalFinance`, `about`, `auth`,
+  `projects`, `news`, `documents`, `portalHome`, `portalVoting`, `portalHistory`,
+  `portalProfile`, `portalDocuments`, `docCategories`), `getDictionary(locale)`
+- `src/lib/i18n-server.ts` – `getLocale()` / `getDict()` serverio komponentams (cookie `NEXT_LOCALE`)
+- `src/components/i18n/LocaleProvider.tsx` – klientinis kontekstas, `useLocale()` / `useT()`
+- `src/components/i18n/LanguageToggle.tsx` – LT|EN perjungiklis (nustato cookie + `router.refresh()`)
+- Šakninis `layout.tsx` skaito cookie, įdeda `LocaleProvider`, nustato `<html lang>`
+
+**Naujo teksto pridėjimas:** įdėti raktą į atitinkamą namespace `src/lib/i18n.ts`
+(IR `lt`, IR `en` blokuose + interface), tada vartoti `getDict().<ns>.key` (serveris)
+arba `useT().<ns>.key` (klientas). Kategorijų etiketės – per `docCategories`
+(NE `DOCUMENT_CATEGORY_LABELS` constants, kurie liko LT admin pusėje).
+
+**Ką PALIEKAM lietuviškai (tikslinga):** DB turinys (naujienų straipsniai,
+dokumentų/susirinkimų pavadinimai, narių vardai), SEO metaduomenys, administravimas
+(LT komandai), kai kurie `constants.ts` label'ai (statusai, mokesčių tipai).
+
+**El. laiškai – ATSKIRA sistema** (ne web žodynas): žr. „### Email".
+
+**Cookie efektas:** `cookies()` šakniniame layout'e → visi puslapiai tampa
+dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
+
 ## Konvencijos
 
 ### Bendros
@@ -432,12 +461,17 @@ server action'us, niekada tiesioginiu kliento `profiles.update({ is_approved })`
 - Logotipas tik **poraštėje** (žaliame fone nyksta)
 - Antraštės šriftas: **Georgia** (serif) – elegancijai
 - Kūno šriftas: sisteminis sans-serif
+- **Dvikalbiai laiškai:** narystės laiškai (`src/lib/membership-emails.ts`) ir
+  rekvizitų blokas (`renderPaymentDetailsBlock`) priima `locale` ('lt'/'en').
+  Kalba imama iš `members.language` (laiškas #2, priminimai) arba registracijos
+  puslapio kalbos (laiškas #1, nes nario įrašo dar nėra). Web žodynas
+  (`src/lib/i18n.ts`) NĖRA naudojamas laiškams – jie turi atskirus LT/EN tekstus.
 
-### Lt UI
-- Visi tekstai, URL slug'ai, error messages – **lietuviškai**
-- Šauksmininko forma kreipiniuose visada
-- Datos formatas: `2026 m. gegužės 23 d.` (formatDateLong) arba `2026-05-23` (ISO)
-- Laikas 24h be AM/PM
+### UI kalba (i18n)
+- **Numatyta – lietuvių.** Anglų – pasirenkama per LT/EN perjungiklį (`NEXT_LOCALE` cookie).
+- Datos formatas: `2026 m. gegužės 23 d.` (formatDateLong) arba `2026-05-23` (ISO); laikas 24h
+- Šauksmininko forma (`vocative`) – TIK lietuvių kalbai (anglų varduose netaikoma)
+- Žr. „ARCHITEKTŪRA: Dvikalbystė (i18n)"
 
 ## Migracijos
 
@@ -472,6 +506,7 @@ server action'us, niekada tiesioginiu kliento `profiles.update({ is_approved })`
 | 027 | `027_contact_update_tokens.sql` | `contact_update_tokens` lentelė + 2 RPC – SMS magic link srautas nariams, kurie neturi el. pašto, kad galėtų patys jį pridėti per `/duomenys/[token]` |
 | 028 | `028_security_hardening.sql` | **RLS užveržimas** – pašalintos `Authenticated full access` (USING true) politikos; rašo tik admin (`is_admin()`), nariai mato tik savo `vote_ballots`/`members`/`profiles`; `protect_profile_privileges` trigger'is (anti-eskalacija); storage tik admin; `get_transparency_fee_stats` RPC |
 | 029 | `029_function_grants_fix.sql` | Funkcijų EXECUTE higiena – atimtas default `PUBLIC` grant'as nuo vidinių/nario RPC (anon nebegali kviesti), token srauto RPC palikti anon |
+| 030 | `030_member_language.sql` | `members.language` ('lt'/'en', default 'lt') – nario pageidaujama el. laiškų kalba; admin nustato per nario formą |
 
 DB pakeitimai daromi **per Supabase MCP** (`apply_migration`) IR sinchronizuojami į `supabase/migrations/` lokaliam repo įrašymui.
 

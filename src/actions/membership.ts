@@ -17,17 +17,23 @@ export async function sendMembershipRequestEmail(input: {
   email: string;
   firstName: string;
   lastName: string;
+  locale?: "lt" | "en";
 }): Promise<{ success: boolean }> {
   const email = (input.email || "").trim();
   const firstName = (input.firstName || "").trim();
   const lastName = (input.lastName || "").trim();
   if (!email) return { success: false };
 
+  const locale = input.locale === "en" ? "en" : "lt";
   const fullName = `${firstName} ${lastName}`.trim() || email;
-  const subject = "Narystės užklausa gauta – kaip tapti Krūminių kaimo bendruomenės nariu";
+  const subject =
+    locale === "en"
+      ? "Membership request received – how to join the Krūminiai Village Community"
+      : "Narystės užklausa gauta – kaip tapti Krūminių kaimo bendruomenės nariu";
   const html = renderMembershipRequestEmail({
     firstName: firstName || fullName,
     fullName,
+    locale,
   });
 
   const r = await sendEmail(email, subject, html);
