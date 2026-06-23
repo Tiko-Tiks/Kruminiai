@@ -23,6 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { SITE_NAME } from "@/lib/constants";
 import { createClient } from "@/lib/supabase";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 /**
  * Nario portalo sidebar'as. Surūšiuotas į dvi grupes, kad nariui būtų
@@ -37,9 +38,9 @@ import { createClient } from "@/lib/supabase";
  */
 
 interface NavSection {
-  title: string;
+  titleKey: string;
   items: Array<{
-    label: string;
+    labelKey: string;
     href: string;
     icon: typeof LayoutDashboard;
   }>;
@@ -47,24 +48,24 @@ interface NavSection {
 
 const sections: NavSection[] = [
   {
-    title: "Mano paskyra",
+    titleKey: "sectionMyAccount",
     items: [
-      { label: "Pradžia", href: "/portalas", icon: LayoutDashboard },
-      { label: "Balsavimai", href: "/portalas/balsavimai", icon: Vote },
-      { label: "Mano istorija", href: "/portalas/istorija", icon: History },
-      { label: "Mano mokėjimai", href: "/portalas/finansai", icon: Banknote },
-      { label: "Mano duomenys", href: "/portalas/profilis", icon: User },
+      { labelKey: "navHome", href: "/portalas", icon: LayoutDashboard },
+      { labelKey: "navVotes", href: "/portalas/balsavimai", icon: Vote },
+      { labelKey: "navMyHistory", href: "/portalas/istorija", icon: History },
+      { labelKey: "navMyPayments", href: "/portalas/finansai", icon: Banknote },
+      { labelKey: "navMyData", href: "/portalas/profilis", icon: User },
     ],
   },
   {
-    title: "Bendruomenė",
+    titleKey: "sectionCommunity",
     items: [
-      { label: "Naujienos", href: "/naujienos", icon: Newspaper },
-      { label: "Susirinkimai", href: "/portalas/susirinkimai", icon: CalendarDays },
-      { label: "Projektai", href: "/projektai", icon: Heart },
-      { label: "Dokumentai", href: "/portalas/dokumentai", icon: FileText },
-      { label: "Finansai", href: "/skaidrumas", icon: TrendingUp },
-      { label: "Apie mus", href: "/kontaktai", icon: Info },
+      { labelKey: "navNews", href: "/naujienos", icon: Newspaper },
+      { labelKey: "navMeetings", href: "/portalas/susirinkimai", icon: CalendarDays },
+      { labelKey: "navProjects", href: "/projektai", icon: Heart },
+      { labelKey: "navDocuments", href: "/portalas/dokumentai", icon: FileText },
+      { labelKey: "navFinances", href: "/skaidrumas", icon: TrendingUp },
+      { labelKey: "navAboutUs", href: "/kontaktai", icon: Info },
     ],
   },
 ];
@@ -72,6 +73,8 @@ const sections: NavSection[] = [
 export function MemberSidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const t = useT().portalHome;
+  const tr = (key: string) => (t as Record<string, string>)[key] ?? key;
   const [open, setOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -97,15 +100,15 @@ export function MemberSidebar() {
         />
         <div className="min-w-0">
           <p className="text-sm font-semibold text-white truncate">{SITE_NAME}</p>
-          <p className="text-xs text-green-200">Nario portalas</p>
+          <p className="text-xs text-green-200">{t.sidebarSubtitle}</p>
         </div>
       </div>
 
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
         {sections.map((section, idx) => (
-          <div key={section.title} className={idx > 0 ? "mt-5" : ""}>
+          <div key={section.titleKey} className={idx > 0 ? "mt-5" : ""}>
             <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-green-300/80">
-              {section.title}
+              {tr(section.titleKey)}
             </p>
             <div className="space-y-1">
               {section.items.map((item) => {
@@ -124,7 +127,7 @@ export function MemberSidebar() {
                     )}
                   >
                     <Icon className="h-4.5 w-4.5 flex-shrink-0" />
-                    <span className="flex-1">{item.label}</span>
+                    <span className="flex-1">{tr(item.labelKey)}</span>
                   </Link>
                 );
               })}
@@ -139,7 +142,7 @@ export function MemberSidebar() {
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-green-100 hover:bg-white/10 hover:text-white transition-colors"
         >
           <LogOut className="h-5 w-5" />
-          Atsijungti
+          {t.logout}
         </button>
       </div>
     </>
@@ -152,7 +155,7 @@ export function MemberSidebar() {
         type="button"
         onClick={() => setOpen(!open)}
         className="fixed top-3 left-3 z-50 lg:hidden p-2 rounded-lg bg-white shadow-md border border-gray-200"
-        aria-label="Meniu"
+        aria-label={t.menuAria}
       >
         {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>

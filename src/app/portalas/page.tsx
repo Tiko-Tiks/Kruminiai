@@ -1,5 +1,6 @@
 import { getMemberActiveMeetings, getMemberFinancialStatus, getMemberProfile, getMemberVotingHistory } from "@/actions/portal";
 import { formatDateLong, formatCurrency, vocative } from "@/lib/utils";
+import { getDict, getLocale } from "@/lib/i18n-server";
 import { Calendar, MapPin, Vote, Banknote, AlertCircle, CheckCircle2, ArrowRight, FileText, History } from "lucide-react";
 import Link from "next/link";
 
@@ -47,15 +48,18 @@ export default async function PortalDashboard() {
   const history = historyData as HistoryResult;
   const historyCount = history?.history?.length ?? 0;
 
+  const t = getDict().portalHome;
   const noMemberLink = profile?.error === "no_member_link" || !profile?.member;
   const firstName = profile?.member?.first_name || "";
-  const greeting = firstName ? `Sveiki, ${vocative(firstName)}!` : "Sveiki!";
+  // Šauksmininkas tik lietuvių kalbai – anglų vardas lieka kaip yra.
+  const greetName = getLocale() === "en" ? firstName : vocative(firstName);
+  const greeting = firstName ? t.greetingWithName.replace("{name}", greetName) : t.greetingNoName;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{greeting}</h1>
-        <p className="text-sm text-gray-500 mt-1">Krūminių kaimo bendruomenės narių portalas</p>
+        <p className="text-sm text-gray-500 mt-1">{t.portalSubtitle}</p>
       </div>
 
       {noMemberLink && (
@@ -63,10 +67,8 @@ export default async function PortalDashboard() {
           <div className="flex gap-3">
             <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold mb-1">Paskyra nesusieta su nario įrašu</p>
-              <p>
-                Susisiekite su bendruomenės administratoriumi, kad jūsų paskyrą susietų su nario duomenimis. Tada galėsite balsuoti, matyti finansų informaciją ir kitas funkcijas.
-              </p>
+              <p className="font-semibold mb-1">{t.noMemberLinkTitle}</p>
+              <p>{t.noMemberLinkBody}</p>
             </div>
           </div>
         </div>
@@ -84,7 +86,7 @@ export default async function PortalDashboard() {
           <p className="text-2xl font-bold text-gray-900">
             {meetings?.meetings?.filter((m) => !m.has_voted).length ?? 0}
           </p>
-          <p className="text-sm text-gray-500">aktyvių balsavimų</p>
+          <p className="text-sm text-gray-500">{t.activeVotesLabel}</p>
         </Link>
 
         <Link
@@ -107,7 +109,7 @@ export default async function PortalDashboard() {
             {formatCurrency(financial?.total_debt_cents ?? 0)}
           </p>
           <p className="text-sm text-gray-500">
-            {(financial?.total_debt_cents ?? 0) > 0 ? "neapmokėta" : "skolų nėra"}
+            {(financial?.total_debt_cents ?? 0) > 0 ? t.debtUnpaidLabel : t.debtNoneLabel}
           </p>
         </Link>
 
@@ -121,7 +123,7 @@ export default async function PortalDashboard() {
           </div>
           <p className="text-2xl font-bold text-gray-900">{historyCount}</p>
           <p className="text-sm text-gray-500">
-            {historyCount === 1 ? "susirinkimas" : "susirinkimų"} istorijoje
+            {historyCount === 1 ? t.historyMeetingSingular : t.historyMeetingPlural} {t.historyInPast}
           </p>
         </Link>
       </div>
@@ -130,12 +132,12 @@ export default async function PortalDashboard() {
       {(meetings?.meetings?.length ?? 0) > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Artėjantys susirinkimai</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t.upcomingMeetingsHeading}</h2>
             <Link
               href="/portalas/balsavimai"
               className="text-sm text-green-700 hover:text-green-800 font-medium"
             >
-              Visi →
+              {t.viewAllLink}
             </Link>
           </div>
           <div className="space-y-3">
@@ -162,11 +164,11 @@ export default async function PortalDashboard() {
                   </div>
                   {m.has_voted ? (
                     <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-1 rounded font-medium flex-shrink-0">
-                      <CheckCircle2 className="h-3 w-3" /> Balsavote
+                      <CheckCircle2 className="h-3 w-3" /> {t.votedBadge}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded font-medium flex-shrink-0">
-                      Balsuokite
+                      {t.voteNowBadge}
                     </span>
                   )}
                 </div>
@@ -184,8 +186,8 @@ export default async function PortalDashboard() {
         >
           <FileText className="h-6 w-6 text-green-700 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <h3 className="font-semibold text-gray-900 group-hover:text-green-700">Dokumentai</h3>
-            <p className="text-sm text-gray-500">Įstatai, protokolai, ataskaitos</p>
+            <h3 className="font-semibold text-gray-900 group-hover:text-green-700">{t.documentsCardTitle}</h3>
+            <p className="text-sm text-gray-500">{t.documentsCardDescription}</p>
           </div>
         </Link>
         <Link
@@ -194,8 +196,8 @@ export default async function PortalDashboard() {
         >
           <FileText className="h-6 w-6 text-green-700 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <h3 className="font-semibold text-gray-900 group-hover:text-green-700">Mano duomenys</h3>
-            <p className="text-sm text-gray-500">Atnaujinkite kontaktus ir duomenis</p>
+            <h3 className="font-semibold text-gray-900 group-hover:text-green-700">{t.myDataCardTitle}</h3>
+            <p className="text-sm text-gray-500">{t.myDataCardDescription}</p>
           </div>
         </Link>
       </div>

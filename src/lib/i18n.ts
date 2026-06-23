@@ -277,6 +277,43 @@ export interface Dictionary {
     docSingular: string;
     docPlural: string;
   };
+  portalHome: {
+    sidebarSubtitle: string;
+    sectionMyAccount: string;
+    sectionCommunity: string;
+    navHome: string;
+    navVotes: string;
+    navMyHistory: string;
+    navMyPayments: string;
+    navMyData: string;
+    navNews: string;
+    navMeetings: string;
+    navProjects: string;
+    navDocuments: string;
+    navFinances: string;
+    navAboutUs: string;
+    logout: string;
+    menuAria: string;
+    greetingWithName: string;
+    greetingNoName: string;
+    portalSubtitle: string;
+    noMemberLinkTitle: string;
+    noMemberLinkBody: string;
+    activeVotesLabel: string;
+    debtUnpaidLabel: string;
+    debtNoneLabel: string;
+    historyMeetingSingular: string;
+    historyMeetingPlural: string;
+    historyInPast: string;
+    upcomingMeetingsHeading: string;
+    viewAllLink: string;
+    votedBadge: string;
+    voteNowBadge: string;
+    documentsCardTitle: string;
+    documentsCardDescription: string;
+    myDataCardTitle: string;
+    myDataCardDescription: string;
+  };
 }
 
 const lt: Dictionary = {
@@ -572,6 +609,44 @@ const lt: Dictionary = {
     docSingular: "dokumentas",
     docPlural: "dokumentai",
   },
+  portalHome: {
+    sidebarSubtitle: "Nario portalas",
+    sectionMyAccount: "Mano paskyra",
+    sectionCommunity: "Bendruomenė",
+    navHome: "Pradžia",
+    navVotes: "Balsavimai",
+    navMyHistory: "Mano istorija",
+    navMyPayments: "Mano mokėjimai",
+    navMyData: "Mano duomenys",
+    navNews: "Naujienos",
+    navMeetings: "Susirinkimai",
+    navProjects: "Projektai",
+    navDocuments: "Dokumentai",
+    navFinances: "Finansai",
+    navAboutUs: "Apie mus",
+    logout: "Atsijungti",
+    menuAria: "Meniu",
+    greetingWithName: "Sveiki, {name}!",
+    greetingNoName: "Sveiki!",
+    portalSubtitle: "Krūminių kaimo bendruomenės narių portalas",
+    noMemberLinkTitle: "Paskyra nesusieta su nario įrašu",
+    noMemberLinkBody:
+      "Susisiekite su bendruomenės administratoriumi, kad jūsų paskyrą susietų su nario duomenimis. Tada galėsite balsuoti, matyti finansų informaciją ir kitas funkcijas.",
+    activeVotesLabel: "aktyvių balsavimų",
+    debtUnpaidLabel: "neapmokėta",
+    debtNoneLabel: "skolų nėra",
+    historyMeetingSingular: "susirinkimas",
+    historyMeetingPlural: "susirinkimų",
+    historyInPast: "istorijoje",
+    upcomingMeetingsHeading: "Artėjantys susirinkimai",
+    viewAllLink: "Visi →",
+    votedBadge: "Balsavote",
+    voteNowBadge: "Balsuokite",
+    documentsCardTitle: "Dokumentai",
+    documentsCardDescription: "Įstatai, protokolai, ataskaitos",
+    myDataCardTitle: "Mano duomenys",
+    myDataCardDescription: "Atnaujinkite kontaktus ir duomenis",
+  },
 };
 
 const en: Dictionary = {
@@ -866,6 +941,44 @@ const en: Dictionary = {
       "Each meeting page contains all related documents (reports, minutes, attendee list), announcements and voting results.",
     docSingular: "document",
     docPlural: "documents",
+  },
+  portalHome: {
+    sidebarSubtitle: "Member portal",
+    sectionMyAccount: "My account",
+    sectionCommunity: "Community",
+    navHome: "Home",
+    navVotes: "Votes",
+    navMyHistory: "My history",
+    navMyPayments: "My payments",
+    navMyData: "My details",
+    navNews: "News",
+    navMeetings: "Meetings",
+    navProjects: "Projects",
+    navDocuments: "Documents",
+    navFinances: "Finances",
+    navAboutUs: "About us",
+    logout: "Log out",
+    menuAria: "Menu",
+    greetingWithName: "Hello, {name}!",
+    greetingNoName: "Hello!",
+    portalSubtitle: "Krūminiai Village Community member portal",
+    noMemberLinkTitle: "Account is not linked to a member record",
+    noMemberLinkBody:
+      "Please contact the community administrator to have your account linked to your member details. You will then be able to vote, view financial information and access other features.",
+    activeVotesLabel: "active votes",
+    debtUnpaidLabel: "unpaid",
+    debtNoneLabel: "no debt",
+    historyMeetingSingular: "meeting",
+    historyMeetingPlural: "meetings",
+    historyInPast: "in history",
+    upcomingMeetingsHeading: "Upcoming meetings",
+    viewAllLink: "All →",
+    votedBadge: "Voted",
+    voteNowBadge: "Vote now",
+    documentsCardTitle: "Documents",
+    documentsCardDescription: "Bylaws, minutes, reports",
+    myDataCardTitle: "My details",
+    myDataCardDescription: "Update your contact information and details",
   },
 };
 
