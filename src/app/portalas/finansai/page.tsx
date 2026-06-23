@@ -1,5 +1,6 @@
 import { getMemberFinancialStatus } from "@/actions/portal";
 import { formatDate, formatCurrency } from "@/lib/utils";
+import { getDict } from "@/lib/i18n-server";
 import { FEE_TYPE_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/constants";
 import { Banknote, AlertTriangle, CheckCircle2, Receipt, Clock } from "lucide-react";
 
@@ -36,12 +37,14 @@ export default async function PortalFinancialPage() {
     error?: string;
   };
 
+  const t = getDict().portalFinance;
+
   if (data?.error === "no_member_link") {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Finansai</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t.pageTitle}</h1>
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 text-sm text-amber-900">
-          Paskyra nesusieta su nario įrašu. Susisiekite su administratoriumi.
+          {t.noMemberLink}
         </div>
       </div>
     );
@@ -54,10 +57,8 @@ export default async function PortalFinancialPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Finansai</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Jūsų nario mokesčių būsena ir mokėjimo istorija
-        </p>
+        <h1 className="text-2xl font-bold text-gray-900">{t.pageTitle}</h1>
+        <p className="text-sm text-gray-500 mt-1">{t.pageSubtitle}</p>
       </div>
 
       {/* Bendra būsena */}
@@ -77,7 +78,7 @@ export default async function PortalFinancialPage() {
               {formatCurrency(totalDebt)}
             </p>
             <p className="text-sm text-gray-700 mt-1">
-              {totalDebt > 0 ? "neapmokėtų mokesčių iš viso" : "neapmokėtų mokesčių neturite"}
+              {totalDebt > 0 ? t.totalDebtLabel : t.noDebtLabel}
             </p>
           </div>
         </div>
@@ -87,7 +88,7 @@ export default async function PortalFinancialPage() {
       {unpaid.length > 0 && (
         <section>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-            Neapmokėti mokesčiai ({unpaid.length})
+            {t.unpaidSectionTitle} ({unpaid.length})
           </h2>
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <ul className="divide-y divide-gray-100">
@@ -107,7 +108,7 @@ export default async function PortalFinancialPage() {
                           <>
                             {" · "}
                             <span className={u.is_overdue ? "text-red-600 font-medium" : ""}>
-                              {u.is_overdue ? "Pradelsta " : "Iki "}
+                              {u.is_overdue ? `${t.overduePrefix} ` : `${t.dueByPrefix} `}
                               {formatDate(u.due_date)}
                             </span>
                           </>
@@ -121,7 +122,7 @@ export default async function PortalFinancialPage() {
                     </p>
                     {u.is_overdue && (
                       <p className="text-xs text-red-600 mt-0.5 flex items-center gap-1 justify-end">
-                        <Clock className="h-3 w-3" /> Pradelsta
+                        <Clock className="h-3 w-3" /> {t.overdueBadge}
                       </p>
                     )}
                   </div>
@@ -129,22 +130,19 @@ export default async function PortalFinancialPage() {
               ))}
             </ul>
           </div>
-          <p className="text-xs text-gray-500 mt-2">
-            Mokesčius galite sumokėti pavedimu į bendruomenės sąskaitą. Susisiekite su pirmininku
-            dėl rekvizitų.
-          </p>
+          <p className="text-xs text-gray-500 mt-2">{t.unpaidHint}</p>
         </section>
       )}
 
       {/* Mokėjimo istorija */}
       <section>
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-          Mokėjimo istorija ({paid.length})
+          {t.historySectionTitle} ({paid.length})
         </h2>
         {paid.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
             <Receipt className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-500">Mokėjimų dar nėra</p>
+            <p className="text-sm text-gray-500">{t.noPayments}</p>
           </div>
         ) : (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">

@@ -1,6 +1,7 @@
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { getDict } from "@/lib/i18n-server";
 import { SkaidrumasTabs } from "./SkaidrumasTabs";
 
 export const dynamic = "force-dynamic";
@@ -43,14 +44,12 @@ async function getFinansaiData() {
     .select("id, year, fee_type, amount_cents")
     .order("year", { ascending: false });
 
-  const { data: members } = await supabase
-    .from("members")
-    .select("id, join_date, status")
-    .in("status", ["aktyvus", "pasyvus"]);
-
-  const { data: payments } = await supabase
-    .from("payments")
-    .select("member_id, fee_period_id, amount_cents");
+  // Nariai + mokėjimai agregavimui – per SECURITY DEFINER RPC: nariams
+  // nebereikia tiesioginės SELECT teisės į members/payments (ten PII),
+  // o RPC grąžina tik statistikai būtinus laukus be asmens duomenų.
+  const { data: feeStats } = await supabase.rpc("get_transparency_fee_stats");
+  const members = ((feeStats?.members ?? []) as { join_date: string | null; status: string }[]);
+  const payments = ((feeStats?.payments ?? []) as { fee_period_id: string; amount_cents: number }[]);
 
   // Grupuojam payments pagal metus, atskirai metinius ir kitus (stojamieji,
   // tiksliniai, vienkartiniai), kad galėtume rodyti breakdown.
@@ -157,6 +156,7 @@ export const metadata = {
 
 export default async function SkaidrumasPage() {
   const data = await getFinansaiData();
+  const t = getDict().transparency;
 
   return (
     <div className="min-h-screen flex flex-col bg-amber-50/50">
@@ -166,14 +166,12 @@ export default async function SkaidrumasPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">
           <div className="text-center mb-10">
             <h1 className="text-3xl md:text-4xl font-bold text-green-800 mb-3">
-              Finansai
+              {t.pageHeading}
             </h1>
             <p className="text-gray-500 max-w-2xl mx-auto">
-              Bendruomenės finansų skaidri ataskaita – nario mokesčiai, skolos,
-              aukos ir kaip jos naudojamos. Visi kiti dokumentai – įstatai,
-              protokolai, sutartys – yra{" "}
+              {t.introPrefix}{" "}
               <a href="/dokumentai" className="text-green-700 hover:underline font-medium">
-                dokumentų archyve
+                {t.introLinkWord}
               </a>
               .
             </p>

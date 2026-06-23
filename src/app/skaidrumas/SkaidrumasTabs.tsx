@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { DocumentLink } from "@/components/DocumentLink";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 interface DocumentRow {
   id: string;
@@ -82,6 +83,7 @@ export function SkaidrumasTabs({
   totalDonations,
   lieptasGoalCents,
 }: Props) {
+  const t = useT().transparency;
   const currentYear = new Date().getFullYear();
   const currentYearStats = yearStats.find((y) => y.year === currentYear);
   const lieptasPercent =
@@ -97,14 +99,16 @@ export function SkaidrumasTabs({
           <div className="flex items-center gap-2 mb-2">
             <Coins className="h-4 w-4 text-green-700" />
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Šiemet surinkta
+              {t.summaryCollected}
             </p>
           </div>
           <p className="text-2xl font-bold text-green-800">
             {eur(currentYearStats?.collected_cents || 0)} €
           </p>
           <p className="text-xs text-gray-500 mt-1">
-            {currentYearStats?.paid_count || 0} nariai · {currentYear} m.
+            {t.summaryCollectedMeta
+              .replace("{count}", String(currentYearStats?.paid_count || 0))
+              .replace("{year}", String(currentYear))}
           </p>
         </div>
 
@@ -112,23 +116,25 @@ export function SkaidrumasTabs({
           <div className="flex items-center gap-2 mb-2">
             <AlertCircle className="h-4 w-4 text-red-600" />
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Nario mokesčio skola
+              {t.summaryDebt}
             </p>
           </div>
           <p className="text-2xl font-bold text-red-700">{eur(totalDebt)} €</p>
-          <p className="text-xs text-gray-500 mt-1">Sukaupta per visus metus</p>
+          <p className="text-xs text-gray-500 mt-1">{t.summaryDebtMeta}</p>
         </div>
 
         <div className="bg-white rounded-2xl border border-amber-200 p-5">
           <div className="flex items-center gap-2 mb-2">
             <Heart className="h-4 w-4 text-amber-600" />
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Lieptui aukota
+              {t.summaryDonated}
             </p>
           </div>
           <p className="text-2xl font-bold text-amber-700">{eur(totalDonations)} €</p>
           <p className="text-xs text-gray-500 mt-1">
-            iš {eur(lieptasGoalCents)} € tikslo ({lieptasPercent}%)
+            {t.summaryDonatedMeta
+              .replace("{goal}", eur(lieptasGoalCents))
+              .replace("{percent}", String(lieptasPercent))}
           </p>
         </div>
       </div>
@@ -137,7 +143,7 @@ export function SkaidrumasTabs({
       <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">
           <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
-            Nario mokesčiai pagal metus
+            {t.feesByYearTitle}
           </h2>
         </div>
         <div className="overflow-x-auto">
@@ -145,19 +151,19 @@ export function SkaidrumasTabs({
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50/50">
                 <th className="text-left py-3 px-4 font-semibold text-gray-700 uppercase text-xs tracking-wider">
-                  Metai
+                  {t.colYear}
                 </th>
                 <th className="text-right py-3 px-4 font-semibold text-gray-700 uppercase text-xs tracking-wider">
-                  Surinkta
+                  {t.colCollected}
                 </th>
                 <th className="text-right py-3 px-4 font-semibold text-gray-700 uppercase text-xs tracking-wider">
-                  Galima surinkti
+                  {t.colCollectable}
                 </th>
                 <th className="text-right py-3 px-4 font-semibold text-gray-700 uppercase text-xs tracking-wider">
-                  Skola
+                  {t.colDebt}
                 </th>
                 <th className="text-right py-3 px-4 font-semibold text-gray-700 uppercase text-xs tracking-wider">
-                  Sumokėjo
+                  {t.colPaid}
                 </th>
               </tr>
             </thead>
@@ -165,7 +171,7 @@ export function SkaidrumasTabs({
               {yearStats.length === 0 ? (
                 <tr>
                   <td colSpan={5}>
-                    <EmptyState />
+                    <EmptyState message={t.emptyState} />
                   </td>
                 </tr>
               ) : (
@@ -190,7 +196,9 @@ export function SkaidrumasTabs({
                         {debt > 0 ? `${eur(debt)} €` : "—"}
                       </td>
                       <td className="py-3 px-4 text-right text-gray-600 text-xs">
-                        {y.paid_count} iš {totalEligible}
+                        {t.paidCell
+                          .replace("{paid}", String(y.paid_count))
+                          .replace("{total}", String(totalEligible))}
                       </td>
                     </tr>
                   );
@@ -213,22 +221,22 @@ export function SkaidrumasTabs({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-0.5">
-                Aukų rinkimo projektas
+                {t.fundraisingProjectLabel}
               </p>
               <h3 className="font-semibold text-gray-900 mb-2">
-                Lieptas – padėk man atsinaujinti!
+                {t.bridgeProjectTitle}
               </h3>
               <div className="flex items-baseline justify-between gap-3 text-sm mb-1.5">
                 <span className="font-semibold text-gray-900">
                   {eur(totalDonations)} €
                   <span className="text-gray-400 font-normal">
                     {" "}
-                    iš {eur(lieptasGoalCents)} €
+                    {t.bridgeOfGoal.replace("{goal}", eur(lieptasGoalCents))}
                   </span>
                 </span>
                 <span className="text-xs text-gray-500">
                   {donations.length}{" "}
-                  {donations.length === 1 ? "aukotojas" : "aukotojai"}
+                  {donations.length === 1 ? t.donorSingular : t.donorPlural}
                 </span>
               </div>
               <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
@@ -248,10 +256,10 @@ export function SkaidrumasTabs({
         <div className="bg-white rounded-2xl border border-amber-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-amber-100 bg-amber-50/40 flex items-center justify-between">
             <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
-              Aukos Liepto projektui
+              {t.donationsTitle}
             </h2>
             <span className="text-xs text-amber-700 font-semibold">
-              {donations.length} {donations.length === 1 ? "auka" : "aukos"}
+              {donations.length} {donations.length === 1 ? t.donationSingular : t.donationPlural}
             </span>
           </div>
           <div className="overflow-x-auto">
@@ -259,13 +267,13 @@ export function SkaidrumasTabs({
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50/50">
                   <th className="text-left py-3 px-4 font-semibold text-gray-700 uppercase text-xs tracking-wider">
-                    Data
+                    {t.colDate}
                   </th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-700 uppercase text-xs tracking-wider">
-                    Aukotojas
+                    {t.colDonor}
                   </th>
                   <th className="text-right py-3 px-4 font-semibold text-gray-700 uppercase text-xs tracking-wider">
-                    Suma
+                    {t.colAmount}
                   </th>
                 </tr>
               </thead>
@@ -280,7 +288,7 @@ export function SkaidrumasTabs({
                     </td>
                     <td className="py-3 px-4 text-gray-900">
                       {d.is_anonymous ? (
-                        <span className="text-gray-500 italic">Anonimas</span>
+                        <span className="text-gray-500 italic">{t.anonymousDonor}</span>
                       ) : (
                         d.donor_name || "—"
                       )}
@@ -303,7 +311,7 @@ export function SkaidrumasTabs({
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100">
             <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
-              Finansinės ataskaitos
+              {t.financialReportsTitle}
             </h2>
           </div>
           <div className="divide-y divide-gray-100">
@@ -328,10 +336,8 @@ export function SkaidrumasTabs({
         <div className="flex items-center gap-3">
           <FileText className="h-5 w-5 text-green-700" />
           <div>
-            <p className="font-semibold text-gray-900">Visi bendruomenės dokumentai</p>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Įstatai, protokolai, ataskaitos, sutartys – pilnas archyvas
-            </p>
+            <p className="font-semibold text-gray-900">{t.allDocsTitle}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{t.allDocsSubtitle}</p>
           </div>
         </div>
         <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-green-700 transition-colors" />

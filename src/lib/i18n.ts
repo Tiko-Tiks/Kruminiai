@@ -122,6 +122,54 @@ export interface Dictionary {
     copyLabel: string;
     copiedLabel: string;
   };
+  transparency: {
+    pageHeading: string;
+    introPrefix: string;
+    introLinkWord: string;
+    summaryCollected: string;
+    summaryCollectedMeta: string;
+    summaryDebt: string;
+    summaryDebtMeta: string;
+    summaryDonated: string;
+    summaryDonatedMeta: string;
+    feesByYearTitle: string;
+    colYear: string;
+    colCollected: string;
+    colCollectable: string;
+    colDebt: string;
+    colPaid: string;
+    paidCell: string;
+    fundraisingProjectLabel: string;
+    bridgeProjectTitle: string;
+    bridgeOfGoal: string;
+    donorSingular: string;
+    donorPlural: string;
+    donationsTitle: string;
+    donationSingular: string;
+    donationPlural: string;
+    colDate: string;
+    colDonor: string;
+    colAmount: string;
+    anonymousDonor: string;
+    financialReportsTitle: string;
+    allDocsTitle: string;
+    allDocsSubtitle: string;
+    emptyState: string;
+  };
+  portalFinance: {
+    pageTitle: string;
+    noMemberLink: string;
+    pageSubtitle: string;
+    totalDebtLabel: string;
+    noDebtLabel: string;
+    unpaidSectionTitle: string;
+    overduePrefix: string;
+    dueByPrefix: string;
+    overdueBadge: string;
+    unpaidHint: string;
+    historySectionTitle: string;
+    noPayments: string;
+  };
 }
 
 const lt: Dictionary = {
@@ -242,6 +290,56 @@ const lt: Dictionary = {
     copyLabel: "Kopijuoti",
     copiedLabel: "Nukopijuota",
   },
+  transparency: {
+    pageHeading: "Finansai",
+    introPrefix:
+      "Bendruomenės finansų skaidri ataskaita – nario mokesčiai, skolos, aukos ir kaip jos naudojamos. Visi kiti dokumentai – įstatai, protokolai, sutartys – yra",
+    introLinkWord: "dokumentų archyve",
+    summaryCollected: "Šiemet surinkta",
+    summaryCollectedMeta: "{count} nariai · {year} m.",
+    summaryDebt: "Nario mokesčio skola",
+    summaryDebtMeta: "Sukaupta per visus metus",
+    summaryDonated: "Lieptui aukota",
+    summaryDonatedMeta: "iš {goal} € tikslo ({percent}%)",
+    feesByYearTitle: "Nario mokesčiai pagal metus",
+    colYear: "Metai",
+    colCollected: "Surinkta",
+    colCollectable: "Galima surinkti",
+    colDebt: "Skola",
+    colPaid: "Sumokėjo",
+    paidCell: "{paid} iš {total}",
+    fundraisingProjectLabel: "Aukų rinkimo projektas",
+    bridgeProjectTitle: "Lieptas – padėk man atsinaujinti!",
+    bridgeOfGoal: "iš {goal} €",
+    donorSingular: "aukotojas",
+    donorPlural: "aukotojai",
+    donationsTitle: "Aukos Liepto projektui",
+    donationSingular: "auka",
+    donationPlural: "aukos",
+    colDate: "Data",
+    colDonor: "Aukotojas",
+    colAmount: "Suma",
+    anonymousDonor: "Anonimas",
+    financialReportsTitle: "Finansinės ataskaitos",
+    allDocsTitle: "Visi bendruomenės dokumentai",
+    allDocsSubtitle: "Įstatai, protokolai, ataskaitos, sutartys – pilnas archyvas",
+    emptyState: "Duomenų nėra.",
+  },
+  portalFinance: {
+    pageTitle: "Finansai",
+    noMemberLink: "Paskyra nesusieta su nario įrašu. Susisiekite su administratoriumi.",
+    pageSubtitle: "Jūsų nario mokesčių būsena ir mokėjimo istorija",
+    totalDebtLabel: "neapmokėtų mokesčių iš viso",
+    noDebtLabel: "neapmokėtų mokesčių neturite",
+    unpaidSectionTitle: "Neapmokėti mokesčiai",
+    overduePrefix: "Pradelsta",
+    dueByPrefix: "Iki",
+    overdueBadge: "Pradelsta",
+    unpaidHint:
+      "Mokesčius galite sumokėti pavedimu į bendruomenės sąskaitą. Susisiekite su pirmininku dėl rekvizitų.",
+    historySectionTitle: "Mokėjimo istorija",
+    noPayments: "Mokėjimų dar nėra",
+  },
 };
 
 const en: Dictionary = {
@@ -361,6 +459,56 @@ const en: Dictionary = {
     copyAriaLabel: "Copy IBAN",
     copyLabel: "Copy",
     copiedLabel: "Copied",
+  },
+  transparency: {
+    pageHeading: "Finances",
+    introPrefix:
+      "A transparent account of the community's finances – membership fees, debts, donations and how they are used. All other documents – the statutes, minutes and contracts – are in",
+    introLinkWord: "the document archive",
+    summaryCollected: "Collected this year",
+    summaryCollectedMeta: "{count} members · {year}",
+    summaryDebt: "Membership fee debt",
+    summaryDebtMeta: "Accumulated over all years",
+    summaryDonated: "Donated to the footbridge",
+    summaryDonatedMeta: "of the {goal} € goal ({percent}%)",
+    feesByYearTitle: "Membership fees by year",
+    colYear: "Year",
+    colCollected: "Collected",
+    colCollectable: "Collectable",
+    colDebt: "Debt",
+    colPaid: "Paid",
+    paidCell: "{paid} of {total}",
+    fundraisingProjectLabel: "Fundraising project",
+    bridgeProjectTitle: "The footbridge – help me get a new look!",
+    bridgeOfGoal: "of {goal} €",
+    donorSingular: "donor",
+    donorPlural: "donors",
+    donationsTitle: "Donations to the footbridge project",
+    donationSingular: "donation",
+    donationPlural: "donations",
+    colDate: "Date",
+    colDonor: "Donor",
+    colAmount: "Amount",
+    anonymousDonor: "Anonymous",
+    financialReportsTitle: "Financial reports",
+    allDocsTitle: "All community documents",
+    allDocsSubtitle: "Statutes, minutes, reports, contracts – the full archive",
+    emptyState: "No data.",
+  },
+  portalFinance: {
+    pageTitle: "Finances",
+    noMemberLink: "This account is not linked to a member record. Please contact the administrator.",
+    pageSubtitle: "Your membership fee status and payment history",
+    totalDebtLabel: "in unpaid fees in total",
+    noDebtLabel: "you have no unpaid fees",
+    unpaidSectionTitle: "Unpaid fees",
+    overduePrefix: "Overdue",
+    dueByPrefix: "Due by",
+    overdueBadge: "Overdue",
+    unpaidHint:
+      "You can pay your fees by bank transfer to the community account. Contact the chairperson for the payment details.",
+    historySectionTitle: "Payment history",
+    noPayments: "No payments yet",
   },
 };
 
