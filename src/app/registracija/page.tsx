@@ -6,8 +6,10 @@ import { sendMembershipRequestEmail } from "@/actions/membership";
 import Link from "next/link";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { UserPlus, CheckCircle } from "lucide-react";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 export default function RegisterPage() {
+  const t = useT().auth;
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -22,12 +24,12 @@ export default function RegisterPage() {
     setError("");
 
     if (password !== confirmPassword) {
-      setError("Slaptažodžiai nesutampa");
+      setError(t.errPasswordMismatch);
       return;
     }
 
     if (password.length < 8) {
-      setError("Slaptažodis turi būti bent 8 simbolių");
+      setError(t.errPasswordLength);
       return;
     }
 
@@ -52,7 +54,7 @@ export default function RegisterPage() {
     });
 
     if (error) {
-      setError("Nepavyko sukurti paskyros. Bandykite dar kartą.");
+      setError(t.errSignupFailed);
       setLoading(false);
       return;
     }
@@ -81,20 +83,14 @@ export default function RegisterPage() {
                 <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-5">
                   <CheckCircle className="h-8 w-8 text-green-600" />
                 </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-3">Registracija gauta!</h2>
-                <p className="text-sm text-gray-600 leading-relaxed mb-2">
-                  Išsiuntėme jums el. laišką su mokėjimo informacija.
-                </p>
-                <p className="text-sm text-gray-600 leading-relaxed mb-6">
-                  Kad taptumėte pilnaverčiu nariu, sumokėkite stojamąjį ir nario mokestį.
-                  Gavę apmokėjimą, patvirtinsime jūsų narystę ir atsiųsime prisijungimo
-                  informaciją.
-                </p>
+                <h2 className="text-xl font-bold text-gray-900 mb-3">{t.successTitle}</h2>
+                <p className="text-sm text-gray-600 leading-relaxed mb-2">{t.successLine1}</p>
+                <p className="text-sm text-gray-600 leading-relaxed mb-6">{t.successLine2}</p>
                 <Link
                   href="/"
                   className="inline-block px-6 py-3 rounded-lg bg-green-800 text-white text-sm font-medium hover:bg-green-700 transition-colors"
                 >
-                  Grįžti į pradžią
+                  {t.backHome}
                 </Link>
               </div>
             ) : (
@@ -103,38 +99,36 @@ export default function RegisterPage() {
                   <div className="w-16 h-16 rounded-full bg-amber-400 flex items-center justify-center mb-5">
                     <UserPlus className="h-7 w-7 text-white" />
                   </div>
-                  <h1 className="text-2xl font-bold text-gray-900">Tapti nariu</h1>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Užpildykite formą ir laukite administratoriaus patvirtinimo
-                  </p>
+                  <h1 className="text-2xl font-bold text-gray-900">{t.registerTitle}</h1>
+                  <p className="text-sm text-gray-500 mt-1">{t.registerSubtitle}</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
-                        Vardas
+                        {t.firstNameLabel}
                       </label>
                       <input
                         id="firstName"
                         type="text"
                         value={firstName}
                         onChange={(e) => setFirstName(e.target.value)}
-                        placeholder="Vardenis"
+                        placeholder={t.firstNamePlaceholder}
                         required
                         className="block w-full rounded-lg border border-gray-300 bg-blue-50/50 px-4 py-3 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500 placeholder:text-gray-400"
                       />
                     </div>
                     <div className="space-y-1">
                       <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
-                        Pavardė
+                        {t.lastNameLabel}
                       </label>
                       <input
                         id="lastName"
                         type="text"
                         value={lastName}
                         onChange={(e) => setLastName(e.target.value)}
-                        placeholder="Pavardenis"
+                        placeholder={t.lastNamePlaceholder}
                         required
                         className="block w-full rounded-lg border border-gray-300 bg-blue-50/50 px-4 py-3 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500 placeholder:text-gray-400"
                       />
@@ -143,7 +137,7 @@ export default function RegisterPage() {
 
                   <div className="space-y-1">
                     <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                      El. paštas
+                      {t.emailLabel}
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -156,7 +150,7 @@ export default function RegisterPage() {
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="jusu@pastas.lt"
+                        placeholder={t.emailPlaceholder}
                         required
                         className="block w-full rounded-lg border border-gray-300 bg-blue-50/50 pl-10 pr-4 py-3 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500 placeholder:text-gray-400"
                       />
@@ -165,14 +159,14 @@ export default function RegisterPage() {
 
                   <div className="space-y-1">
                     <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                      Slaptažodis
+                      {t.passwordLabel}
                     </label>
                     <input
                       id="password"
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Slaptažodis"
+                      placeholder={t.passwordPlaceholder}
                       required
                       className="block w-full rounded-lg border border-gray-300 bg-blue-50/50 px-4 py-3 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500 placeholder:text-gray-400"
                     />
@@ -180,14 +174,14 @@ export default function RegisterPage() {
 
                   <div className="space-y-1">
                     <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                      Pakartokite slaptažodį
+                      {t.confirmPasswordLabel}
                     </label>
                     <input
                       id="confirmPassword"
                       type="password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Pakartokite slaptažodį"
+                      placeholder={t.confirmPasswordPlaceholder}
                       required
                       className="block w-full rounded-lg border border-gray-300 bg-blue-50/50 px-4 py-3 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500 placeholder:text-gray-400"
                     />
@@ -204,15 +198,15 @@ export default function RegisterPage() {
                     disabled={loading}
                     className="w-full rounded-lg bg-green-800 px-4 py-3 text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
                   >
-                    {loading ? "Registruojama..." : "Pateikti registraciją"}
+                    {loading ? t.registering : t.registerButton}
                   </button>
                 </form>
 
                 <div className="mt-6 pt-6 border-t border-gray-100 text-center">
                   <p className="text-sm text-gray-500">
-                    Jau turite paskyrą?{" "}
+                    {t.haveAccount}{" "}
                     <Link href="/prisijungimas" className="font-semibold text-gray-900 hover:underline">
-                      Prisijungti
+                      {t.loginLink}
                     </Link>
                   </p>
                 </div>

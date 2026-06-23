@@ -217,6 +217,42 @@ export interface Dictionary {
     value4: string;
     value5: string;
   };
+  auth: {
+    emailLabel: string;
+    emailPlaceholder: string;
+    passwordLabel: string;
+    passwordPlaceholder: string;
+    loginTitle: string;
+    loginSubtitle: string;
+    forgotPassword: string;
+    loggingIn: string;
+    loginButton: string;
+    noAccount: string;
+    registerNow: string;
+    errInvalidCredentials: string;
+    errNotApproved: string;
+    errNotConfirmed: string;
+    errAuthLink: string;
+    registerTitle: string;
+    registerSubtitle: string;
+    firstNameLabel: string;
+    firstNamePlaceholder: string;
+    lastNameLabel: string;
+    lastNamePlaceholder: string;
+    confirmPasswordLabel: string;
+    confirmPasswordPlaceholder: string;
+    registering: string;
+    registerButton: string;
+    haveAccount: string;
+    loginLink: string;
+    errPasswordMismatch: string;
+    errPasswordLength: string;
+    errSignupFailed: string;
+    successTitle: string;
+    successLine1: string;
+    successLine2: string;
+    backHome: string;
+  };
 }
 
 const lt: Dictionary = {
@@ -447,6 +483,44 @@ const lt: Dictionary = {
     value4: "Pagarba aplinkai ir tradicijoms",
     value5: "Lygios galimybės visiems",
   },
+  auth: {
+    emailLabel: "El. paštas",
+    emailPlaceholder: "jusu@pastas.lt",
+    passwordLabel: "Slaptažodis",
+    passwordPlaceholder: "Slaptažodis",
+    loginTitle: "Nario prisijungimas",
+    loginSubtitle: "Įveskite savo duomenis norėdami prisijungti",
+    forgotPassword: "Pamiršote slaptažodį?",
+    loggingIn: "Jungiamasi...",
+    loginButton: "Prisijungti",
+    noAccount: "Dar neturite paskyros?",
+    registerNow: "Registruotis dabar",
+    errInvalidCredentials: "Neteisingas el. paštas arba slaptažodis",
+    errNotApproved: "Jūsų paskyra dar nepatvirtinta. Laukite administratoriaus patvirtinimo.",
+    errNotConfirmed:
+      "Jūsų el. paštas dar nepatvirtintas. Patikrinkite pašto dėžutę ir paspauskite patvirtinimo nuorodą, arba palaukite, kol administratorius patvirtins narystę.",
+    errAuthLink: "Nuoroda negaliojanti arba pasenusi. Bandykite prisijungti iš naujo.",
+    registerTitle: "Tapti nariu",
+    registerSubtitle: "Užpildykite formą ir laukite administratoriaus patvirtinimo",
+    firstNameLabel: "Vardas",
+    firstNamePlaceholder: "Vardenis",
+    lastNameLabel: "Pavardė",
+    lastNamePlaceholder: "Pavardenis",
+    confirmPasswordLabel: "Pakartokite slaptažodį",
+    confirmPasswordPlaceholder: "Pakartokite slaptažodį",
+    registering: "Registruojama...",
+    registerButton: "Pateikti registraciją",
+    haveAccount: "Jau turite paskyrą?",
+    loginLink: "Prisijungti",
+    errPasswordMismatch: "Slaptažodžiai nesutampa",
+    errPasswordLength: "Slaptažodis turi būti bent 8 simbolių",
+    errSignupFailed: "Nepavyko sukurti paskyros. Bandykite dar kartą.",
+    successTitle: "Registracija gauta!",
+    successLine1: "Išsiuntėme jums el. laišką su mokėjimo informacija.",
+    successLine2:
+      "Kad taptumėte pilnaverčiu nariu, sumokėkite stojamąjį ir nario mokestį. Gavę apmokėjimą, patvirtinsime jūsų narystę ir atsiųsime prisijungimo informaciją.",
+    backHome: "Grįžti į pradžią",
+  },
 };
 
 const en: Dictionary = {
@@ -676,6 +750,44 @@ const en: Dictionary = {
     value3: "Social responsibility and inclusion",
     value4: "Respect for the environment and traditions",
     value5: "Equal opportunities for all",
+  },
+  auth: {
+    emailLabel: "Email",
+    emailPlaceholder: "you@email.com",
+    passwordLabel: "Password",
+    passwordPlaceholder: "Password",
+    loginTitle: "Member login",
+    loginSubtitle: "Enter your details to log in",
+    forgotPassword: "Forgot your password?",
+    loggingIn: "Logging in...",
+    loginButton: "Log in",
+    noAccount: "Don't have an account yet?",
+    registerNow: "Register now",
+    errInvalidCredentials: "Incorrect email or password",
+    errNotApproved: "Your account is not yet approved. Please wait for administrator approval.",
+    errNotConfirmed:
+      "Your email is not yet confirmed. Check your inbox and click the confirmation link, or wait for the administrator to approve your membership.",
+    errAuthLink: "The link is invalid or has expired. Please try logging in again.",
+    registerTitle: "Become a member",
+    registerSubtitle: "Fill in the form and wait for administrator approval",
+    firstNameLabel: "First name",
+    firstNamePlaceholder: "First name",
+    lastNameLabel: "Last name",
+    lastNamePlaceholder: "Last name",
+    confirmPasswordLabel: "Repeat password",
+    confirmPasswordPlaceholder: "Repeat password",
+    registering: "Submitting...",
+    registerButton: "Submit registration",
+    haveAccount: "Already have an account?",
+    loginLink: "Log in",
+    errPasswordMismatch: "Passwords do not match",
+    errPasswordLength: "The password must be at least 8 characters",
+    errSignupFailed: "Could not create the account. Please try again.",
+    successTitle: "Registration received!",
+    successLine1: "We have sent you an email with payment information.",
+    successLine2:
+      "To become a full member, pay the joining fee and the membership fee. Once we receive your payment, we will approve your membership and send you login information.",
+    backHome: "Back to home",
   },
 };
 

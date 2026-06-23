@@ -6,8 +6,10 @@ import { createClient } from "@/lib/supabase";
 import { LogIn } from "lucide-react";
 import Link from "next/link";
 import { PublicHeader } from "@/components/layout/PublicHeader";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 export default function LoginPage() {
+  const t = useT().auth;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -20,10 +22,11 @@ export default function LoginPage() {
   useEffect(() => {
     const err = new URLSearchParams(window.location.search).get("error");
     if (err === "not_approved") {
-      setError("Jūsų paskyra dar nepatvirtinta. Laukite administratoriaus patvirtinimo.");
+      setError(t.errNotApproved);
     } else if (err === "auth") {
-      setError("Nuoroda negaliojanti arba pasenusi. Bandykite prisijungti iš naujo.");
+      setError(t.errAuthLink);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,11 +41,9 @@ export default function LoginPage() {
       const code = (error as { code?: string }).code;
       const msg = (error.message || "").toLowerCase();
       if (code === "email_not_confirmed" || msg.includes("not confirmed") || msg.includes("not been confirmed")) {
-        setError(
-          "Jūsų el. paštas dar nepatvirtintas. Patikrinkite pašto dėžutę ir paspauskite patvirtinimo nuorodą, arba palaukite, kol administratorius patvirtins narystę."
-        );
+        setError(t.errNotConfirmed);
       } else {
-        setError("Neteisingas el. paštas arba slaptažodis");
+        setError(t.errInvalidCredentials);
       }
       setLoading(false);
       return;
@@ -57,7 +58,7 @@ export default function LoginPage() {
 
     if (!profile?.is_approved) {
       await supabase.auth.signOut();
-      setError("Jūsų paskyra dar nepatvirtinta. Laukite administratoriaus patvirtinimo.");
+      setError(t.errNotApproved);
       setLoading(false);
       return;
     }
@@ -79,23 +80,21 @@ export default function LoginPage() {
               <div className="w-16 h-16 rounded-full bg-amber-400 flex items-center justify-center mb-5">
                 <LogIn className="h-7 w-7 text-white" />
               </div>
-              <h1 className="text-2xl font-bold text-gray-900">Nario prisijungimas</h1>
-              <p className="text-sm text-gray-500 mt-1">
-                Įveskite savo duomenis norėdami prisijungti
-              </p>
+              <h1 className="text-2xl font-bold text-gray-900">{t.loginTitle}</h1>
+              <p className="text-sm text-gray-500 mt-1">{t.loginSubtitle}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1">
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  El. paštas
+                  {t.emailLabel}
                 </label>
                 <input
                   id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="jusu@pastas.lt"
+                  placeholder={t.emailPlaceholder}
                   required
                   className="block w-full rounded-lg border border-gray-300 bg-blue-50/50 px-4 py-3 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500 placeholder:text-gray-400"
                 />
@@ -104,10 +103,10 @@ export default function LoginPage() {
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                    Slaptažodis
+                    {t.passwordLabel}
                   </label>
                   <Link href="/slaptazodis" className="text-xs text-gray-500 hover:text-gray-700">
-                    Pamiršote slaptažodį?
+                    {t.forgotPassword}
                   </Link>
                 </div>
                 <input
@@ -115,7 +114,7 @@ export default function LoginPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Slaptažodis"
+                  placeholder={t.passwordPlaceholder}
                   required
                   className="block w-full rounded-lg border border-gray-300 bg-blue-50/50 px-4 py-3 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500 placeholder:text-gray-400"
                 />
@@ -132,15 +131,15 @@ export default function LoginPage() {
                 disabled={loading}
                 className="w-full rounded-lg bg-green-800 px-4 py-3 text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
               >
-                {loading ? "Jungiamasi..." : "Prisijungti"}
+                {loading ? t.loggingIn : t.loginButton}
               </button>
             </form>
 
             <div className="mt-6 pt-6 border-t border-gray-100 text-center">
               <p className="text-sm text-gray-500">
-                Dar neturite paskyros?{" "}
+                {t.noAccount}{" "}
                 <Link href="/registracija" className="font-semibold text-gray-900 hover:underline">
-                  Registruotis dabar
+                  {t.registerNow}
                 </Link>
               </p>
             </div>
