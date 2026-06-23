@@ -461,11 +461,19 @@ dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
 - Logotipas tik **poraštėje** (žaliame fone nyksta)
 - Antraštės šriftas: **Georgia** (serif) – elegancijai
 - Kūno šriftas: sisteminis sans-serif
-- **Dvikalbiai laiškai:** narystės laiškai (`src/lib/membership-emails.ts`) ir
-  rekvizitų blokas (`renderPaymentDetailsBlock`) priima `locale` ('lt'/'en').
-  Kalba imama iš `members.language` (laiškas #2, priminimai) arba registracijos
-  puslapio kalbos (laiškas #1, nes nario įrašo dar nėra). Web žodynas
-  (`src/lib/i18n.ts`) NĖRA naudojamas laiškams – jie turi atskirus LT/EN tekstus.
+- **Dvikalbiai laiškai/SMS (VISA korespondencija):** kiekvienas nariui siunčiamas
+  laiškas ir SMS turi LT ir EN tekstus (`locale` param), įsk. narystės #1/#2
+  (`membership-emails.ts`), mokesčių priminimus + deklaracijas (`reminders.ts`,
+  `declarations.ts`), portalo invite + slaptažodžio laiškus (`portal-invites.ts`),
+  balsavimo SMS + balso patvirtinimo laišką (`tokens.ts`), kontaktų SMS
+  (`contact-updates.ts`), rekvizitų bloką (`renderPaymentDetailsBlock`) ir
+  `renderBrandedEmail` poraštę.
+- **Kalbos šaltinis:** `members.language` ('lt'/'en') daugumai (nario įrašas žinomas).
+  Išimtys, kur nario įrašo dar/nebėra kontekste – imama **svetainės kalba** (cookie):
+  registracijos laiškas #1 ir balso patvirtinimo laiškas (anon token srautas).
+- **Naujam laiškui:** pridėk `locale` param ir abu (LT/EN) tekstus; nepamiršk
+  įtraukti `language` į `members` SELECT, jei jo dar nėra. Web žodynas
+  (`src/lib/i18n.ts`) laiškams NEnaudojamas.
 
 ### UI kalba (i18n)
 - **Numatyta – lietuvių.** Anglų – pasirenkama per LT/EN perjungiklį (`NEXT_LOCALE` cookie).
