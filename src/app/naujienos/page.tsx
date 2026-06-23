@@ -2,6 +2,7 @@ import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { getNewsArticles } from "@/actions/news";
 import { formatDateLong } from "@/lib/utils";
+import { getDict } from "@/lib/i18n-server";
 import { Pin } from "lucide-react";
 import Link from "next/link";
 
@@ -20,6 +21,7 @@ export const metadata = {
 
 export default async function NewsPage() {
   const articles = await getNewsArticles(true);
+  const t = getDict().news;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -27,11 +29,11 @@ export default async function NewsPage() {
 
       <main className="flex-1 bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12">
-          <h1 className="text-3xl font-bold text-gray-900 mb-8">Naujienos</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-8">{t.pageTitle}</h1>
 
           {articles.length === 0 ? (
             <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-              <p className="text-gray-400">Kol kas naujienų nėra</p>
+              <p className="text-gray-400">{t.emptyState}</p>
             </div>
           ) : (
             <div className="space-y-4">

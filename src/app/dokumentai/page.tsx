@@ -3,6 +3,7 @@ import { PublicFooter } from "@/components/layout/PublicFooter";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { DOCUMENT_CATEGORY_LABELS } from "@/lib/constants";
 import { formatDate, formatDateLong } from "@/lib/utils";
+import { getDict } from "@/lib/i18n-server";
 import { DocumentLink } from "@/components/DocumentLink";
 import { Calendar, FolderOpen } from "lucide-react";
 
@@ -42,6 +43,7 @@ interface MeetingRow {
 
 export default async function DocumentsPage() {
   const supabase = createServerSupabaseClient();
+  const t = getDict().documents;
 
   // Trys užklausos lygiagrečiai:
   // 1) visi public dokumentai
@@ -124,16 +126,12 @@ export default async function DocumentsPage() {
 
       <main className="flex-1 bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Dokumentai</h1>
-          <p className="text-gray-500 mb-8">
-            Bendruomenės dokumentų archyvas. Susirinkimų papkėse rasite metinę
-            ataskaitą, finansinį rinkinį, protokolą, dalyvių sąrašą ir kitus
-            susijusius dokumentus.
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{t.pageHeading}</h1>
+          <p className="text-gray-500 mb-8">{t.pageIntro}</p>
 
           {docs.length === 0 ? (
             <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-              <p className="text-gray-400">Kol kas dokumentų nėra</p>
+              <p className="text-gray-400">{t.emptyState}</p>
             </div>
           ) : (
             <div className="space-y-10">
@@ -141,7 +139,7 @@ export default async function DocumentsPage() {
               {Object.keys(generalGrouped).length > 0 && (
                 <section>
                   <h2 className="text-xl font-bold text-gray-900 mb-4">
-                    Pagrindiniai dokumentai
+                    {t.generalDocsHeading}
                   </h2>
                   <div className="space-y-6">
                     {Object.entries(generalGrouped).map(([category, list]) => (
@@ -174,12 +172,8 @@ export default async function DocumentsPage() {
                   šaltinyje. */}
               {meetingsWithDocs.length > 0 && (
                 <section>
-                  <h2 className="text-xl font-bold text-gray-900 mb-1">Susirinkimai</h2>
-                  <p className="text-sm text-gray-500 mb-4">
-                    Kiekvienas susirinkimo puslapis turi visus susijusius dokumentus
-                    (ataskaitas, protokolą, dalyvių sąrašą), skelbimus ir balsavimo
-                    rezultatus.
-                  </p>
+                  <h2 className="text-xl font-bold text-gray-900 mb-1">{t.meetingsHeading}</h2>
+                  <p className="text-sm text-gray-500 mb-4">{t.meetingsDescription}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {meetingsWithDocs.map((m) => {
                       const meetingDocs = docsByMeeting.get(m.id) || [];
@@ -202,7 +196,7 @@ export default async function DocumentsPage() {
                             </p>
                             <p className="text-xs text-green-700 mt-2 font-medium">
                               {meetingDocs.length}{" "}
-                              {meetingDocs.length === 1 ? "dokumentas" : "dokumentai"} →
+                              {meetingDocs.length === 1 ? t.docSingular : t.docPlural} →
                             </p>
                           </div>
                         </a>

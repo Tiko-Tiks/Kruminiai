@@ -253,6 +253,30 @@ export interface Dictionary {
     successLine2: string;
     backHome: string;
   };
+  projects: {
+    pageTitle: string;
+    pageIntro: string;
+    emptyState: string;
+    fundraisingBadge: string;
+    amountOfGoal: string;
+    donorSingular: string;
+    donorPlural: string;
+    readMore: string;
+  };
+  news: {
+    pageTitle: string;
+    emptyState: string;
+  };
+  documents: {
+    pageHeading: string;
+    pageIntro: string;
+    emptyState: string;
+    generalDocsHeading: string;
+    meetingsHeading: string;
+    meetingsDescription: string;
+    docSingular: string;
+    docPlural: string;
+  };
 }
 
 const lt: Dictionary = {
@@ -521,6 +545,33 @@ const lt: Dictionary = {
       "Kad taptumėte pilnaverčiu nariu, sumokėkite stojamąjį ir nario mokestį. Gavę apmokėjimą, patvirtinsime jūsų narystę ir atsiųsime prisijungimo informaciją.",
     backHome: "Grįžti į pradžią",
   },
+  projects: {
+    pageTitle: "Bendruomenės projektai",
+    pageIntro:
+      "Aukų rinkimo projektai – kiekvienam atskira skaidri lėšų istorija ir progresas iki tikslo. Aukoja bendruomenės nariai, kaimo svečiai ir vasaros lankytojai.",
+    emptyState: "Šiuo metu aktyvių projektų nėra.",
+    fundraisingBadge: "Aukų rinkimas",
+    amountOfGoal: "iš {goal} €",
+    donorSingular: "aukotojas",
+    donorPlural: "aukotojai",
+    readMore: "Plačiau",
+  },
+  news: {
+    pageTitle: "Naujienos",
+    emptyState: "Kol kas naujienų nėra",
+  },
+  documents: {
+    pageHeading: "Dokumentai",
+    pageIntro:
+      "Bendruomenės dokumentų archyvas. Susirinkimų papkėse rasite metinę ataskaitą, finansinį rinkinį, protokolą, dalyvių sąrašą ir kitus susijusius dokumentus.",
+    emptyState: "Kol kas dokumentų nėra",
+    generalDocsHeading: "Pagrindiniai dokumentai",
+    meetingsHeading: "Susirinkimai",
+    meetingsDescription:
+      "Kiekvienas susirinkimo puslapis turi visus susijusius dokumentus (ataskaitas, protokolą, dalyvių sąrašą), skelbimus ir balsavimo rezultatus.",
+    docSingular: "dokumentas",
+    docPlural: "dokumentai",
+  },
 };
 
 const en: Dictionary = {
@@ -788,6 +839,33 @@ const en: Dictionary = {
     successLine2:
       "To become a full member, pay the joining fee and the membership fee. Once we receive your payment, we will approve your membership and send you login information.",
     backHome: "Back to home",
+  },
+  projects: {
+    pageTitle: "Community projects",
+    pageIntro:
+      "Fundraising projects – each with its own transparent record of funds and progress toward the goal. Contributions come from community members, village guests and summer visitors.",
+    emptyState: "There are no active projects at the moment.",
+    fundraisingBadge: "Fundraising",
+    amountOfGoal: "of {goal} €",
+    donorSingular: "donor",
+    donorPlural: "donors",
+    readMore: "Read more",
+  },
+  news: {
+    pageTitle: "News",
+    emptyState: "No news yet",
+  },
+  documents: {
+    pageHeading: "Documents",
+    pageIntro:
+      "Community document archive. In the meeting folders you will find the annual report, financial statements, minutes, attendee list and other related documents.",
+    emptyState: "There are no documents yet",
+    generalDocsHeading: "Main documents",
+    meetingsHeading: "Meetings",
+    meetingsDescription:
+      "Each meeting page contains all related documents (reports, minutes, attendee list), announcements and voting results.",
+    docSingular: "document",
+    docPlural: "documents",
   },
 };
 

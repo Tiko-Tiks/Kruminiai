@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { Heart, ArrowRight } from "lucide-react";
+import { getDict } from "@/lib/i18n-server";
 import Link from "next/link";
 import type { Metadata } from "next";
 
@@ -69,6 +70,7 @@ async function getProjects(): Promise<ProjectCard[]> {
 
 export default async function ProjectsPage() {
   const projects = await getProjects();
+  const t = getDict().projects;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -78,19 +80,15 @@ export default async function ProjectsPage() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12">
           <div className="mb-10">
             <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
-              Bendruomenės projektai
+              {t.pageTitle}
             </h1>
-            <p className="text-base text-gray-600 max-w-2xl leading-relaxed">
-              Aukų rinkimo projektai – kiekvienam atskira skaidri lėšų istorija
-              ir progresas iki tikslo. Aukoja bendruomenės nariai, kaimo svečiai
-              ir vasaros lankytojai.
-            </p>
+            <p className="text-base text-gray-600 max-w-2xl leading-relaxed">{t.pageIntro}</p>
           </div>
 
           {projects.length === 0 ? (
             <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center">
               <Heart className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">Šiuo metu aktyvių projektų nėra.</p>
+              <p className="text-gray-500">{t.emptyState}</p>
             </div>
           ) : (
             <div className="space-y-5">
@@ -113,7 +111,7 @@ export default async function ProjectsPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white uppercase tracking-wide mb-2">
-                          Aukų rinkimas
+                          {t.fundraisingBadge}
                         </span>
                         <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 group-hover:text-amber-700 transition-colors">
                           {p.title}
@@ -128,12 +126,12 @@ export default async function ProjectsPage() {
                             <span className="font-semibold text-gray-900">
                               {(p.total_cents / 100).toFixed(0)} €
                               <span className="text-gray-400 font-normal">
-                                {" "}iš {(p.goal_cents / 100).toFixed(0)} €
+                                {" "}{t.amountOfGoal.replace("{goal}", (p.goal_cents / 100).toFixed(0))}
                               </span>
                             </span>
                             <span className="text-xs text-gray-500">
                               {p.donor_count}{" "}
-                              {p.donor_count === 1 ? "aukotojas" : "aukotojai"}
+                              {p.donor_count === 1 ? t.donorSingular : t.donorPlural}
                             </span>
                           </div>
                           <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
@@ -146,7 +144,7 @@ export default async function ProjectsPage() {
                       </div>
                       <div className="flex-shrink-0 self-stretch md:self-center">
                         <span className="inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-semibold group-hover:bg-amber-700 transition-colors whitespace-nowrap">
-                          Plačiau <ArrowRight className="h-4 w-4" />
+                          {t.readMore} <ArrowRight className="h-4 w-4" />
                         </span>
                       </div>
                     </div>
