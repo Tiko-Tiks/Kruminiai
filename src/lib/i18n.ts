@@ -314,6 +314,31 @@ export interface Dictionary {
     myDataCardTitle: string;
     myDataCardDescription: string;
   };
+  portalVoting: {
+    pageTitle: string;
+    pageSubtitle: string;
+    emptyState: string;
+    pendingSectionTitle: string;
+    voteButton: string;
+    votedSectionTitle: string;
+    votedBadge: string;
+  };
+  portalHistory: {
+    pageTitle: string;
+    pageSubtitle: string;
+    emptyState: string;
+    attendedInPerson: string;
+    attendedRemotely: string;
+    votedInWriting: string;
+    documentsLink: string;
+    liveAttendanceSecrecyNote: string;
+    viewResolutionsLink: string;
+    votesNotEnteredNote: string;
+    viewMeetingInfoLink: string;
+    voteFor: string;
+    voteAgainst: string;
+    voteAbstain: string;
+  };
 }
 
 const lt: Dictionary = {
@@ -647,6 +672,32 @@ const lt: Dictionary = {
     myDataCardTitle: "Mano duomenys",
     myDataCardDescription: "Atnaujinkite kontaktus ir duomenis",
   },
+  portalVoting: {
+    pageTitle: "Balsavimai",
+    pageSubtitle: "Aktyvūs ir artėjantys susirinkimai, kuriuose galite balsuoti",
+    emptyState: "Aktyvių balsavimų nėra",
+    pendingSectionTitle: "Laukia jūsų balso ({count})",
+    voteButton: "Balsuoti",
+    votedSectionTitle: "Jau balsavote ({count})",
+    votedBadge: "Balsavote",
+  },
+  portalHistory: {
+    pageTitle: "Mano balsavimo istorija",
+    pageSubtitle: "Visi jūsų balsai bendruomenės susirinkimuose",
+    emptyState: "Dar nedalyvavote nė viename balsavime",
+    attendedInPerson: "Dalyvavote gyvai",
+    attendedRemotely: "Dalyvavote nuotoliu",
+    votedInWriting: "Balsavote raštu",
+    documentsLink: "Dokumentai",
+    liveAttendanceSecrecyNote:
+      "Dalyvavote susirinkime gyvai. Pagal balsavimo slaptumo principą individualūs Jūsų balsai nesaugomi – tik bendros susirinkimo sumos.",
+    viewResolutionsLink: "Žiūrėti susirinkimo nutarimus →",
+    votesNotEnteredNote: "Balsavimo įrašai šiam susirinkimui dar nesuvesti.",
+    viewMeetingInfoLink: "Žiūrėti susirinkimo informaciją →",
+    voteFor: "Už",
+    voteAgainst: "Prieš",
+    voteAbstain: "Susilaikau",
+  },
 };
 
 const en: Dictionary = {
@@ -979,6 +1030,32 @@ const en: Dictionary = {
     documentsCardDescription: "Bylaws, minutes, reports",
     myDataCardTitle: "My details",
     myDataCardDescription: "Update your contact information and details",
+  },
+  portalVoting: {
+    pageTitle: "Votes",
+    pageSubtitle: "Active and upcoming meetings where you can vote",
+    emptyState: "There are no active votes",
+    pendingSectionTitle: "Awaiting your vote ({count})",
+    voteButton: "Vote",
+    votedSectionTitle: "Already voted ({count})",
+    votedBadge: "Voted",
+  },
+  portalHistory: {
+    pageTitle: "My voting history",
+    pageSubtitle: "All your votes at community meetings",
+    emptyState: "You have not taken part in any vote yet",
+    attendedInPerson: "You attended in person",
+    attendedRemotely: "You attended remotely",
+    votedInWriting: "You voted in writing",
+    documentsLink: "Documents",
+    liveAttendanceSecrecyNote:
+      "You attended the meeting in person. Under the principle of ballot secrecy, your individual votes are not stored — only the aggregate meeting totals.",
+    viewResolutionsLink: "View meeting resolutions →",
+    votesNotEnteredNote: "Voting records for this meeting have not been entered yet.",
+    viewMeetingInfoLink: "View meeting information →",
+    voteFor: "For",
+    voteAgainst: "Against",
+    voteAbstain: "Abstain",
   },
 };
 

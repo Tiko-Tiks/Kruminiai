@@ -1,6 +1,6 @@
 import { getMemberVotingHistory } from "@/actions/portal";
 import { formatDateLong } from "@/lib/utils";
-import { VOTE_LABELS } from "@/lib/constants";
+import { getDict } from "@/lib/i18n-server";
 import { History, Calendar, FileText, Users } from "lucide-react";
 import Link from "next/link";
 
@@ -29,27 +29,32 @@ const voteColors = {
   susilaike: "text-gray-700 bg-gray-100",
 };
 
-const ATTENDANCE_LABELS: Record<string, string> = {
-  fizinis: "Dalyvavote gyvai",
-  nuotolinis: "Dalyvavote nuotoliu",
-  rastu: "Balsavote raštu",
-};
-
 export default async function PortalHistoryPage() {
   const data = (await getMemberVotingHistory()) as { history?: HistoryEntry[]; error?: string };
   const history = data?.history || [];
+  const t = getDict().portalHistory;
+  const attendanceLabels: Record<string, string> = {
+    fizinis: t.attendedInPerson,
+    nuotolinis: t.attendedRemotely,
+    rastu: t.votedInWriting,
+  };
+  const voteLabels: Record<string, string> = {
+    uz: t.voteFor,
+    pries: t.voteAgainst,
+    susilaike: t.voteAbstain,
+  };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Mano balsavimo istorija</h1>
-        <p className="text-sm text-gray-500 mt-1">Visi jūsų balsai bendruomenės susirinkimuose</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t.pageTitle}</h1>
+        <p className="text-sm text-gray-500 mt-1">{t.pageSubtitle}</p>
       </div>
 
       {history.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
           <History className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">Dar nedalyvavote nė viename balsavime</p>
+          <p className="text-gray-500">{t.emptyState}</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -72,7 +77,7 @@ export default async function PortalHistoryPage() {
                       {h.attendance_type && (
                         <p className="text-xs text-green-700 mt-1.5 flex items-center gap-1 font-medium">
                           <Users className="h-3 w-3" />
-                          {ATTENDANCE_LABELS[h.attendance_type] || h.attendance_type}
+                          {attendanceLabels[h.attendance_type] || h.attendance_type}
                         </p>
                       )}
                     </div>
@@ -81,7 +86,7 @@ export default async function PortalHistoryPage() {
                       className="text-xs text-green-700 hover:text-green-800 font-medium flex items-center gap-1 flex-shrink-0"
                     >
                       <FileText className="h-3.5 w-3.5" />
-                      Dokumentai
+                      {t.documentsLink}
                     </Link>
                   </div>
                 </div>
@@ -91,24 +96,22 @@ export default async function PortalHistoryPage() {
                   <div className="px-5 py-4 text-sm text-gray-600 bg-amber-50/30 border-l-2 border-amber-200">
                     {liveAttended ? (
                       <>
-                        Dalyvavote susirinkime gyvai. Pagal balsavimo slaptumo
-                        principą individualūs Jūsų balsai nesaugomi – tik bendros
-                        susirinkimo sumos.{" "}
+                        {t.liveAttendanceSecrecyNote}{" "}
                         <Link
                           href={`/susirinkimai/${h.meeting_id}`}
                           className="text-green-700 hover:underline font-medium"
                         >
-                          Žiūrėti susirinkimo nutarimus →
+                          {t.viewResolutionsLink}
                         </Link>
                       </>
                     ) : (
                       <>
-                        Balsavimo įrašai šiam susirinkimui dar nesuvesti.{" "}
+                        {t.votesNotEnteredNote}{" "}
                         <Link
                           href={`/susirinkimai/${h.meeting_id}`}
                           className="text-green-700 hover:underline font-medium"
                         >
-                          Žiūrėti susirinkimo informaciją →
+                          {t.viewMeetingInfoLink}
                         </Link>
                       </>
                     )}
@@ -124,7 +127,7 @@ export default async function PortalHistoryPage() {
                         <span
                           className={`flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold ${voteColors[v.vote]}`}
                         >
-                          {VOTE_LABELS[v.vote]}
+                          {voteLabels[v.vote]}
                         </span>
                       </div>
                     ))}

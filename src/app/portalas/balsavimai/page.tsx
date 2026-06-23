@@ -1,5 +1,6 @@
 import { getMemberActiveMeetings } from "@/actions/portal";
 import { formatDateLong } from "@/lib/utils";
+import { getDict } from "@/lib/i18n-server";
 import { Calendar, MapPin, CheckCircle2, Vote, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
@@ -19,27 +20,26 @@ export default async function PortalVotingsPage() {
   const meetings = data?.meetings || [];
   const pending = meetings.filter((m) => !m.has_voted);
   const voted = meetings.filter((m) => m.has_voted);
+  const t = getDict().portalVoting;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Balsavimai</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Aktyvūs ir artėjantys susirinkimai, kuriuose galite balsuoti
-        </p>
+        <h1 className="text-2xl font-bold text-gray-900">{t.pageTitle}</h1>
+        <p className="text-sm text-gray-500 mt-1">{t.pageSubtitle}</p>
       </div>
 
       {meetings.length === 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
           <Vote className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">Aktyvių balsavimų nėra</p>
+          <p className="text-gray-500">{t.emptyState}</p>
         </div>
       )}
 
       {pending.length > 0 && (
         <section>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-            Laukia jūsų balso ({pending.length})
+            {t.pendingSectionTitle.replace("{count}", String(pending.length))}
           </h2>
           <div className="space-y-3">
             {pending.map((m) => (
@@ -64,7 +64,7 @@ export default async function PortalVotingsPage() {
                     </div>
                   </div>
                   <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-sm font-semibold rounded-lg flex-shrink-0">
-                    Balsuoti <ArrowRight className="h-4 w-4" />
+                    {t.voteButton} <ArrowRight className="h-4 w-4" />
                   </span>
                 </div>
               </Link>
@@ -76,7 +76,7 @@ export default async function PortalVotingsPage() {
       {voted.length > 0 && (
         <section>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-            Jau balsavote ({voted.length})
+            {t.votedSectionTitle.replace("{count}", String(voted.length))}
           </h2>
           <div className="space-y-3">
             {voted.map((m) => (
@@ -95,7 +95,7 @@ export default async function PortalVotingsPage() {
                     </div>
                   </div>
                   <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-1 rounded font-medium flex-shrink-0">
-                    <CheckCircle2 className="h-3 w-3" /> Balsavote
+                    <CheckCircle2 className="h-3 w-3" /> {t.votedBadge}
                   </span>
                 </div>
               </div>
