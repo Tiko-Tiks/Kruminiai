@@ -4,6 +4,7 @@ import { PublicFooter } from "@/components/layout/PublicFooter";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { formatDateLong } from "@/lib/utils";
 import { SITE_NAME, COMMUNITY_LEGAL } from "@/lib/constants";
+import { getDict } from "@/lib/i18n-server";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://kruminiai.lt";
 
@@ -97,6 +98,7 @@ export default async function HomePage() {
     getUpcomingMeeting(),
     getLieptasProject(),
   ]);
+  const t = getDict().home;
 
   const organizationLd = {
     "@context": "https://schema.org",
@@ -156,7 +158,7 @@ export default async function HomePage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white uppercase tracking-wide">
-                      <Clock className="h-3 w-3" /> Artėjantis susirinkimas
+                      <Clock className="h-3 w-3" /> {t.upcomingMeetingBadge}
                     </span>
                   </div>
                   <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-1 group-hover:text-amber-700 transition-colors">
@@ -176,7 +178,7 @@ export default async function HomePage() {
                 </div>
                 <div className="flex-shrink-0 self-stretch sm:self-center">
                   <span className="inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-semibold group-hover:bg-amber-700 transition-colors">
-                    Darbotvarkė ir dokumentai <ArrowRight className="h-4 w-4" />
+                    {t.upcomingMeetingCta} <ArrowRight className="h-4 w-4" />
                   </span>
                 </div>
               </div>
@@ -196,26 +198,26 @@ export default async function HomePage() {
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-16 md:py-24">
           <div className="max-w-3xl">
             <p className="text-sm uppercase tracking-widest text-green-200 mb-3 font-medium">
-              Nuo 2012 m.
+              {t.heroEyebrow}
             </p>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-5">
-              {SITE_NAME}
+              {t.heroTitle}
             </h1>
             <p className="text-lg md:text-xl text-green-100 leading-relaxed mb-8 max-w-2xl">
-              Kartu kuriame geresnę ateitį mūsų kaimui ir žmonėms.
+              {t.heroSubtitle}
             </p>
             <div className="flex flex-wrap gap-3">
               <Link
                 href="/naujienos"
                 className="inline-flex items-center gap-2 px-5 py-3 bg-white text-green-800 rounded-lg font-medium hover:bg-green-50 transition-colors shadow-sm"
               >
-                Naujienos <ArrowRight className="h-4 w-4" />
+                {t.heroNewsButton} <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 href="/kontaktai"
                 className="inline-flex items-center gap-2 px-5 py-3 bg-white/10 text-white border border-white/30 rounded-lg font-medium hover:bg-white/20 transition-colors backdrop-blur-sm"
               >
-                Susisiekite
+                {t.heroContactButton}
               </Link>
             </div>
           </div>
@@ -224,15 +226,15 @@ export default async function HomePage() {
           <div className="mt-12 pt-8 border-t border-white/15 grid grid-cols-3 gap-4 max-w-2xl">
             <div>
               <div className="text-3xl md:text-4xl font-bold">70+</div>
-              <div className="text-xs sm:text-sm text-green-200 mt-1">narių</div>
+              <div className="text-xs sm:text-sm text-green-200 mt-1">{t.statMembersLabel}</div>
             </div>
             <div className="border-l border-white/15 pl-4">
               <div className="text-3xl md:text-4xl font-bold">25</div>
-              <div className="text-xs sm:text-sm text-green-200 mt-1">savanorių</div>
+              <div className="text-xs sm:text-sm text-green-200 mt-1">{t.statVolunteersLabel}</div>
             </div>
             <div className="border-l border-white/15 pl-4">
               <div className="text-3xl md:text-4xl font-bold">14</div>
-              <div className="text-xs sm:text-sm text-green-200 mt-1">veiklos metų</div>
+              <div className="text-xs sm:text-sm text-green-200 mt-1">{t.statYearsLabel}</div>
             </div>
           </div>
         </div>
@@ -255,16 +257,15 @@ export default async function HomePage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white uppercase tracking-wide">
-                      Pilotinis projektas
+                      {t.lieptasBadge}
                     </span>
-                    <span className="text-xs text-gray-500">Aukų rinkimas</span>
+                    <span className="text-xs text-gray-500">{t.lieptasCategoryLabel}</span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 group-hover:text-amber-700 transition-colors">
                     {lieptas.title}
                   </h2>
                   <p className="text-sm text-gray-600 mb-3 max-w-2xl">
-                    Mūsų liepto laikas atsinaujinti – su bendruomenės ir svečių
-                    pagalba. Jei ne dabar, tai kada?
+                    {t.lieptasDescription}
                   </p>
 
                   {/* Progresas */}
@@ -272,10 +273,10 @@ export default async function HomePage() {
                     <div className="flex items-baseline justify-between gap-3 text-sm">
                       <span className="font-semibold text-gray-900">
                         {(lieptas.totalCents / 100).toFixed(0)} €
-                        <span className="text-gray-400 font-normal"> iš {(lieptas.goalCents / 100).toFixed(0)} €</span>
+                        <span className="text-gray-400 font-normal"> {t.lieptasProgressOf.replace("{goal}", (lieptas.goalCents / 100).toFixed(0))}</span>
                       </span>
                       <span className="text-xs text-gray-500">
-                        {lieptas.donorCount} {lieptas.donorCount === 1 ? "aukotojas" : "aukotojai"}
+                        {lieptas.donorCount} {lieptas.donorCount === 1 ? t.lieptasDonorSingular : t.lieptasDonorPlural}
                       </span>
                     </div>
                     <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
@@ -293,7 +294,7 @@ export default async function HomePage() {
                 </div>
                 <div className="flex-shrink-0 self-stretch md:self-center">
                   <span className="inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-semibold group-hover:bg-amber-700 transition-colors whitespace-nowrap">
-                    Padėti <ArrowRight className="h-4 w-4" />
+                    {t.lieptasCta} <ArrowRight className="h-4 w-4" />
                   </span>
                 </div>
               </div>
@@ -321,7 +322,7 @@ export default async function HomePage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1.5">
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-400 text-white">
-                          <Pin className="h-3 w-3" /> Svarbu
+                          <Pin className="h-3 w-3" /> {t.pinnedBadge}
                         </span>
                         <span className="text-xs text-gray-400">
                           {article.published_at ? formatDateLong(article.published_at) : ""}
@@ -348,26 +349,26 @@ export default async function HomePage() {
             {[
               {
                 icon: Newspaper,
-                title: "Naujienos",
-                desc: "Pranešimai apie susirinkimus, renginius ir svarbius sprendimus",
+                title: t.quickLinkNewsTitle,
+                desc: t.quickLinkNewsDesc,
                 href: "/naujienos",
               },
               {
                 icon: Heart,
-                title: "Projektai",
-                desc: "Aukų rinkimo projektai su skaidria lėšų istorija",
+                title: t.quickLinkProjectsTitle,
+                desc: t.quickLinkProjectsDesc,
                 href: "/projektai",
               },
               {
                 icon: Users,
-                title: "Apie mus",
-                desc: "Vizija, misija ir bendruomenės veiklos modelis",
+                title: t.quickLinkAboutTitle,
+                desc: t.quickLinkAboutDesc,
                 href: "/kontaktai",
               },
               {
                 icon: Phone,
-                title: "Kontaktai",
-                desc: "Susisiekite su bendruomenės valdyba",
+                title: t.quickLinkContactsTitle,
+                desc: t.quickLinkContactsDesc,
                 href: "/kontaktai",
               },
             ].map((item) => (
@@ -392,12 +393,12 @@ export default async function HomePage() {
         <section className="py-16 bg-gray-50">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-bold text-gray-900">Naujausios naujienos</h2>
+              <h2 className="text-2xl font-bold text-gray-900">{t.latestNewsHeading}</h2>
               <Link
                 href="/naujienos"
                 className="text-sm text-green-700 hover:text-green-800 font-medium flex items-center gap-1"
               >
-                Visos naujienos <ArrowRight className="h-3.5 w-3.5" />
+                {t.allNewsLink} <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -423,30 +424,25 @@ export default async function HomePage() {
       <section className="py-16 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="max-w-3xl mx-auto text-center mb-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Apie bendruomenę</h2>
-            <p className="text-gray-600 leading-relaxed">
-              Telkiame bendruomenės narius bendriems projektams ir iniciatyvoms, kurios pagerina
-              gyvenimo kokybę Krūminiuose. Skatinama kaimynystė, savanoriškumas ir tarpusavio
-              pagarba. Aktyviai bendradarbiaujame su vietiniais verslais, savivaldybe ir kitomis
-              organizacijomis.
-            </p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">{t.aboutHeading}</h2>
+            <p className="text-gray-600 leading-relaxed">{t.aboutBody}</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             {[
               {
                 icon: Handshake,
-                title: "Bendruomeniškumas",
-                desc: "Telkiame Krūminių ir aplinkinių kaimų gyventojus bendriems projektams ir iniciatyvoms",
+                title: t.valueCommunityTitle,
+                desc: t.valueCommunityDesc,
               },
               {
                 icon: Eye,
-                title: "Skaidrumas",
-                desc: "Visi finansiniai srautai yra skaidrūs ir prieinami bendruomenės nariams",
+                title: t.valueTransparencyTitle,
+                desc: t.valueTransparencyDesc,
               },
               {
                 icon: TrendingUp,
-                title: "Investicijos į bendruomenę",
-                desc: "Surenkamos lėšos skirtos paplūdimio, žaidimų aikštelės ir bendros teritorijos priežiūrai",
+                title: t.valueInvestmentTitle,
+                desc: t.valueInvestmentDesc,
               },
             ].map((item) => (
               <div key={item.title} className="text-center">
@@ -465,26 +461,23 @@ export default async function HomePage() {
       <section className="py-16 bg-gray-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Tapkite nariu</h2>
-            <p className="text-gray-600 leading-relaxed mb-6">
-              Bendruomenės nariais gali būti 18 metų sulaukę veiksnūs fiziniai asmenys, gyvenantys,
-              dirbantys ar turintys nuosavybės Krūminių kaime ir pritariantys bendruomenės tikslams.
-            </p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">{t.membershipHeading}</h2>
+            <p className="text-gray-600 leading-relaxed mb-6">{t.membershipBody}</p>
             <div className="flex flex-wrap justify-center gap-6 mb-8">
               <div className="bg-white rounded-xl border border-gray-200 px-6 py-4 text-center">
-                <p className="text-2xl font-bold text-green-700">20 &euro;</p>
-                <p className="text-sm text-gray-500">Stojamasis mokestis</p>
+                <p className="text-2xl font-bold text-green-700">{t.membershipJoiningFeeAmount}</p>
+                <p className="text-sm text-gray-500">{t.membershipJoiningFeeLabel}</p>
               </div>
               <div className="bg-white rounded-xl border border-gray-200 px-6 py-4 text-center">
-                <p className="text-2xl font-bold text-green-700">12 &euro;</p>
-                <p className="text-sm text-gray-500">Metinis nario mokestis</p>
+                <p className="text-2xl font-bold text-green-700">{t.membershipAnnualFeeAmount}</p>
+                <p className="text-sm text-gray-500">{t.membershipAnnualFeeLabel}</p>
               </div>
             </div>
             <Link
               href="/registracija"
               className="inline-flex items-center gap-2 px-6 py-3 bg-green-700 text-white rounded-lg font-medium hover:bg-green-600 transition-colors shadow-sm"
             >
-              Pateikti prašymą
+              {t.membershipCta}
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
