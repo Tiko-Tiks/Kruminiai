@@ -4,7 +4,7 @@ import { PublicFooter } from "@/components/layout/PublicFooter";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { formatDateLong } from "@/lib/utils";
 import { SITE_NAME, COMMUNITY_LEGAL } from "@/lib/constants";
-import { getDict } from "@/lib/i18n-server";
+import { getDict, getLocale } from "@/lib/i18n-server";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://kruminiai.lt";
 
@@ -70,11 +70,12 @@ async function getLieptasProject() {
   const supabase = createServerSupabaseClient();
   const { data: project } = await supabase
     .from("fundraising_projects")
-    .select("id, title, slug, goal_cents")
+    .select("id, title, title_en, slug, goal_cents")
     .eq("slug", "lieptas")
     .eq("is_public", true)
     .maybeSingle();
   if (!project) return null;
+  const locale = getLocale();
   const { data: donations } = await supabase
     .from("donations")
     .select("amount_cents")
@@ -84,7 +85,9 @@ async function getLieptasProject() {
     0
   );
   return {
-    title: project.title as string,
+    title:
+      (locale === "en" && (project.title_en as string | null)) ||
+      (project.title as string),
     slug: project.slug as string,
     goalCents: project.goal_cents as number,
     totalCents,

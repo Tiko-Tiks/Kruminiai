@@ -427,6 +427,12 @@ arba `useT().<ns>.key` (klientas). Kategorijų etiketės – per `docCategories`
 dokumentų/susirinkimų pavadinimai, narių vardai), SEO metaduomenys, administravimas
 (LT komandai), kai kurie `constants.ts` label'ai (statusai, mokesčių tipai).
 
+**DB turinio išimtis – `fundraising_projects` (migracija 032):** projekto
+marketinginis turinys (`title`, `short_desc`, `story_md`) turi pasirinktinius
+`*_en` stulpelius. `/lieptas` ir pagrindinio puslapio Liepto blokas naudoja
+`(locale === "en" && x_en) || x` šabloną – EN su LT fallback'u. Eigos įrašai
+(`project_updates`) ir išlaidos (`project_expenses`) lieka LT (admin turinys).
+
 **El. laiškai – ATSKIRA sistema** (ne web žodynas): žr. „### Email".
 
 **Cookie efektas:** `cookies()` šakniniame layout'e → visi puslapiai tampa
@@ -518,6 +524,7 @@ dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
 | 029 | `029_function_grants_fix.sql` | Funkcijų EXECUTE higiena – atimtas default `PUBLIC` grant'as nuo vidinių/nario RPC (anon nebegali kviesti), token srauto RPC palikti anon |
 | 030 | `030_member_language.sql` | `members.language` ('lt'/'en', default 'lt') – nario pageidaujama el. laiškų kalba; admin nustato per nario formą |
 | 031 | `031_project_progress.sql` | **II etapas** – `project_updates` (statybų eigos įrašai su nuotraukomis JSONB) + `project_expenses` (viešos išlaidos); RLS: public read / admin write per `is_admin()` |
+| 032 | `032_fundraising_projects_i18n.sql` | `fundraising_projects.title_en/short_desc_en/story_md_en` – projekto marketinginio turinio EN vertimas (+ Liepto EN turinys) |
 
 DB pakeitimai daromi **per Supabase MCP** (`apply_migration`) IR sinchronizuojami į `supabase/migrations/` lokaliam repo įrašymui.
 

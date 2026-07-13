@@ -3,7 +3,7 @@ import { generateSepaQrSvg } from "@/lib/sepa-qr";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { formatDate, getImagePublicUrl } from "@/lib/utils";
-import { getDict } from "@/lib/i18n-server";
+import { getDict, getLocale } from "@/lib/i18n-server";
 import { Heart, Phone, Mail, Copy, Hammer, Wallet } from "lucide-react";
 import { CopyIbanButton } from "./CopyIbanButton";
 import Link from "next/link";
@@ -30,6 +30,7 @@ export const metadata: Metadata = {
 
 export default async function LieptasPage() {
   const supabase = createServerSupabaseClient();
+  const locale = getLocale();
   const t = getDict().lieptas;
 
   const { data: project } = await supabase
@@ -71,6 +72,16 @@ export default async function LieptasPage() {
     .eq("project_id", project.id)
     .order("expense_date", { ascending: false });
 
+  // Projekto marketinginis turinys – EN versija iš *_en stulpelių su LT fallback'u
+  const projectTitle =
+    (locale === "en" && (project.title_en as string | null)) || (project.title as string);
+  const projectShortDesc =
+    (locale === "en" && (project.short_desc_en as string | null)) ||
+    (project.short_desc as string | null);
+  const projectStory =
+    (locale === "en" && (project.story_md_en as string | null)) ||
+    (project.story_md as string | null);
+
   const totalCents = (donations || []).reduce((s, d) => s + (d.amount_cents as number), 0);
   const goalCents = project.goal_cents as number;
   const percent = goalCents > 0 ? Math.round((totalCents / goalCents) * 100) : 0;
@@ -110,10 +121,10 @@ export default async function LieptasPage() {
               {t.heroEyebrow.replace("{year}", String(new Date().getFullYear()))}
             </p>
             <h1 className="text-3xl md:text-5xl font-bold leading-tight mb-4">
-              {project.title}
+              {projectTitle}
             </h1>
             <p className="text-lg md:text-xl text-green-100 leading-relaxed max-w-2xl">
-              {project.short_desc}
+              {projectShortDesc}
             </p>
           </div>
         </section>
@@ -416,9 +427,9 @@ export default async function LieptasPage() {
           </section>
 
           {/* Istorija */}
-          {project.story_md && (
+          {projectStory && (
             <section className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm prose prose-sm max-w-none">
-              <StoryMarkdown md={project.story_md as string} />
+              <StoryMarkdown md={projectStory} />
             </section>
           )}
 
