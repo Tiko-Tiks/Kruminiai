@@ -58,6 +58,12 @@ export function getDocumentPublicUrl(filePath: string): string {
   return `${base}/storage/v1/object/public/documents/${filePath}`;
 }
 
+// Sukonstruoti viešą URL nuotraukai images bucket'e (pvz. projektų eigos foto)
+export function getImagePublicUrl(path: string): string {
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  return `${base}/storage/v1/object/public/images/${path}`;
+}
+
 // Ar dokumentas yra server-generuojamas HTML (ne PDF failas)?
 // Naudojama nuspręsti, ar peržiūrai naudoti iframe ar PdfViewer.
 export function isServerGeneratedDoc(filePath: string): boolean {

@@ -70,6 +70,8 @@ admin arba `members.status='aktyvus'` narys, kitaip `/portalas?error=members_onl
 | `community_management` | Valdymo organų (Pirmininkas, Tarybos nariai, Revizorius) sąrašas su kadencijomis |
 | `fundraising_projects` | Aukų rinkimo projektai (šiuo metu vienas – `lieptas`) |
 | `donations` | Atskiros aukos (anonymous, message, amount_cents, method, donor_name) |
+| `project_updates` | Projekto statybų eigos įrašai (title, body, update_date, photos JSONB – keliai `images` bucket'e) |
+| `project_expenses` | Projekto išlaidos, viešai matomos (description, supplier, amount_cents, expense_date) |
 | `news` | Naujienos (markdown content + slug, is_pinned, is_published) |
 | `audit_log` | Visi mutacijos veiksmai |
 
@@ -515,6 +517,7 @@ dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
 | 028 | `028_security_hardening.sql` | **RLS užveržimas** – pašalintos `Authenticated full access` (USING true) politikos; rašo tik admin (`is_admin()`), nariai mato tik savo `vote_ballots`/`members`/`profiles`; `protect_profile_privileges` trigger'is (anti-eskalacija); storage tik admin; `get_transparency_fee_stats` RPC |
 | 029 | `029_function_grants_fix.sql` | Funkcijų EXECUTE higiena – atimtas default `PUBLIC` grant'as nuo vidinių/nario RPC (anon nebegali kviesti), token srauto RPC palikti anon |
 | 030 | `030_member_language.sql` | `members.language` ('lt'/'en', default 'lt') – nario pageidaujama el. laiškų kalba; admin nustato per nario formą |
+| 031 | `031_project_progress.sql` | **II etapas** – `project_updates` (statybų eigos įrašai su nuotraukomis JSONB) + `project_expenses` (viešos išlaidos); RLS: public read / admin write per `is_admin()` |
 
 DB pakeitimai daromi **per Supabase MCP** (`apply_migration`) IR sinchronizuojami į `supabase/migrations/` lokaliam repo įrašymui.
 
@@ -597,6 +600,18 @@ Naudoja `node scripts/X.mjs` su .env.local skaitymu.
 - Naujiena `/naujienos/lieptas-pilotinis-projektas-2026` (is_pinned=true)
 
 **Skaidrumas:** visos aukos viešai matomos (anoniminiai kaip „Anonimas"). Lėšos renkamos atskirai nuo nario mokesčio biudžeto.
+
+**II etapas – statybų eiga (aukos surinktos su pertekliumi 2026-07):**
+- DB: `project_updates` (eigos įrašai su nuotraukomis) + `project_expenses` (išlaidos) – migracija 031
+- Vieša `/lieptas`: „Statybų eiga" timeline su nuotraukų galerija + „Lėšų panaudojimas"
+  (Surinkta / Išleista / Likutis + išlaidų lentelė). Pasiekus tikslą vietoj „Liko surinkti"
+  rodomas padėkos banner'is su pertekliaus suma. Procentas nebekap'inamas (rodo pvz. 115%).
+- Admin `/admin/aukos` → `ProgressPanel.tsx`: eigos įrašų forma su nuotraukų įkėlimu
+  (klientinėje pusėje suspaudžiamos iki 1600px JPEG per canvas – `compressImage`) ir
+  išlaidų registras. Server actions: `src/actions/project-progress.ts` (requireAdmin + logAudit)
+- Nuotraukos: viešas `images` bucket'as, keliai `projektai/...`, URL per `getImagePublicUrl()`
+  (`src/lib/utils.ts`). `next.config.mjs` – serverActions `bodySizeLimit: 15mb`
+- i18n: nauji raktai `lieptas` namespace (LT + EN)
 
 ## Esami testaviniai duomenys (gegužės 23 d. susirinkimas)
 

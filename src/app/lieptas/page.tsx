@@ -2,9 +2,9 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { generateSepaQrSvg } from "@/lib/sepa-qr";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getImagePublicUrl } from "@/lib/utils";
 import { getDict } from "@/lib/i18n-server";
-import { Heart, Phone, Mail, Copy } from "lucide-react";
+import { Heart, Phone, Mail, Copy, Hammer, Wallet } from "lucide-react";
 import { CopyIbanButton } from "./CopyIbanButton";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -57,10 +57,30 @@ export default async function LieptasPage() {
     .eq("project_id", project.id)
     .order("donated_at", { ascending: false });
 
+  // II etapas: statybų eigos įrašai + viešos išlaidos (RLS leidžia anon skaityti)
+  const { data: updates } = await supabase
+    .from("project_updates")
+    .select("id, title, body, update_date, photos")
+    .eq("project_id", project.id)
+    .eq("is_published", true)
+    .order("update_date", { ascending: false });
+
+  const { data: expenses } = await supabase
+    .from("project_expenses")
+    .select("id, description, supplier, amount_cents, expense_date")
+    .eq("project_id", project.id)
+    .order("expense_date", { ascending: false });
+
   const totalCents = (donations || []).reduce((s, d) => s + (d.amount_cents as number), 0);
   const goalCents = project.goal_cents as number;
-  const percent = goalCents > 0 ? Math.min(100, Math.round((totalCents / goalCents) * 100)) : 0;
+  const percent = goalCents > 0 ? Math.round((totalCents / goalCents) * 100) : 0;
+  const barPercent = Math.min(100, percent);
   const donorCount = (donations || []).length;
+  const goalReached = goalCents > 0 && totalCents >= goalCents;
+  const surplusCents = Math.max(0, totalCents - goalCents);
+
+  const spentCents = (expenses || []).reduce((s, e) => s + (e.amount_cents as number), 0);
+  const fundsRemainingCents = totalCents - spentCents;
 
   // SEPA QR kodas. BIC pridedamas (nors v002 leidžia tuščią), kad senesni
   // bankų aplikacijų variantai apdorotų korektiškai.
@@ -147,13 +167,157 @@ export default async function LieptasPage() {
             <div className="w-full bg-gray-100 rounded-full h-4 overflow-hidden">
               <div
                 className="bg-gradient-to-r from-green-500 to-green-700 h-full rounded-full transition-all"
-                style={{ width: `${percent}%` }}
+                style={{ width: `${barPercent}%` }}
               />
             </div>
 
-            <p className="text-sm text-gray-600 mt-4">
-              {t.remainingPrefix} <strong className="text-gray-900">{remainingEur} €</strong>{t.remainingSuffix}
-            </p>
+            {goalReached ? (
+              <div className="mt-4 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                <p className="text-sm font-semibold text-green-800">{t.goalReachedTitle}</p>
+                {surplusCents > 0 && (
+                  <p className="text-sm text-green-700 mt-0.5">
+                    {t.goalSurplusNote.replace("{surplus}", (surplusCents / 100).toFixed(0))}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600 mt-4">
+                {t.remainingPrefix} <strong className="text-gray-900">{remainingEur} €</strong>{t.remainingSuffix}
+              </p>
+            )}
+          </section>
+
+          {/* Statybų eiga (II etapas) */}
+          <section className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm">
+            <h2 className="text-2xl font-bold text-gray-900 mb-1 flex items-center gap-2">
+              <Hammer className="h-6 w-6 text-amber-600" />
+              {t.constructionHeading}
+            </h2>
+            <p className="text-sm text-gray-600 mb-6">{t.constructionIntro}</p>
+
+            {(updates || []).length === 0 ? (
+              <div className="text-center py-10">
+                <p className="text-gray-400 mb-2">{t.noUpdatesTitle}</p>
+                <p className="text-sm text-gray-500">{t.noUpdatesSubtitle}</p>
+              </div>
+            ) : (
+              <ol className="relative border-l-2 border-green-100 ml-2 space-y-8">
+                {(updates || []).map((u) => {
+                  const photos = ((u.photos as string[]) || []).filter(Boolean);
+                  return (
+                    <li key={u.id} className="pl-6 relative">
+                      <span className="absolute -left-[9px] top-1.5 h-4 w-4 rounded-full bg-green-600 border-4 border-green-100" />
+                      <p className="text-xs text-gray-400 mb-0.5">
+                        {formatDate(u.update_date as string)}
+                      </p>
+                      <h3 className="font-semibold text-gray-900">{u.title as string}</h3>
+                      {u.body && (
+                        <p className="text-sm text-gray-600 mt-1 leading-relaxed whitespace-pre-line">
+                          {u.body as string}
+                        </p>
+                      )}
+                      {photos.length > 0 && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">
+                          {photos.map((p) => {
+                            const url = getImagePublicUrl(p);
+                            return (
+                              <a
+                                key={p}
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block overflow-hidden rounded-lg group"
+                              >
+                                <img
+                                  src={url}
+                                  alt={t.updatePhotoAlt}
+                                  loading="lazy"
+                                  className="w-full aspect-[4/3] object-cover group-hover:scale-105 transition-transform"
+                                />
+                              </a>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </section>
+
+          {/* Lėšų panaudojimas (išlaidos viešai) */}
+          <section className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm">
+            <h2 className="text-2xl font-bold text-gray-900 mb-1 flex items-center gap-2">
+              <Wallet className="h-6 w-6 text-green-700" />
+              {t.spendingHeading}
+            </h2>
+            <p className="text-sm text-gray-600 mb-6">{t.spendingIntro}</p>
+
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              <div className="bg-green-50 border border-green-100 rounded-xl p-3 sm:p-4 text-center">
+                <div className="text-lg sm:text-2xl font-bold text-green-700">
+                  {(totalCents / 100).toFixed(0)} €
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">{t.statCollected}</p>
+              </div>
+              <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 sm:p-4 text-center">
+                <div className="text-lg sm:text-2xl font-bold text-amber-700">
+                  {(spentCents / 100).toFixed(2).replace(/\.00$/, "")} €
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">{t.statSpent}</p>
+              </div>
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 sm:p-4 text-center">
+                <div className="text-lg sm:text-2xl font-bold text-gray-900">
+                  {(fundsRemainingCents / 100).toFixed(2).replace(/\.00$/, "")} €
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">{t.statRemaining}</p>
+              </div>
+            </div>
+
+            {(expenses || []).length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-4">{t.expensesEmpty}</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-200">
+                      <th className="py-2 pr-3 font-medium">{t.expColDate}</th>
+                      <th className="py-2 pr-3 font-medium">{t.expColPurpose}</th>
+                      <th className="py-2 text-right font-medium">{t.expColAmount}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {(expenses || []).map((e) => (
+                      <tr key={e.id}>
+                        <td className="py-2.5 pr-3 text-gray-500 whitespace-nowrap align-top">
+                          {formatDate(e.expense_date as string)}
+                        </td>
+                        <td className="py-2.5 pr-3 text-gray-900 align-top">
+                          {e.description as string}
+                          {e.supplier && (
+                            <span className="text-gray-500"> · {e.supplier as string}</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 text-right font-semibold text-gray-900 whitespace-nowrap align-top">
+                          {((e.amount_cents as number) / 100).toFixed(2)} €
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t border-gray-200">
+                      <td colSpan={2} className="py-2.5 pr-3 text-sm font-semibold text-gray-700">
+                        {t.expensesTotalLabel}
+                      </td>
+                      <td className="py-2.5 text-right font-bold text-amber-700 whitespace-nowrap">
+                        {(spentCents / 100).toFixed(2)} €
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
           </section>
 
           {/* Aukojimas */}

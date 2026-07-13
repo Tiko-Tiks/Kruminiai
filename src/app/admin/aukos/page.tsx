@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { DonationsPanel } from "./DonationsPanel";
+import { ProgressPanel } from "./ProgressPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,18 @@ export default async function AukosPage() {
     .order("donated_at", { ascending: false })
     .order("created_at", { ascending: false });
 
+  const { data: updates } = await supabase
+    .from("project_updates")
+    .select("*, project:fundraising_projects(slug, title)")
+    .order("update_date", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  const { data: expenses } = await supabase
+    .from("project_expenses")
+    .select("*, project:fundraising_projects(slug, title)")
+    .order("expense_date", { ascending: false })
+    .order("created_at", { ascending: false });
+
   return (
     <div>
       <div className="mb-6">
@@ -33,6 +46,20 @@ export default async function AukosPage() {
       </div>
 
       <DonationsPanel projects={projects || []} donations={donations || []} />
+
+      <div className="mt-10 mb-6">
+        <h2 className="text-xl font-bold text-gray-900">Statybų eiga ir išlaidos</h2>
+        <p className="text-sm text-gray-500 mt-1">
+          II etapas – darbų įrašai su nuotraukomis ir išlaidų registras. Viskas
+          iškart matoma viešame projekto puslapyje.
+        </p>
+      </div>
+
+      <ProgressPanel
+        projects={projects || []}
+        updates={updates || []}
+        expenses={expenses || []}
+      />
     </div>
   );
 }

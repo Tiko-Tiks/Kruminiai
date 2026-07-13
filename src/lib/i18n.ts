@@ -121,6 +121,23 @@ export interface Dictionary {
     copyAriaLabel: string;
     copyLabel: string;
     copiedLabel: string;
+    goalReachedTitle: string;
+    goalSurplusNote: string;
+    constructionHeading: string;
+    constructionIntro: string;
+    noUpdatesTitle: string;
+    noUpdatesSubtitle: string;
+    updatePhotoAlt: string;
+    spendingHeading: string;
+    spendingIntro: string;
+    statCollected: string;
+    statSpent: string;
+    statRemaining: string;
+    expColDate: string;
+    expColPurpose: string;
+    expColAmount: string;
+    expensesEmpty: string;
+    expensesTotalLabel: string;
   };
   transparency: {
     pageHeading: string;
@@ -496,6 +513,27 @@ const lt: Dictionary = {
     copyAriaLabel: "Kopijuoti IBAN",
     copyLabel: "Kopijuoti",
     copiedLabel: "Nukopijuota",
+    goalReachedTitle: "Tikslas pasiektas – ačiū visiems! 🎉",
+    goalSurplusNote:
+      "Surinkta {surplus} € daugiau nei planuota – visos papildomos lėšos skiriamos liepto darbams.",
+    constructionHeading: "Statybų eiga",
+    constructionIntro:
+      "Sekite liepto atnaujinimo darbus – čia skelbiame kiekvieną etapą su nuotraukomis.",
+    noUpdatesTitle: "Darbai netrukus prasidės! 🔨",
+    noUpdatesSubtitle:
+      "Čia skelbsime kiekvieną darbų etapą su nuotraukomis – užsukite pasižiūrėti.",
+    updatePhotoAlt: "Statybų eigos nuotrauka",
+    spendingHeading: "Lėšų panaudojimas",
+    spendingIntro:
+      "Skaidrumas – kiekviena išlaida registruojama viešai, kad matytumėte, kur keliauja jūsų aukos.",
+    statCollected: "Surinkta",
+    statSpent: "Išleista",
+    statRemaining: "Likutis",
+    expColDate: "Data",
+    expColPurpose: "Paskirtis",
+    expColAmount: "Suma",
+    expensesEmpty: "Išlaidų dar nėra – visos bus skelbiamos čia.",
+    expensesTotalLabel: "Iš viso išleista",
   },
   transparency: {
     pageHeading: "Finansai",
@@ -894,6 +932,27 @@ const en: Dictionary = {
     copyAriaLabel: "Copy IBAN",
     copyLabel: "Copy",
     copiedLabel: "Copied",
+    goalReachedTitle: "Goal reached – thank you all! 🎉",
+    goalSurplusNote:
+      "We raised {surplus} € more than planned – all additional funds go towards the footbridge works.",
+    constructionHeading: "Construction progress",
+    constructionIntro:
+      "Follow the renewal of the footbridge – we publish every stage of the works here with photos.",
+    noUpdatesTitle: "Works are starting soon! 🔨",
+    noUpdatesSubtitle:
+      "We will publish every stage of the works here with photos – check back soon.",
+    updatePhotoAlt: "Construction progress photo",
+    spendingHeading: "Use of funds",
+    spendingIntro:
+      "Transparency – every expense is recorded publicly, so you can see where your donations go.",
+    statCollected: "Collected",
+    statSpent: "Spent",
+    statRemaining: "Remaining",
+    expColDate: "Date",
+    expColPurpose: "Purpose",
+    expColAmount: "Amount",
+    expensesEmpty: "No expenses yet – all of them will be published here.",
+    expensesTotalLabel: "Total spent",
   },
   transparency: {
     pageHeading: "Finances",
