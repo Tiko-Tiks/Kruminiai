@@ -31,6 +31,23 @@ export async function GET(
     return NextResponse.json({ error: "Neprisijungęs" }, { status: 401 });
   }
 
+  // SAUGUMAS: /api/* yra už middleware matcher ribų, tad patys tikrinam, kad
+  // naudotojas patvirtintas (arba adminas). Nepatvirtintas (is_approved=false)
+  // narys turi sesiją, bet neturi matyti privačių dokumentų.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_approved, role")
+    .eq("id", user.id)
+    .maybeSingle();
+  const allowed =
+    !!profile &&
+    (profile.is_approved ||
+      profile.role === "admin" ||
+      profile.role === "super_admin");
+  if (!allowed) {
+    return NextResponse.json({ error: "Prieiga negalima" }, { status: 403 });
+  }
+
   const filePath = params.path.join("/");
   const safePath = path.normalize(filePath).replace(/^(\.\.[/\\])+/, "");
   const fullPath = path.join(process.cwd(), "private", "documents", safePath);

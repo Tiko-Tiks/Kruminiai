@@ -1,6 +1,7 @@
 "use server";
 
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { requireAdmin } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 
@@ -38,8 +39,12 @@ export async function getDocuments(
   if (filter.category && filter.category !== "visos") query = query.eq("category", filter.category);
 
   if (filter.search && filter.search.trim()) {
-    const term = filter.search.trim();
-    query = query.or(`title.ilike.%${term}%,description.ilike.%${term}%,file_name.ilike.%${term}%`);
+    // SAUGUMAS: pašalinam PostgREST .or() filtro metaženklus (,()), kad naudotojo
+    // įvestis negalėtų injektuoti papildomų OR sąlygų
+    const term = filter.search.trim().replace(/[,()]/g, " ").trim();
+    if (term) {
+      query = query.or(`title.ilike.%${term}%,description.ilike.%${term}%,file_name.ilike.%${term}%`);
+    }
   }
 
   const { data, error } = await query;
@@ -49,7 +54,9 @@ export async function getDocuments(
 
 export async function createDocument(formData: FormData) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
 
   const file = formData.get("file") as File;
   const title = formData.get("title") as string;
@@ -108,7 +115,9 @@ export async function createDocument(formData: FormData) {
 
 export async function deleteDocument(id: string) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
 
   const { data: doc } = await supabase.from("documents").select("*").eq("id", id).single();
   if (!doc) return { error: "Dokumentas nerastas" };
@@ -138,7 +147,9 @@ export async function getDocumentUrl(filePath: string) {
 
 export async function toggleDocumentVisibility(id: string, isPublic: boolean) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
 
   const { error } = await supabase
     .from("documents")

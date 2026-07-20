@@ -13,10 +13,19 @@ export async function GET(
 ) {
   const supabase = createServerSupabaseClient();
 
-  // Patikrinti autentifikaciją
+  // Patikrinti autentifikaciją + admin rolę (dokumente – dalyvių pavardės
+  // ir balsų suvestinės; nariams skirta pasirašyto PDF versija /dokumentai)
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Neautorizuotas" }, { status: 401 });
+  }
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (!profile || !["admin", "super_admin"].includes(profile.role)) {
+    return NextResponse.json({ error: "Trūksta teisių" }, { status: 403 });
   }
 
   // Gauti susirinkimo duomenis

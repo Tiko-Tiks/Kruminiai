@@ -2,6 +2,7 @@
 
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { createAdminSupabaseClient, isAdminClientAvailable } from "@/lib/supabase-admin";
+import { requireAdmin } from "@/lib/authz";
 
 export interface MemberActivity {
   profile_id: string;
@@ -37,7 +38,9 @@ export interface ActivityStats {
  * Reikalauja SUPABASE_SERVICE_ROLE_KEY env var'o.
  */
 export async function getMemberActivity(): Promise<ActivityStats> {
-  if (!isAdminClientAvailable()) {
+  // Service-role klientas apeina RLS, todėl rolę tikrinam eksplicitiškai
+  const authCheck = await requireAdmin(createServerSupabaseClient());
+  if (authCheck.error || !isAdminClientAvailable()) {
     return {
       total_accounts: 0,
       pending_approval: 0,

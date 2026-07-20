@@ -5,7 +5,11 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/admin";
+  // SAUGUMAS: leidžiam tik vidinį same-origin kelią (ne //evil.com ar @evil.com),
+  // kad `next` netaptų open-redirect'u
+  const nextParam = searchParams.get("next") ?? "/admin";
+  const next =
+    nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/admin";
 
   if (code) {
     const cookieStore = cookies();

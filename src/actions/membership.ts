@@ -1,9 +1,32 @@
 "use server";
 
-import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { sendEmail } from "@/lib/email";
-import { logNotification } from "@/lib/notification-log";
+import { logNotificationSystem } from "@/lib/notification-log";
 import { renderMembershipRequestEmail } from "@/lib/membership-emails";
+import { createAdminSupabaseClient, isAdminClientAvailable } from "@/lib/supabase-admin";
+
+// Anti-bombardavimo apsauga anon endpoint'ui: kiek laiškų tam pačiam adresui
+// leidžiama per langą (normali registracija siunčia 1). Skaičiuojam iš
+// notification_log per service-role.
+const REQUEST_EMAIL_WINDOW_MS = 10 * 60 * 1000;
+const REQUEST_EMAIL_MAX = 3;
+
+async function tooManyRecentRequests(email: string): Promise<boolean> {
+  if (!isAdminClientAvailable()) return false;
+  try {
+    const admin = createAdminSupabaseClient();
+    const since = new Date(Date.now() - REQUEST_EMAIL_WINDOW_MS).toISOString();
+    const { count } = await admin
+      .from("notification_log")
+      .select("id", { count: "exact", head: true })
+      .eq("recipient", email)
+      .eq("channel", "email")
+      .gte("created_at", since);
+    return (count ?? 0) >= REQUEST_EMAIL_MAX;
+  } catch {
+    return false; // throttle klaida neblokuoja teisėtos registracijos
+  }
+}
 
 /**
  * Laiškas #1 – išsiunčiamas ką tik /registracija formą užpildžiusiam žmogui:
@@ -24,6 +47,9 @@ export async function sendMembershipRequestEmail(input: {
   const lastName = (input.lastName || "").trim();
   if (!email) return { success: false };
 
+  // Anti-bombardavimas: neleisti spaminti to paties adreso per anon endpoint
+  if (await tooManyRecentRequests(email)) return { success: false };
+
   const locale = input.locale === "en" ? "en" : "lt";
   const fullName = `${firstName} ${lastName}`.trim() || email;
   const subject =
@@ -38,8 +64,8 @@ export async function sendMembershipRequestEmail(input: {
 
   const r = await sendEmail(email, subject, html);
 
-  const supabase = createServerSupabaseClient();
-  await logNotification(supabase, {
+  // ANON srautas (registracija) – žurnalas per service-role (žr. logNotificationSystem)
+  await logNotificationSystem({
     memberId: null,
     channel: "email",
     kind: "other",

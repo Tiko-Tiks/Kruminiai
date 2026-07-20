@@ -315,6 +315,9 @@ export async function sendOverdueDeclarationReminders(
 // =============================================================================
 export async function resendDeclarationSms() {
   const supabase = createServerSupabaseClient();
+  // SAUGUMAS: siunčia masinį SMS (Infobip kaina) – privalo būti admin (žr. authz)
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { success: false as const, smsSent: 0, errors: [auth.error] };
 
   const { data: tokens } = await supabase
     .from("membership_declarations")

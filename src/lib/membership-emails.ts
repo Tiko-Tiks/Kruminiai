@@ -6,7 +6,7 @@
 // laiškui, nes ten nario įrašo dar nėra). Numatyta – lietuvių.
 
 import { renderBrandedEmail } from "@/lib/email";
-import { vocative } from "@/lib/utils";
+import { vocative, escapeHtml } from "@/lib/utils";
 import {
   renderPaymentDetailsBlock,
   ENTRY_FEE_EUR,
@@ -31,7 +31,7 @@ export function renderMembershipRequestEmail(opts: {
   const currentYear = new Date().getFullYear();
   const paymentBlock = renderPaymentDetailsBlock({
     amountLabel: `${TOTAL_EUR} EUR`,
-    purpose: locale === "en" ? `Membership fee – ${opts.fullName}` : `Nario mokestis`,
+    purpose: locale === "en" ? `Membership fee – ${escapeHtml(opts.fullName)}` : `Nario mokestis`,
     locale,
   });
 
@@ -40,7 +40,7 @@ export function renderMembershipRequestEmail(opts: {
       locale,
       preheader: `Welcome! To become a member, pay the joining fee (${ENTRY_FEE_EUR} EUR) and the annual membership fee (${MEMBERSHIP_FEE_EUR} EUR).`,
       body: `
-        <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">Hello, ${opts.firstName}!</h1>
+        <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">Hello, ${escapeHtml(opts.firstName)}!</h1>
         <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#374151;">
           Thank you for submitting a membership request to the Krūminiai Village Community. We are glad you would like to join!
         </p>
@@ -79,7 +79,7 @@ export function renderMembershipRequestEmail(opts: {
     locale,
     preheader: `Sveiki! Kad taptumėte nariu, sumokėkite stojamąjį (${ENTRY_FEE_EUR} EUR) ir metinį nario mokestį (${MEMBERSHIP_FEE_EUR} EUR).`,
     body: `
-      <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">Sveiki, ${vocative(opts.firstName)}!</h1>
+      <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">Sveiki, ${escapeHtml(vocative(opts.firstName))}!</h1>
       <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#374151;">
         Ačiū, kad pateikėte narystės užklausą Krūminių kaimo bendruomenei. Džiaugiamės, kad norite prisijungti!
       </p>

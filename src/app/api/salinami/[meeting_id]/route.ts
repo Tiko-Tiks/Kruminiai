@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 import { COMMUNITY_LEGAL } from "@/lib/constants";
+import { canViewMeetingDoc } from "@/lib/meeting-doc-auth";
 
 interface ContactEvent {
   when: Date;
@@ -37,10 +38,17 @@ function fmtDateTime(d: Date) {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { meeting_id: string } }
 ) {
   const supabase = createServerSupabaseClient();
+
+  // SAUGUMAS: dokumente – šalinamų narių vardai/skolos. Leidžiam tik patvirtintam
+  // nariui/adminui ARBA anon su galiojančiu balsavimo tokenu šiam susirinkimui.
+  const token = new URL(request.url).searchParams.get("token");
+  if (!(await canViewMeetingDoc(supabase, params.meeting_id, token))) {
+    return NextResponse.json({ error: "Prieiga negalima" }, { status: 403 });
+  }
 
   // Naudojam SECURITY DEFINER RPC – veikia ir anonymous kontekste (kai iframe
   // atidaromas iš /balsuoti/[token] anon srauto, RLS blokuotų tiesiogines užklausas)
@@ -65,8 +73,9 @@ export async function GET(
     reason: string | null;
     first_name: string | null;
     last_name: string | null;
-    phone: string | null;
-    email: string | null;
+    // SAUGUMAS: telefonas/el. paštas nebegrąžinami iš anon RPC (žr. migr. 033) –
+    // tik boolean, ar narys turi kontaktų, pagrindimo eilutei
+    has_contacts: boolean;
     events: NotifRow[];
     declaration: DeclRow | null;
     roles: string[];
@@ -160,11 +169,6 @@ export async function GET(
         declSummary = parts.join("<br>");
       }
 
-      const contactLines =
-        [r.phone ? `Tel.: ${r.phone}` : null, r.email ? `El. paštas: ${r.email}` : null]
-          .filter(Boolean)
-          .join(" · ") || "Be kontaktų";
-
       // Pagrindimas
       const sentCount = events.filter((e) => e.status === "sent").length;
       const justifications: string[] = [];
@@ -179,7 +183,7 @@ export async function GET(
         );
       if (decl && !decl.viewed_at && decl.sent_at)
         justifications.push("į pranešimus nereagavo");
-      if (!r.phone && !r.email) justifications.push("neturi kontaktinių duomenų – nepasiekiamas");
+      if (!r.has_contacts) justifications.push("neturi kontaktinių duomenų – nepasiekiamas");
       const justificationText = justifications.join("; ") || "—";
 
       const memberRoles = (r.roles || []).map((role) => roleLabels[role] || role);
@@ -194,7 +198,7 @@ export async function GET(
       <span class="num">${i + 1}</span>
       <div>
         <h3>${name}</h3>
-        <div class="cand-meta">Skola: <strong>${debtEur} EUR</strong> · Neapmokėti metai: ${years}${contactLines ? ` · ${contactLines}` : ""}</div>
+        <div class="cand-meta">Skola: <strong>${debtEur} EUR</strong> · Neapmokėti metai: ${years}</div>
       </div>
     </div>
 

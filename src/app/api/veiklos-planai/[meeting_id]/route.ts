@@ -1,12 +1,20 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 import { COMMUNITY_LEGAL } from "@/lib/constants";
+import { canViewMeetingDoc } from "@/lib/meeting-doc-auth";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { meeting_id: string } }
 ) {
   const supabase = createServerSupabaseClient();
+
+  // SAUGUMAS: dokumente – bendruomenės finansinės suvestinės. Leidžiam tik
+  // patvirtintam nariui/adminui ARBA anon su galiojančiu balsavimo tokenu.
+  const token = new URL(request.url).searchParams.get("token");
+  if (!(await canViewMeetingDoc(supabase, params.meeting_id, token))) {
+    return NextResponse.json({ error: "Prieiga negalima" }, { status: 403 });
+  }
 
   const { data: meeting } = await supabase
     .from("meetings")

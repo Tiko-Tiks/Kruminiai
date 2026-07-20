@@ -308,6 +308,19 @@ Pagrindimas:
 
 Visi trys grąžina pilnai paruoštą JSONB. Niekada nedaryk tiesioginių užklausų į apsaugotas lenteles šiuose route'uose – tik per RPC.
 
+**PRIEIGOS KONTROLĖ (migr. 034, auditas 2026-07):** meeting_id NĖRA paslaptis
+(viešas pagrindiniame puslapyje ir balsavimo nuorodose), todėl vien jo
+nepakanka. Visi trys route'ai kviečia `canViewMeetingDoc()` iš
+`src/lib/meeting-doc-auth.ts`, kuris leidžia tik: (a) prisijungusiam **patvirtintam**
+nariui/adminui, ARBA (b) anon su galiojančiu **balsavimo tokenu** tam susirinkimui
+(per `voting_token_meeting` RPC). Balsavimo iframe (`VotingFlow` → `DocPreviewModal`)
+prideda `?token=` prie `__api__` dokumentų URL. Grynas anon su vien meeting_id → 403.
+
+**Duomenų minimizavimas (migr. 033):** `get_meeting_expulsions_data` NEBEgrąžina
+telefono/el. pašto – tik `has_contacts` boolean. Šalinamų narių dossier (vardas,
+skola, bendravimo istorija) matomas tik balsuotojui/adminui, kontaktai – niekada.
+Admin panelė (`getMeetingExpulsions`) naudoja tiesiogines RLS-užklausas, ne šį RPC.
+
 ## ARCHITEKTŪRA: RLS modelis (migracija 028 – saugumo užveržimas)
 
 **Anksčiau** visos lentelės turėjo `Authenticated full access` politikas su
@@ -540,6 +553,8 @@ dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
 | 030 | `030_member_language.sql` | `members.language` ('lt'/'en', default 'lt') – nario pageidaujama el. laiškų kalba; admin nustato per nario formą |
 | 031 | `031_project_progress.sql` | **II etapas** – `project_updates` (statybų eigos įrašai su nuotraukomis JSONB) + `project_expenses` (viešos išlaidos); RLS: public read / admin write per `is_admin()` |
 | 032 | `032_fundraising_projects_i18n.sql` | `fundraising_projects.title_en/short_desc_en/story_md_en` – projekto marketinginio turinio EN vertimas (+ Liepto EN turinys) |
+| 033 | `033_expulsions_rpc_minimize_pii.sql` | **Saugumo auditas** – `get_meeting_expulsions_data` nebegrąžina nario telefono/el. pašto anon iframe srautui (tik `has_contacts` bool); GDPR duomenų minimizavimas |
+| 034 | `034_iframe_route_token_guard_and_grants.sql` | **Saugumo auditas** – `voting_token_meeting` helper iframe route'ų prieigos kontrolei (žr. `canViewMeetingDoc`); atimtas anon `EXECUTE` nuo `log_notification` (anti log-injection) |
 
 DB pakeitimai daromi **per Supabase MCP** (`apply_migration`) IR sinchronizuojami į `supabase/migrations/` lokaliam repo įrašymui.
 

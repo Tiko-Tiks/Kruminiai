@@ -297,20 +297,28 @@ export function VotingFlow({ token, data }: Props) {
         />
       )}
 
-      {previewDoc && <DocPreviewModal doc={previewDoc} onClose={() => setPreviewDoc(null)} />}
+      {previewDoc && (
+        <DocPreviewModal doc={previewDoc} token={token} onClose={() => setPreviewDoc(null)} />
+      )}
     </div>
   );
 }
 
 function DocPreviewModal({
   doc,
+  token,
   onClose,
 }: {
   doc: ResolutionDocument;
+  token: string;
   onClose: () => void;
 }) {
-  const url = getDocumentPublicUrl(doc.file_path);
+  const baseUrl = getDocumentPublicUrl(doc.file_path);
   const isHtml = isServerGeneratedDoc(doc.file_path);
+  // Server-generuoti (__api__) dokumentai (šalinami/planai/rinkimai) yra
+  // token-gated (žr. canViewMeetingDoc) – anon balsuotojas perduoda savo tokeną.
+  const url =
+    isHtml && token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
   return (
     <div
       // fullscreen overlay. 100dvh = dynamic viewport height – atsižvelgia

@@ -1,6 +1,7 @@
 "use server";
 
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { requireAdmin } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { revalidateMeetingPaths } from "@/lib/revalidate";
@@ -11,6 +12,17 @@ const resolutionSchema = z.object({
   description: z.string().optional().or(z.literal("")),
   requires_qualified_majority: z.string().optional(),
 });
+
+// Leistinos reikšmės (atitinka DB CHECK constraints) – app-lygio validacija
+// (gynyba per sluoksnį; DB vis tiek atmestų blogą reikšmę)
+const VALID_VOTES = ["uz", "pries", "susilaike"] as const;
+const VALID_STATUSES = [
+  "projektas",
+  "svarstomas",
+  "balsuojamas",
+  "patvirtintas",
+  "atmestas",
+] as const;
 
 // Nutarimai
 
@@ -38,7 +50,9 @@ export async function getResolution(id: string) {
 
 export async function createResolution(meetingId: string, formData: FormData) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: { _form: [auth.error] } };
+  const user = auth.user;
 
   // Pagrindiniai laukai
   const raw = {
@@ -146,7 +160,9 @@ export async function updateResolution(
   data: { discussion_text?: string; decision_text?: string; title?: string; description?: string }
 ) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
 
   const { error } = await supabase.from("resolutions").update(data).eq("id", id);
   if (error) return { error: error.message };
@@ -165,7 +181,13 @@ export async function updateResolution(
 
 export async function updateResolutionStatus(id: string, status: string, meetingId: string) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
+
+  if (!VALID_STATUSES.includes(status as (typeof VALID_STATUSES)[number])) {
+    return { error: "Neteisingas nutarimo statusas" };
+  }
 
   const updateData: Record<string, unknown> = { status };
 
@@ -199,7 +221,9 @@ export async function updateResolutionStatus(id: string, status: string, meeting
 
 export async function deleteResolution(id: string, meetingId: string) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
 
   const { error } = await supabase.from("resolutions").delete().eq("id", id);
   if (error) return { error: error.message };
@@ -250,7 +274,13 @@ export async function recordBallots(
   voteType: string
 ) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
+
+  if (ballots.some((b) => !VALID_VOTES.includes(b.vote as (typeof VALID_VOTES)[number]))) {
+    return { error: "Neteisinga balso reikšmė" };
+  }
 
   const rows = ballots.map((b) => ({
     resolution_id: resolutionId,
@@ -301,7 +331,9 @@ export async function setResolutionResults(
   status: "patvirtintas" | "atmestas"
 ) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
 
   // Suskaičiuojam nuotoliu balsus iš vote_ballots
   const remote = await countVotes(id);
@@ -362,7 +394,9 @@ export async function attachDocumentToResolution(
   meetingId: string
 ) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
 
   // Nustatyti sort_order kaip max+1
   const { data: existing } = await supabase
@@ -399,7 +433,9 @@ export async function uploadAndAttachDocument(
   formData: FormData
 ) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
 
   const file = formData.get("file") as File | null;
   const title = ((formData.get("title") as string) || "").trim();
@@ -466,7 +502,9 @@ export async function detachDocumentFromResolution(
   meetingId: string
 ) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
 
   const { error } = await supabase
     .from("resolution_documents")
@@ -490,7 +528,13 @@ export async function detachDocumentFromResolution(
 // Nario online balsavimas (išankstinis)
 export async function castOnlineVote(resolutionId: string, memberId: string, vote: string) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
+
+  if (!VALID_VOTES.includes(vote as (typeof VALID_VOTES)[number])) {
+    return { error: "Neteisinga balso reikšmė" };
+  }
 
   // Tikrinti ar nutarimas atidarytas balsavimui
   const { data: resolution } = await supabase

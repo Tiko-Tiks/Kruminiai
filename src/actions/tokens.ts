@@ -5,7 +5,7 @@ import { requireAdmin } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { sendSms, normalizePhone } from "@/lib/infobip";
 import { sendEmail, renderBrandedEmail } from "@/lib/email";
-import { logNotification } from "@/lib/notification-log";
+import { logNotification, logNotificationSystem } from "@/lib/notification-log";
 import { vocative } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
@@ -433,7 +433,9 @@ export async function castVotesByToken(
     ? "Your vote has been registered – Krūminiai Village Community"
     : "Jūsų balsas užregistruotas – Krūminių bendruomenė";
   const sendResult = await sendEmail(email, subject, html).catch(() => null);
-  await logNotification(supabase, {
+  // ANON tokenu pagrįstas srautas – žurnalas per service-role (log_notification
+  // nuo migr. 034 nebe anon-callable). Žr. logNotificationSystem.
+  await logNotificationSystem({
     memberId: null, // tokenu pagrįstas srautas; member_id žinomas tik per RPC, čia praleidžiam
     channel: "email",
     kind: "vote_confirmation",

@@ -50,3 +50,21 @@ export async function logNotification(
     console.warn("[notification_log] Įrašymas nepavyko:", e);
   }
 }
+
+// Sisteminis (be sesijos) žurnalo įrašas ANON srautams – balso patvirtinimo
+// laiškas ir registracijos laiškas. Nuo migracijos 034 log_notification RPC
+// nebėra anon-callable (kad anonimas negalėtų fabrikuoti pranešimų istorijos),
+// tad šie teisėti sisteminiai įrašai rašomi per service-role klientą.
+// SAUGUMAS: naudojama TIK jau validuotuose anon srautuose (tokenu pagrįstas
+// balsavimas, registracija); rašo vien notification_log eilutę, ne PII mutaciją.
+export async function logNotificationSystem(p: LogNotificationParams): Promise<void> {
+  try {
+    const { createAdminSupabaseClient, isAdminClientAvailable } = await import(
+      "@/lib/supabase-admin"
+    );
+    if (!isAdminClientAvailable()) return; // dev/mock aplinka – tyliai praleidžiam
+    await logNotification(createAdminSupabaseClient(), p);
+  } catch (e) {
+    console.warn("[notification_log] Sisteminis įrašymas nepavyko:", e);
+  }
+}

@@ -35,6 +35,15 @@ export async function GET(
   if (!user) {
     return NextResponse.json({ error: "Neautorizuotas" }, { status: 401 });
   }
+  // Dokumente – pilnos narių pavardės ir balsavimo faktai, todėl tik admin
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (!profile || !["admin", "super_admin"].includes(profile.role)) {
+    return NextResponse.json({ error: "Trūksta teisių" }, { status: 403 });
+  }
 
   const url = new URL(request.url);
   const mode = url.searchParams.get("mode") || "auto";
