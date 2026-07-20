@@ -283,6 +283,7 @@ export interface Dictionary {
   news: {
     pageTitle: string;
     emptyState: string;
+    coverAlt: string;
   };
   documents: {
     pageHeading: string;
@@ -697,6 +698,7 @@ const lt: Dictionary = {
   news: {
     pageTitle: "Naujienos",
     emptyState: "Kol kas naujienų nėra",
+    coverAlt: "Naujienos nuotrauka",
   },
   documents: {
     pageHeading: "Dokumentai",
@@ -1116,6 +1118,7 @@ const en: Dictionary = {
   news: {
     pageTitle: "News",
     emptyState: "No news yet",
+    coverAlt: "News photo",
   },
   documents: {
     pageHeading: "Documents",

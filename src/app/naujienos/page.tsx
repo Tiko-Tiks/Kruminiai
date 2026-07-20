@@ -1,7 +1,7 @@
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { getNewsArticles } from "@/actions/news";
-import { formatDateLong } from "@/lib/utils";
+import { formatDateLong, getImagePublicUrl } from "@/lib/utils";
 import { getDict } from "@/lib/i18n-server";
 import { Pin } from "lucide-react";
 import Link from "next/link";
@@ -43,20 +43,30 @@ export default async function NewsPage() {
                   href={`/naujienos/${article.slug}`}
                   className="block bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md hover:border-green-200 transition-all"
                 >
-                  <div className="flex items-start gap-3">
-                    {article.is_pinned && (
-                      <Pin className="h-4 w-4 text-amber-500 flex-shrink-0 mt-1" />
+                  <div className="flex flex-col sm:flex-row-reverse sm:items-start gap-4">
+                    {article.cover_image_path && (
+                      <img
+                        src={getImagePublicUrl(article.cover_image_path)}
+                        alt={t.coverAlt}
+                        loading="lazy"
+                        className="w-full sm:w-44 h-44 sm:h-28 object-cover rounded-lg flex-shrink-0"
+                      />
                     )}
-                    <div>
-                      <p className="text-xs text-gray-400 mb-1">
-                        {article.published_at ? formatDateLong(article.published_at) : ""}
-                      </p>
-                      <h2 className="text-lg font-semibold text-gray-900 mb-2">
-                        {article.title}
-                      </h2>
-                      {article.excerpt && (
-                        <p className="text-sm text-gray-500 line-clamp-2">{article.excerpt}</p>
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      {article.is_pinned && (
+                        <Pin className="h-4 w-4 text-amber-500 flex-shrink-0 mt-1" />
                       )}
+                      <div>
+                        <p className="text-xs text-gray-400 mb-1">
+                          {article.published_at ? formatDateLong(article.published_at) : ""}
+                        </p>
+                        <h2 className="text-lg font-semibold text-gray-900 mb-2">
+                          {article.title}
+                        </h2>
+                        {article.excerpt && (
+                          <p className="text-sm text-gray-500 line-clamp-2">{article.excerpt}</p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </Link>
