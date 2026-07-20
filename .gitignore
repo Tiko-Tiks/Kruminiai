@@ -26,10 +26,19 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+.env
 .env*.local
 
 # vercel
 .vercel
+
+# siuntimu batch'u duomenys – JUOSE YRA NARIU ASMENS DUOMENYS
+# (el. pastai, telefono numeriai). NIEKADA nekommitinti – patektu i git
+# istorija visam laikui (GDPR).
+scripts/.membership-catchup.*
+scripts/.lieptas-batch-*.json
+scripts/.*.json
+*.log
 
 # typescript
 *.tsbuildinfo
