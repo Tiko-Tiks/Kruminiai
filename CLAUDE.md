@@ -72,7 +72,7 @@ admin arba `members.status='aktyvus'` narys, kitaip `/portalas?error=members_onl
 | `donations` | Atskiros aukos (anonymous, message, amount_cents, method, donor_name) |
 | `project_updates` | Projekto statybų eigos įrašai (title, body, update_date, photos JSONB – keliai `images` bucket'e) |
 | `project_expenses` | Projekto išlaidos, viešai matomos (description, supplier, amount_cents, expense_date) |
-| `news` | Naujienos (markdown content + slug, is_pinned, is_published) |
+| `news` | Naujienos (markdown content + slug, is_pinned, is_published, cover_image_path – viršelis `images` bucket'e) |
 | `audit_log` | Visi mutacijos veiksmai |
 
 **Rolės:** `super_admin`, `admin`, `member`. Defaultas naujiems – `member`, `is_approved=false`.
@@ -448,6 +448,21 @@ dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
 - **Failo dydis**: `formatFileSize(bytes)` (KB / MB)
 - **Doc public URL**: `getDocumentPublicUrl(filePath)` – konstruoja Supabase Storage public URL
 
+### Nuotraukos (images bucket)
+- **Viešas `images` bucket'as**, RLS: skaito visi, rašo/trina tik admin (`is_admin()`)
+- **Keliai pagal paskirtį**: `projektai/...` (Liepto eiga), `news/{slug}-{timestamp}.{ext}` (naujienų viršeliai)
+- **URL**: `getImagePublicUrl(path)` iš `src/lib/utils.ts`
+- **Suspaudimas kliente**: `compressImage()` iš `src/lib/image-compress.ts` – iki 1600px
+  JPEG per canvas PRIEŠ siunčiant į server action (telefono foto 3–8 MB → ~0,3 MB)
+- **`<img>`, ne `next/image`**: `next.config.mjs` neturi `images.remotePatterns`,
+  visos Supabase nuotraukos repo rodomos per paprastą `<img>`
+- **Našlaičių prevencija** (žr. `news.ts` / `project-progress.ts`): nepavykus DB
+  mutacijai – ištrinti ką tik įkeltą failą; senas failas trinamas TIK po sėkmingo
+  update'o; trinant įrašą – ištrinti ir jo failus
+- **Naujienų viršelis**: laukas admin formoje (`NewsForm.tsx`) – naujas failas
+  pakeičia seną, `remove_cover` pašalina, kitu atveju neliečiamas. Rodomas
+  `/naujienos` sąraše, straipsnio viršuje ir kaip `og:image` (Facebook share)
+
 ### Balsavimai
 - **GSM-7 SMS**: be lt diakritikos, ≤160 simb. (kad telpa į 1 segmentą)
 - **Tokenas**: 16 baitų hex (32 simb.) – per `crypto.randomBytes(16).toString("hex")`
@@ -614,7 +629,7 @@ Naudoja `node scripts/X.mjs` su .env.local skaitymu.
   (Surinkta / Išleista / Likutis + išlaidų lentelė). Pasiekus tikslą vietoj „Liko surinkti"
   rodomas padėkos banner'is su pertekliaus suma. Procentas nebekap'inamas (rodo pvz. 115%).
 - Admin `/admin/aukos` → `ProgressPanel.tsx`: eigos įrašų forma su nuotraukų įkėlimu
-  (klientinėje pusėje suspaudžiamos iki 1600px JPEG per canvas – `compressImage`) ir
+  (klientinėje pusėje suspaudžiamos per `compressImage` iš `src/lib/image-compress.ts`) ir
   išlaidų registras. Server actions: `src/actions/project-progress.ts` (requireAdmin + logAudit)
 - Nuotraukos: viešas `images` bucket'as, keliai `projektai/...`, URL per `getImagePublicUrl()`
   (`src/lib/utils.ts`). `next.config.mjs` – serverActions `bodySizeLimit: 15mb`
