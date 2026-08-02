@@ -125,21 +125,25 @@ export default async function ProjectsPage() {
                           <div className="flex items-baseline justify-between gap-3 text-sm">
                             <span className="font-semibold text-gray-900">
                               {(p.total_cents / 100).toFixed(0)} €
-                              <span className="text-gray-400 font-normal">
-                                {" "}{t.amountOfGoal.replace("{goal}", (p.goal_cents / 100).toFixed(0))}
-                              </span>
+                              {p.goal_cents > 0 && (
+                                <span className="text-gray-400 font-normal">
+                                  {" "}{t.amountOfGoal.replace("{goal}", (p.goal_cents / 100).toFixed(0))}
+                                </span>
+                              )}
                             </span>
                             <span className="text-xs text-gray-500">
                               {p.donor_count}{" "}
                               {p.donor_count === 1 ? t.donorSingular : t.donorPlural}
                             </span>
                           </div>
-                          <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all"
-                              style={{ width: `${percent}%` }}
-                            />
-                          </div>
+                          {p.goal_cents > 0 && (
+                            <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all"
+                                style={{ width: `${percent}%` }}
+                              />
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="flex-shrink-0 self-stretch md:self-center">

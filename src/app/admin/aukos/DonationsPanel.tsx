@@ -128,16 +128,20 @@ export function DonationsPanel({
                   </Link>
                 </div>
                 <div className="text-2xl font-bold text-green-700">
-                  {sumEur.toFixed(0)} € <span className="text-sm text-gray-500 font-normal">/ {goalEur.toFixed(0)} €</span>
+                  {sumEur.toFixed(0)} €{goalEur > 0 && (
+                    <span className="text-sm text-gray-500 font-normal"> / {goalEur.toFixed(0)} €</span>
+                  )}
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-2 my-2">
-                  <div
-                    className="bg-gradient-to-r from-green-500 to-green-700 h-full rounded-full"
-                    style={{ width: `${percent}%` }}
-                  />
-                </div>
+                {goalEur > 0 && (
+                  <div className="w-full bg-gray-100 rounded-full h-2 my-2">
+                    <div
+                      className="bg-gradient-to-r from-green-500 to-green-700 h-full rounded-full"
+                      style={{ width: `${percent}%` }}
+                    />
+                  </div>
+                )}
                 <p className="text-xs text-gray-500">
-                  {percent}% · {t.count} aukotojai (-os)
+                  {goalEur > 0 && <>{percent}% · </>}{t.count} aukotojai (-os)
                 </p>
               </CardContent>
             </Card>

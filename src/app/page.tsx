@@ -276,23 +276,27 @@ export default async function HomePage() {
                     <div className="flex items-baseline justify-between gap-3 text-sm">
                       <span className="font-semibold text-gray-900">
                         {(lieptas.totalCents / 100).toFixed(0)} €
-                        <span className="text-gray-400 font-normal"> {t.lieptasProgressOf.replace("{goal}", (lieptas.goalCents / 100).toFixed(0))}</span>
+                        {lieptas.goalCents > 0 && (
+                          <span className="text-gray-400 font-normal"> {t.lieptasProgressOf.replace("{goal}", (lieptas.goalCents / 100).toFixed(0))}</span>
+                        )}
                       </span>
                       <span className="text-xs text-gray-500">
                         {lieptas.donorCount} {lieptas.donorCount === 1 ? t.lieptasDonorSingular : t.lieptasDonorPlural}
                       </span>
                     </div>
-                    <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all"
-                        style={{
-                          width: `${Math.min(
-                            100,
-                            Math.round((lieptas.totalCents / lieptas.goalCents) * 100)
-                          )}%`,
-                        }}
-                      />
-                    </div>
+                    {lieptas.goalCents > 0 && (
+                      <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all"
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              Math.round((lieptas.totalCents / lieptas.goalCents) * 100)
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex-shrink-0 self-stretch md:self-center">

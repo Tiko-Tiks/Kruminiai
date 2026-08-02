@@ -131,11 +131,13 @@ export function SkaidrumasTabs({
             </p>
           </div>
           <p className="text-2xl font-bold text-amber-700">{eur(totalDonations)} €</p>
-          <p className="text-xs text-gray-500 mt-1">
-            {t.summaryDonatedMeta
-              .replace("{goal}", eur(lieptasGoalCents))
-              .replace("{percent}", String(lieptasPercent))}
-          </p>
+          {lieptasGoalCents > 0 && (
+            <p className="text-xs text-gray-500 mt-1">
+              {t.summaryDonatedMeta
+                .replace("{goal}", eur(lieptasGoalCents))
+                .replace("{percent}", String(lieptasPercent))}
+            </p>
+          )}
         </div>
       </div>
 
@@ -210,7 +212,7 @@ export function SkaidrumasTabs({
       </div>
 
       {/* Liepto projektas su nuoroda į pilną puslapį */}
-      {lieptasGoalCents > 0 && (
+      {(donations.length > 0 || lieptasGoalCents > 0) && (
         <Link
           href="/lieptas"
           className="block bg-gradient-to-br from-amber-50 via-white to-amber-50/50 rounded-2xl border-2 border-amber-200 p-5 hover:border-amber-300 hover:shadow-md transition-all"
@@ -229,22 +231,26 @@ export function SkaidrumasTabs({
               <div className="flex items-baseline justify-between gap-3 text-sm mb-1.5">
                 <span className="font-semibold text-gray-900">
                   {eur(totalDonations)} €
-                  <span className="text-gray-400 font-normal">
-                    {" "}
-                    {t.bridgeOfGoal.replace("{goal}", eur(lieptasGoalCents))}
-                  </span>
+                  {lieptasGoalCents > 0 && (
+                    <span className="text-gray-400 font-normal">
+                      {" "}
+                      {t.bridgeOfGoal.replace("{goal}", eur(lieptasGoalCents))}
+                    </span>
+                  )}
                 </span>
                 <span className="text-xs text-gray-500">
                   {donations.length}{" "}
                   {donations.length === 1 ? t.donorSingular : t.donorPlural}
                 </span>
               </div>
-              <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-amber-400 to-amber-500"
-                  style={{ width: `${lieptasPercent}%` }}
-                />
-              </div>
+              {lieptasGoalCents > 0 && (
+                <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-amber-400 to-amber-500"
+                    style={{ width: `${lieptasPercent}%` }}
+                  />
+                </div>
+              )}
             </div>
             <ArrowRight className="h-5 w-5 text-amber-600 flex-shrink-0" />
           </div>

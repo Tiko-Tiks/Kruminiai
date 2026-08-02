@@ -123,6 +123,7 @@ export interface Dictionary {
     copiedLabel: string;
     goalReachedTitle: string;
     goalSurplusNote: string;
+    noGoalNote: string;
     constructionHeading: string;
     constructionIntro: string;
     noUpdatesTitle: string;
@@ -517,6 +518,8 @@ const lt: Dictionary = {
     goalReachedTitle: "Tikslas pasiektas – ačiū visiems! 🎉",
     goalSurplusNote:
       "Surinkta {surplus} € daugiau nei planuota – visos papildomos lėšos skiriamos liepto darbams.",
+    noGoalNote:
+      "Renkame toliau! Visos surinktos lėšos skiriamos liepto užbaigimui ir paplūdimio atnaujinimui. Ačiū, kad prisidedate.",
     constructionHeading: "Statybų eiga",
     constructionIntro:
       "Sekite liepto atnaujinimo darbus – čia skelbiame kiekvieną etapą su nuotraukomis.",
@@ -937,6 +940,8 @@ const en: Dictionary = {
     goalReachedTitle: "Goal reached – thank you all! 🎉",
     goalSurplusNote:
       "We raised {surplus} € more than planned – all additional funds go towards the footbridge works.",
+    noGoalNote:
+      "We're still raising funds! Every euro goes towards completing the footbridge and renewing the beach. Thank you for your support.",
     constructionHeading: "Construction progress",
     constructionIntro:
       "Follow the renewal of the footbridge – we publish every stage of the works here with photos.",

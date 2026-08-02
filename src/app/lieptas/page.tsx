@@ -160,41 +160,59 @@ export default async function LieptasPage() {
 
           {/* Progresas */}
           <section className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm">
-            <div className="flex items-end justify-between flex-wrap gap-3 mb-3">
-              <div>
-                <div className="text-4xl sm:text-5xl font-bold text-green-700">
-                  {totalEur} €
+            {goalCents > 0 ? (
+              <>
+                <div className="flex items-end justify-between flex-wrap gap-3 mb-3">
+                  <div>
+                    <div className="text-4xl sm:text-5xl font-bold text-green-700">
+                      {totalEur} €
+                    </div>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {t.progressRaisedPrefix} <span className="font-semibold">{goalEur} €</span> {t.progressGoalSuffix}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-gray-900">{percent}%</div>
+                    <p className="text-xs text-gray-500">{donorCount} {t.donorsLabel}</p>
+                  </div>
                 </div>
-                <p className="text-sm text-gray-500 mt-1">
-                  {t.progressRaisedPrefix} <span className="font-semibold">{goalEur} €</span> {t.progressGoalSuffix}
-                </p>
-              </div>
-              <div className="text-right">
-                <div className="text-2xl font-bold text-gray-900">{percent}%</div>
-                <p className="text-xs text-gray-500">{donorCount} {t.donorsLabel}</p>
-              </div>
-            </div>
 
-            <div className="w-full bg-gray-100 rounded-full h-4 overflow-hidden">
-              <div
-                className="bg-gradient-to-r from-green-500 to-green-700 h-full rounded-full transition-all"
-                style={{ width: `${barPercent}%` }}
-              />
-            </div>
+                <div className="w-full bg-gray-100 rounded-full h-4 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-green-500 to-green-700 h-full rounded-full transition-all"
+                    style={{ width: `${barPercent}%` }}
+                  />
+                </div>
 
-            {goalReached ? (
-              <div className="mt-4 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
-                <p className="text-sm font-semibold text-green-800">{t.goalReachedTitle}</p>
-                {surplusCents > 0 && (
-                  <p className="text-sm text-green-700 mt-0.5">
-                    {t.goalSurplusNote.replace("{surplus}", (surplusCents / 100).toFixed(0))}
+                {goalReached ? (
+                  <div className="mt-4 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                    <p className="text-sm font-semibold text-green-800">{t.goalReachedTitle}</p>
+                    {surplusCents > 0 && (
+                      <p className="text-sm text-green-700 mt-0.5">
+                        {t.goalSurplusNote.replace("{surplus}", (surplusCents / 100).toFixed(0))}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600 mt-4">
+                    {t.remainingPrefix} <strong className="text-gray-900">{remainingEur} €</strong>{t.remainingSuffix}
                   </p>
                 )}
-              </div>
+              </>
             ) : (
-              <p className="text-sm text-gray-600 mt-4">
-                {t.remainingPrefix} <strong className="text-gray-900">{remainingEur} €</strong>{t.remainingSuffix}
-              </p>
+              <>
+                <div className="text-center">
+                  <div className="text-5xl sm:text-6xl font-bold text-green-700">
+                    {totalEur} €
+                  </div>
+                  <p className="text-sm text-gray-500 mt-2">
+                    {donorCount} {t.donorsLabel}
+                  </p>
+                </div>
+                <div className="mt-5 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                  <p className="text-sm text-green-800 text-center">{t.noGoalNote}</p>
+                </div>
+              </>
             )}
           </section>
 

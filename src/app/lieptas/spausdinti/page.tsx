@@ -183,7 +183,9 @@ export default async function LieptasPrintPage() {
             <div className="row"><strong>Gavėjas:</strong> {project.recipient}</div>
             <div className="row iban"><strong>IBAN:</strong> {project.iban}</div>
             <div className="row"><strong>Paskirtis:</strong> {project.purpose_text}</div>
-            <div className="row"><strong>Tikslas:</strong> {(project.goal_cents / 100).toFixed(0)} EUR</div>
+            {project.goal_cents > 0 && (
+              <div className="row"><strong>Tikslas:</strong> {(project.goal_cents / 100).toFixed(0)} EUR</div>
+            )}
           </div>
 
           <div className="footer">
