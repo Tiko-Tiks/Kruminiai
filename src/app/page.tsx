@@ -66,40 +66,61 @@ async function getUpcomingMeeting() {
   return data;
 }
 
-async function getLieptasProject() {
+async function getFundraisingProjects() {
   const supabase = createServerSupabaseClient();
-  const { data: project } = await supabase
+  const { data: projects } = await supabase
     .from("fundraising_projects")
-    .select("id, title, title_en, slug, goal_cents")
-    .eq("slug", "lieptas")
+    .select(
+      "id, title, title_en, short_desc, short_desc_en, slug, goal_cents, accepts_donations"
+    )
     .eq("is_public", true)
-    .maybeSingle();
-  if (!project) return null;
-  const locale = getLocale();
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
+
+  if (!projects || projects.length === 0) return [];
+
+  // Visos aukos vienoje užklausoje – sugrupuojam per project_id
   const { data: donations } = await supabase
     .from("donations")
-    .select("amount_cents")
-    .eq("project_id", project.id);
-  const totalCents = (donations || []).reduce(
-    (s, d) => s + (d.amount_cents as number),
-    0
-  );
-  return {
-    title:
-      (locale === "en" && (project.title_en as string | null)) ||
-      (project.title as string),
-    slug: project.slug as string,
-    goalCents: project.goal_cents as number,
-    totalCents,
-    donorCount: (donations || []).length,
-  };
+    .select("project_id, amount_cents")
+    .in(
+      "project_id",
+      projects.map((p) => p.id)
+    );
+
+  const byProject = new Map<string, { total: number; count: number }>();
+  for (const d of donations ?? []) {
+    const cur = byProject.get(d.project_id as string) || { total: 0, count: 0 };
+    cur.total += d.amount_cents as number;
+    cur.count += 1;
+    byProject.set(d.project_id as string, cur);
+  }
+
+  const locale = getLocale();
+  return projects.map((project) => {
+    const agg = byProject.get(project.id as string) || { total: 0, count: 0 };
+    return {
+      id: project.id as string,
+      title:
+        (locale === "en" && (project.title_en as string | null)) ||
+        (project.title as string),
+      shortDesc:
+        (locale === "en" && (project.short_desc_en as string | null)) ||
+        (project.short_desc as string | null),
+      slug: project.slug as string,
+      goalCents: project.goal_cents as number,
+      acceptsDonations: project.accepts_donations !== false,
+      totalCents: agg.total,
+      donorCount: agg.count,
+    };
+  });
 }
 
 export default async function HomePage() {
-  const [news, upcomingMeeting, lieptas] = await Promise.all([
+  const [news, upcomingMeeting, projects] = await Promise.all([
     getLatestNews(),
     getUpcomingMeeting(),
-    getLieptasProject(),
+    getFundraisingProjects(),
   ]);
   const t = getDict().home;
 
@@ -243,69 +264,78 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Lieptas – pilotinis aukų rinkimo projektas */}
-      {lieptas && (
+      {/* Aukų rinkimo / bendruomenės projektai */}
+      {projects.length > 0 && (
         <section className="bg-white border-b border-gray-200">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-            <Link
-              href={`/projektai/${lieptas.slug}`}
-              className="block group bg-gradient-to-br from-amber-50 via-white to-amber-50/50 rounded-2xl border-2 border-amber-200 p-6 sm:p-8 hover:border-amber-300 hover:shadow-lg transition-all"
-            >
-              <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-                <div className="flex-shrink-0">
-                  <div className="w-16 h-16 rounded-2xl bg-amber-400 flex items-center justify-center shadow-md">
-                    <Heart className="h-8 w-8 text-white" />
-                  </div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white uppercase tracking-wide">
-                      {t.lieptasBadge}
-                    </span>
-                    <span className="text-xs text-gray-500">{t.lieptasCategoryLabel}</span>
-                  </div>
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 group-hover:text-amber-700 transition-colors">
-                    {lieptas.title}
-                  </h2>
-                  <p className="text-sm text-gray-600 mb-3 max-w-2xl">
-                    {t.lieptasDescription}
-                  </p>
-
-                  {/* Progresas */}
-                  <div className="space-y-1.5 max-w-xl">
-                    <div className="flex items-baseline justify-between gap-3 text-sm">
-                      <span className="font-semibold text-gray-900">
-                        {(lieptas.totalCents / 100).toFixed(0)} €
-                        {lieptas.goalCents > 0 && (
-                          <span className="text-gray-400 font-normal"> {t.lieptasProgressOf.replace("{goal}", (lieptas.goalCents / 100).toFixed(0))}</span>
-                        )}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {lieptas.donorCount} {lieptas.donorCount === 1 ? t.lieptasDonorSingular : t.lieptasDonorPlural}
-                      </span>
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-4">
+            {projects.map((project) => (
+              <Link
+                key={project.id}
+                href={`/projektai/${project.slug}`}
+                className="block group bg-gradient-to-br from-amber-50 via-white to-amber-50/50 rounded-2xl border-2 border-amber-200 p-6 sm:p-8 hover:border-amber-300 hover:shadow-lg transition-all"
+              >
+                <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+                  <div className="flex-shrink-0">
+                    <div className="w-16 h-16 rounded-2xl bg-amber-400 flex items-center justify-center shadow-md">
+                      <Heart className="h-8 w-8 text-white" />
                     </div>
-                    {lieptas.goalCents > 0 && (
-                      <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all"
-                          style={{
-                            width: `${Math.min(
-                              100,
-                              Math.round((lieptas.totalCents / lieptas.goalCents) * 100)
-                            )}%`,
-                          }}
-                        />
-                      </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white uppercase tracking-wide">
+                        {t.lieptasBadge}
+                      </span>
+                      {project.acceptsDonations && (
+                        <span className="text-xs text-gray-500">{t.lieptasCategoryLabel}</span>
+                      )}
+                    </div>
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 group-hover:text-amber-700 transition-colors">
+                      {project.title}
+                    </h2>
+                    {project.shortDesc && (
+                      <p className="text-sm text-gray-600 mb-3 max-w-2xl">
+                        {project.shortDesc}
+                      </p>
                     )}
+
+                    {/* Progresas */}
+                    <div className="space-y-1.5 max-w-xl">
+                      <div className="flex items-baseline justify-between gap-3 text-sm">
+                        <span className="font-semibold text-gray-900">
+                          {(project.totalCents / 100).toFixed(0)} €
+                          {project.goalCents > 0 && (
+                            <span className="text-gray-400 font-normal"> {t.lieptasProgressOf.replace("{goal}", (project.goalCents / 100).toFixed(0))}</span>
+                          )}
+                        </span>
+                        {project.acceptsDonations && (
+                          <span className="text-xs text-gray-500">
+                            {project.donorCount} {project.donorCount === 1 ? t.lieptasDonorSingular : t.lieptasDonorPlural}
+                          </span>
+                        )}
+                      </div>
+                      {project.goalCents > 0 && (
+                        <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all"
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                Math.round((project.totalCents / project.goalCents) * 100)
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0 self-stretch md:self-center">
+                    <span className="inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-semibold group-hover:bg-amber-700 transition-colors whitespace-nowrap">
+                      {project.acceptsDonations ? t.lieptasCta : t.readMoreCta} <ArrowRight className="h-4 w-4" />
+                    </span>
                   </div>
                 </div>
-                <div className="flex-shrink-0 self-stretch md:self-center">
-                  <span className="inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-semibold group-hover:bg-amber-700 transition-colors whitespace-nowrap">
-                    {t.lieptasCta} <ArrowRight className="h-4 w-4" />
-                  </span>
-                </div>
-              </div>
-            </Link>
+              </Link>
+            ))}
           </div>
         </section>
       )}

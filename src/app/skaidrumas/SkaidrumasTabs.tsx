@@ -44,7 +44,17 @@ interface Props {
   totalDebt: number;
   donations: DonationRow[];
   totalDonations: number;
-  lieptasGoalCents: number;
+  projects: ProjectSummary[];
+}
+
+interface ProjectSummary {
+  id: string;
+  title: string;
+  slug: string;
+  goalCents: number;
+  acceptsDonations: boolean;
+  totalCents: number;
+  donorCount: number;
 }
 
 function eur(cents: number): string {
@@ -81,14 +91,16 @@ export function SkaidrumasTabs({
   totalDebt,
   donations,
   totalDonations,
-  lieptasGoalCents,
+  projects,
 }: Props) {
   const t = useT().transparency;
   const currentYear = new Date().getFullYear();
   const currentYearStats = yearStats.find((y) => y.year === currentYear);
-  const lieptasPercent =
-    lieptasGoalCents > 0
-      ? Math.min(100, Math.round((totalDonations / lieptasGoalCents) * 100))
+  // Bendras tikslas – tik iš tų projektų, kurie tikslą turi
+  const combinedGoalCents = projects.reduce((s, p) => s + p.goalCents, 0);
+  const combinedPercent =
+    combinedGoalCents > 0
+      ? Math.min(100, Math.round((totalDonations / combinedGoalCents) * 100))
       : 0;
 
   return (
@@ -131,11 +143,11 @@ export function SkaidrumasTabs({
             </p>
           </div>
           <p className="text-2xl font-bold text-amber-700">{eur(totalDonations)} €</p>
-          {lieptasGoalCents > 0 && (
+          {combinedGoalCents > 0 && (
             <p className="text-xs text-gray-500 mt-1">
               {t.summaryDonatedMeta
-                .replace("{goal}", eur(lieptasGoalCents))
-                .replace("{percent}", String(lieptasPercent))}
+                .replace("{goal}", eur(combinedGoalCents))
+                .replace("{percent}", String(combinedPercent))}
             </p>
           )}
         </div>
@@ -211,51 +223,58 @@ export function SkaidrumasTabs({
         </div>
       </div>
 
-      {/* Liepto projektas su nuoroda į pilną puslapį */}
-      {(donations.length > 0 || lieptasGoalCents > 0) && (
-        <Link
-          href="/projektai/lieptas"
-          className="block bg-gradient-to-br from-amber-50 via-white to-amber-50/50 rounded-2xl border-2 border-amber-200 p-5 hover:border-amber-300 hover:shadow-md transition-all"
-        >
-          <div className="flex items-center gap-4">
-            <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-amber-400 flex items-center justify-center shadow-sm">
-              <Heart className="h-6 w-6 text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-0.5">
-                {t.fundraisingProjectLabel}
-              </p>
-              <h3 className="font-semibold text-gray-900 mb-2">
-                {t.bridgeProjectTitle}
-              </h3>
-              <div className="flex items-baseline justify-between gap-3 text-sm mb-1.5">
-                <span className="font-semibold text-gray-900">
-                  {eur(totalDonations)} €
-                  {lieptasGoalCents > 0 && (
-                    <span className="text-gray-400 font-normal">
-                      {" "}
-                      {t.bridgeOfGoal.replace("{goal}", eur(lieptasGoalCents))}
+      {/* Projektai – po kortelę kiekvienam, su nuoroda į pilną puslapį */}
+      {projects.map((project) => {
+        const percent =
+          project.goalCents > 0
+            ? Math.min(100, Math.round((project.totalCents / project.goalCents) * 100))
+            : 0;
+        return (
+          <Link
+            key={project.id}
+            href={`/projektai/${project.slug}`}
+            className="block bg-gradient-to-br from-amber-50 via-white to-amber-50/50 rounded-2xl border-2 border-amber-200 p-5 hover:border-amber-300 hover:shadow-md transition-all"
+          >
+            <div className="flex items-center gap-4">
+              <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-amber-400 flex items-center justify-center shadow-sm">
+                <Heart className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-0.5">
+                  {t.fundraisingProjectLabel}
+                </p>
+                <h3 className="font-semibold text-gray-900 mb-2">{project.title}</h3>
+                <div className="flex items-baseline justify-between gap-3 text-sm mb-1.5">
+                  <span className="font-semibold text-gray-900">
+                    {eur(project.totalCents)} €
+                    {project.goalCents > 0 && (
+                      <span className="text-gray-400 font-normal">
+                        {" "}
+                        {t.bridgeOfGoal.replace("{goal}", eur(project.goalCents))}
+                      </span>
+                    )}
+                  </span>
+                  {project.acceptsDonations && (
+                    <span className="text-xs text-gray-500">
+                      {project.donorCount}{" "}
+                      {project.donorCount === 1 ? t.donorSingular : t.donorPlural}
                     </span>
                   )}
-                </span>
-                <span className="text-xs text-gray-500">
-                  {donations.length}{" "}
-                  {donations.length === 1 ? t.donorSingular : t.donorPlural}
-                </span>
-              </div>
-              {lieptasGoalCents > 0 && (
-                <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-amber-400 to-amber-500"
-                    style={{ width: `${lieptasPercent}%` }}
-                  />
                 </div>
-              )}
+                {project.goalCents > 0 && (
+                  <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-amber-400 to-amber-500"
+                      style={{ width: `${percent}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+              <ArrowRight className="h-5 w-5 text-amber-600 flex-shrink-0" />
             </div>
-            <ArrowRight className="h-5 w-5 text-amber-600 flex-shrink-0" />
-          </div>
-        </Link>
-      )}
+          </Link>
+        );
+      })}
 
       {/* Aukotojų sąrašas */}
       {donations.length > 0 && (

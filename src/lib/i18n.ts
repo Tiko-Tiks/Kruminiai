@@ -53,6 +53,7 @@ export interface Dictionary {
     lieptasDonorSingular: string;
     lieptasDonorPlural: string;
     lieptasCta: string;
+    readMoreCta: string;
     pinnedBadge: string;
     quickLinkNewsTitle: string;
     quickLinkNewsDesc: string;
@@ -429,7 +430,7 @@ const lt: Dictionary = {
     statMembersLabel: "narių",
     statVolunteersLabel: "savanorių",
     statYearsLabel: "veiklos metų",
-    lieptasBadge: "Pilotinis projektas",
+    lieptasBadge: "Bendruomenės projektas",
     lieptasCategoryLabel: "Aukų rinkimas",
     lieptasDescription:
       "Mūsų liepto laikas atsinaujinti – su bendruomenės ir svečių pagalba. Jei ne dabar, tai kada?",
@@ -437,6 +438,7 @@ const lt: Dictionary = {
     lieptasDonorSingular: "aukotojas",
     lieptasDonorPlural: "aukotojai",
     lieptasCta: "Padėti",
+    readMoreCta: "Plačiau",
     pinnedBadge: "Svarbu",
     quickLinkNewsTitle: "Naujienos",
     quickLinkNewsDesc: "Pranešimai apie susirinkimus, renginius ir svarbius sprendimus",
@@ -548,8 +550,8 @@ const lt: Dictionary = {
     summaryCollectedMeta: "{count} nariai · {year} m.",
     summaryDebt: "Nario mokesčio skola",
     summaryDebtMeta: "Sukaupta per visus metus",
-    summaryDonated: "Lieptui aukota",
-    summaryDonatedMeta: "iš {goal} € tikslo ({percent}%)",
+    summaryDonated: "Projektams aukota",
+    summaryDonatedMeta: "iš {goal} € tikslų ({percent}%)",
     feesByYearTitle: "Nario mokesčiai pagal metus",
     colYear: "Metai",
     colCollected: "Surinkta",
@@ -851,7 +853,7 @@ const en: Dictionary = {
     statMembersLabel: "members",
     statVolunteersLabel: "volunteers",
     statYearsLabel: "years of activity",
-    lieptasBadge: "Pilot project",
+    lieptasBadge: "Community project",
     lieptasCategoryLabel: "Fundraising",
     lieptasDescription:
       "It is time for our footbridge to be renewed – with the help of the community and our guests. If not now, then when?",
@@ -859,6 +861,7 @@ const en: Dictionary = {
     lieptasDonorSingular: "donor",
     lieptasDonorPlural: "donors",
     lieptasCta: "Help out",
+    readMoreCta: "Read more",
     pinnedBadge: "Important",
     quickLinkNewsTitle: "News",
     quickLinkNewsDesc: "Announcements about meetings, events and important decisions",
@@ -970,7 +973,7 @@ const en: Dictionary = {
     summaryCollectedMeta: "{count} members · {year}",
     summaryDebt: "Membership fee debt",
     summaryDebtMeta: "Accumulated over all years",
-    summaryDonated: "Donated to the footbridge",
+    summaryDonated: "Donated to projects",
     summaryDonatedMeta: "of the {goal} € goal ({percent}%)",
     feesByYearTitle: "Membership fees by year",
     colYear: "Year",

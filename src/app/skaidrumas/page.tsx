@@ -103,18 +103,18 @@ async function getFinansaiData() {
     };
   });
 
-  // Aukos – Liepto projektas
-  const { data: lieptasProject } = await supabase
+  // Aukos – VISI vieši projektai (ne tik lieptas)
+  const { data: projectRows } = await supabase
     .from("fundraising_projects")
-    .select("id, title, goal_cents")
-    .eq("slug", "lieptas")
-    .maybeSingle();
+    .select("id, title, slug, goal_cents, accepts_donations")
+    .eq("is_public", true)
+    .order("created_at", { ascending: false });
 
-  const { data: donations } = lieptasProject
+  const { data: donations } = projectRows && projectRows.length > 0
     ? await supabase
         .from("donations")
-        .select("id, donor_name, amount_cents, donated_at, is_anonymous")
-        .eq("project_id", lieptasProject.id)
+        .select("id, project_id, donor_name, amount_cents, donated_at, is_anonymous")
+        .in("project_id", projectRows.map((p) => p.id))
         .order("donated_at", { ascending: false })
     : { data: [] };
 
@@ -122,6 +122,20 @@ async function getFinansaiData() {
     (s, d) => s + (d.amount_cents as number),
     0
   );
+
+  // Kiekvieno projekto suvestinė – atskira kortelė su savo progresu
+  const projects = (projectRows || []).map((project) => {
+    const own = (donations || []).filter((d) => d.project_id === project.id);
+    return {
+      id: project.id as string,
+      title: project.title as string,
+      slug: project.slug as string,
+      goalCents: project.goal_cents as number,
+      acceptsDonations: project.accepts_donations !== false,
+      totalCents: own.reduce((s, d) => s + (d.amount_cents as number), 0),
+      donorCount: own.length,
+    };
+  });
 
   // Skola = metinis potential - metinis collected (stojamieji NEAtimti
   // iš metinio potencialo). Niekada neigiama.
@@ -137,7 +151,7 @@ async function getFinansaiData() {
     totalDebt,
     donations: (donations || []) as DonationRow[],
     totalDonations,
-    lieptasGoalCents: lieptasProject?.goal_cents ?? 0,
+    projects,
   };
 }
 
@@ -183,7 +197,7 @@ export default async function SkaidrumasPage() {
             totalDebt={data.totalDebt}
             donations={data.donations}
             totalDonations={data.totalDonations}
-            lieptasGoalCents={data.lieptasGoalCents}
+            projects={data.projects}
           />
         </div>
       </main>
