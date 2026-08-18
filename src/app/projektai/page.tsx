@@ -100,7 +100,7 @@ export default async function ProjectsPage() {
                 return (
                   <Link
                     key={p.id}
-                    href={`/${p.slug}`}
+                    href={`/projektai/${p.slug}`}
                     className="block bg-gradient-to-br from-amber-50 via-white to-amber-50/50 rounded-2xl border-2 border-amber-200 p-6 sm:p-8 hover:border-amber-300 hover:shadow-lg transition-all group"
                   >
                     <div className="flex flex-col md:flex-row items-start md:items-center gap-6">

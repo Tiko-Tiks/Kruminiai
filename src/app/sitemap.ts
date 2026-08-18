@@ -13,6 +13,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/naujienos`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },
     { url: `${SITE_URL}/kontaktai`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${SITE_URL}/skaidrumas`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${SITE_URL}/projektai`, lastModified: now, changeFrequency: "weekly", priority: 0.8 },
     { url: `${SITE_URL}/dokumentai`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     { url: `${SITE_URL}/susirinkimai`, lastModified: now, changeFrequency: "weekly", priority: 0.6 },
   ];
@@ -38,5 +39,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // jei Supabase neprieinamas build metu – grąžinama tik statinė dalis
   }
 
-  return [...staticRoutes, ...newsRoutes];
+  let projectRoutes: MetadataRoute.Sitemap = [];
+  try {
+    const supabase = createServerSupabaseClient();
+    const { data: projects } = await supabase
+      .from("fundraising_projects")
+      .select("slug, updated_at")
+      .eq("is_public", true)
+      .limit(200);
+
+    projectRoutes =
+      projects?.map((project) => ({
+        url: `${SITE_URL}/projektai/${project.slug}`,
+        lastModified: new Date(project.updated_at || now),
+        changeFrequency: "weekly" as const,
+        priority: 0.8,
+      })) || [];
+  } catch {
+    // jei Supabase neprieinamas build metu – praleidžiam projektų dalį
+  }
+
+  return [...staticRoutes, ...newsRoutes, ...projectRoutes];
 }

@@ -248,7 +248,7 @@ export default async function HomePage() {
         <section className="bg-white border-b border-gray-200">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
             <Link
-              href={`/${lieptas.slug}`}
+              href={`/projektai/${lieptas.slug}`}
               className="block group bg-gradient-to-br from-amber-50 via-white to-amber-50/50 rounded-2xl border-2 border-amber-200 p-6 sm:p-8 hover:border-amber-300 hover:shadow-lg transition-all"
             >
               <div className="flex flex-col md:flex-row items-start md:items-center gap-6">

@@ -3,17 +3,11 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { requireAdmin } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
-import { revalidatePath } from "next/cache";
+import { revalidateProjectPaths } from "@/lib/revalidate";
 import { z } from "zod";
 
 // UUID nestriktas regex'as (žr. payments.ts paaiškinimą)
 const LOOSE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function revalidateProjectPaths() {
-  revalidatePath("/lieptas");
-  revalidatePath("/admin/aukos");
-  revalidatePath("/");
-}
 
 // ============================================================================
 // Statybų eigos įrašai (project_updates)

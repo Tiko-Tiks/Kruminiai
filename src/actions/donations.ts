@@ -2,7 +2,7 @@
 
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { logAudit } from "@/lib/audit";
-import { revalidatePath } from "next/cache";
+import { revalidateProjectPaths } from "@/lib/revalidate";
 import { z } from "zod";
 
 // UUID nestriktas regex'as (žr. payments.ts paaiškinimą)
@@ -60,8 +60,7 @@ export async function addDonation(formData: FormData) {
     newData: values as Record<string, unknown>,
   });
 
-  revalidatePath("/lieptas");
-  revalidatePath("/admin/aukos");
+  revalidateProjectPaths();
   return { success: true as const, id: data.id };
 }
 
@@ -81,7 +80,6 @@ export async function deleteDonation(id: string) {
     oldData: oldData as Record<string, unknown>,
   });
 
-  revalidatePath("/lieptas");
-  revalidatePath("/admin/aukos");
+  revalidateProjectPaths();
   return { success: true as const };
 }

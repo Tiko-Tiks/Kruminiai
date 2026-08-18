@@ -471,7 +471,7 @@ const lt: Dictionary = {
   },
   lieptas: {
     projectNotFound: "Projektas nerastas.",
-    heroEyebrow: "Pilotinis projektas · {year} m.",
+    heroEyebrow: "Bendruomenės projektas · {year} m.",
     beforeBadge: "Dabar",
     afterBadge: "Po atnaujinimo",
     beforePhotoAlt: "Krūminių paplūdimio liepto būklė dabar",
@@ -501,13 +501,13 @@ const lt: Dictionary = {
     communityAddress: "Beržų g. 8, Krūminių k., Varėnos r.",
     supportersHeading: "Mūsų rėmėjai",
     supportersTransparency:
-      "Skaidrumas – kiekviena auka užregistruota viešai. Anoniminiai aukotojai parodyti kaip „Anonimas\".",
+      "Skaidrumas – kiekvienas įnašas užregistruotas viešai. Anoniminiai rėmėjai parodyti kaip „Anonimas\".",
     anonymousDonor: "Anonimas",
     noDonorsTitle: "Aukotojų dar nėra – būkite pirmas! 💚",
     noDonorsSubtitle: "Jūsų auka padarys liepto atnaujinimą realybe.",
     shareHeading: "Pasidalinkit su draugais!",
     shareIntro:
-      "Kuo daugiau žmonių sužinos, tuo greičiau atnaujinsim lieptą. Nukopijuokit nuorodą ir pasidalinkit:",
+      "Kuo daugiau žmonių sužinos, tuo greičiau projektą įgyvendinsim. Nukopijuokit nuorodą ir pasidalinkit:",
     printableNotice: "Spausdintinę versiją (A4 su QR kodu) galite atsisiųsti",
     printableLinkWord: "čia",
     copyToastSuccess: "IBAN nukopijuotas",
@@ -522,14 +522,14 @@ const lt: Dictionary = {
       "Renkame toliau! Visos surinktos lėšos skiriamos liepto užbaigimui ir paplūdimio atnaujinimui. Ačiū, kad prisidedate.",
     constructionHeading: "Statybų eiga",
     constructionIntro:
-      "Sekite liepto atnaujinimo darbus – čia skelbiame kiekvieną etapą su nuotraukomis.",
+      "Sekite projekto darbų eigą – čia skelbiame kiekvieną etapą su nuotraukomis.",
     noUpdatesTitle: "Darbai netrukus prasidės! 🔨",
     noUpdatesSubtitle:
       "Čia skelbsime kiekvieną darbų etapą su nuotraukomis – užsukite pasižiūrėti.",
     updatePhotoAlt: "Statybų eigos nuotrauka",
     spendingHeading: "Lėšų panaudojimas",
     spendingIntro:
-      "Skaidrumas – kiekviena išlaida registruojama viešai, kad matytumėte, kur keliauja jūsų aukos.",
+      "Skaidrumas – kiekviena išlaida registruojama viešai, kad matytumėte, kur keliauja projekto lėšos.",
     statCollected: "Surinkta",
     statSpent: "Išleista",
     statRemaining: "Likutis",
@@ -893,7 +893,7 @@ const en: Dictionary = {
   },
   lieptas: {
     projectNotFound: "Project not found.",
-    heroEyebrow: "Pilot project · {year}",
+    heroEyebrow: "Community project · {year}",
     beforeBadge: "Now",
     afterBadge: "After renewal",
     beforePhotoAlt: "Current condition of the Krūminiai beach footbridge",
@@ -923,13 +923,13 @@ const en: Dictionary = {
     communityAddress: "Beržų g. 8, Krūminiai village, Varėna district",
     supportersHeading: "Our supporters",
     supportersTransparency:
-      "Transparency – every donation is recorded publicly. Anonymous donors are shown as \"Anonymous\".",
+      "Transparency – every contribution is recorded publicly. Anonymous supporters are shown as \"Anonymous\".",
     anonymousDonor: "Anonymous",
     noDonorsTitle: "No donors yet – be the first! 💚",
     noDonorsSubtitle: "Your donation will make renewing the footbridge a reality.",
     shareHeading: "Share with friends!",
     shareIntro:
-      "The more people who find out, the sooner we will renew the footbridge. Copy the link and share it:",
+      "The more people who find out, the sooner we can make it happen. Copy the link and share it:",
     printableNotice: "You can download a printable version (A4 with QR code)",
     printableLinkWord: "here",
     copyToastSuccess: "IBAN copied",
@@ -944,14 +944,14 @@ const en: Dictionary = {
       "We're still raising funds! Every euro goes towards completing the footbridge and renewing the beach. Thank you for your support.",
     constructionHeading: "Construction progress",
     constructionIntro:
-      "Follow the renewal of the footbridge – we publish every stage of the works here with photos.",
+      "Follow the progress of the works – we publish every stage here with photos.",
     noUpdatesTitle: "Works are starting soon! 🔨",
     noUpdatesSubtitle:
       "We will publish every stage of the works here with photos – check back soon.",
     updatePhotoAlt: "Construction progress photo",
     spendingHeading: "Use of funds",
     spendingIntro:
-      "Transparency – every expense is recorded publicly, so you can see where your donations go.",
+      "Transparency – every expense is recorded publicly, so you can see where the project funds go.",
     statCollected: "Collected",
     statSpent: "Spent",
     statRemaining: "Remaining",

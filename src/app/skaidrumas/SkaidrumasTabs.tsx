@@ -214,7 +214,7 @@ export function SkaidrumasTabs({
       {/* Liepto projektas su nuoroda į pilną puslapį */}
       {(donations.length > 0 || lieptasGoalCents > 0) && (
         <Link
-          href="/lieptas"
+          href="/projektai/lieptas"
           className="block bg-gradient-to-br from-amber-50 via-white to-amber-50/50 rounded-2xl border-2 border-amber-200 p-5 hover:border-amber-300 hover:shadow-md transition-all"
         >
           <div className="flex items-center gap-4">
