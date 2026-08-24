@@ -101,6 +101,128 @@ export async function addProjectUpdate(formData: FormData) {
   return { success: true as const, id: data.id };
 }
 
+/**
+ * Nuotraukų pridėjimas prie JAU ESAMO eigos įrašo.
+ *
+ * Įprastas scenarijus: tekstas paskelbiamas iškart (dar iš lauko), o nuotraukos
+ * atkeliauja vėliau – arba admin'as jas turi telefone ir įkelia atskirai.
+ * Be šito tektų trinti įrašą ir kurti iš naujo.
+ */
+export async function addProjectUpdatePhotos(formData: FormData) {
+  const supabase = createServerSupabaseClient();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: { _form: [auth.error] } };
+  const user = auth.user;
+
+  const id = String(formData.get("update_id") || "");
+  if (!LOOSE_UUID.test(id)) return { error: { _form: ["Neteisingas įrašo ID"] } };
+
+  const { data: existing, error: loadError } = await supabase
+    .from("project_updates")
+    .select("id, photos")
+    .eq("id", id)
+    .single();
+  if (loadError || !existing) return { error: { _form: ["Įrašas nerastas"] } };
+
+  const files = formData
+    .getAll("photos")
+    .filter((f): f is File => f instanceof File && f.size > 0);
+  if (files.length === 0) return { error: { _form: ["Nepasirinkta nė viena nuotrauka"] } };
+
+  const uploaded: string[] = [];
+  for (const file of files) {
+    if (!file.type.startsWith("image/")) {
+      if (uploaded.length > 0) await supabase.storage.from("images").remove(uploaded);
+      return { error: { _form: [`„${file.name}" nėra nuotrauka`] } };
+    }
+    const sanitized = file.name
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-zA-Z0-9._-]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    const path = `projektai/${Date.now()}-${uploaded.length}-${sanitized}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("images")
+      .upload(path, file, { contentType: file.type });
+
+    if (uploadError) {
+      if (uploaded.length > 0) await supabase.storage.from("images").remove(uploaded);
+      return { error: { _form: [`Nepavyko įkelti nuotraukos: ${uploadError.message}`] } };
+    }
+    uploaded.push(path);
+  }
+
+  const merged = [...((existing.photos as string[]) || []), ...uploaded];
+
+  const { error } = await supabase
+    .from("project_updates")
+    .update({ photos: merged })
+    .eq("id", id);
+
+  if (error) {
+    // Nepavyko įrašyti – nepaliekam „našlaičių" failų saugykloje
+    await supabase.storage.from("images").remove(uploaded);
+    return { error: { _form: [error.message] } };
+  }
+
+  await logAudit(supabase, {
+    userId: user?.id ?? null,
+    action: "UPDATE",
+    tableName: "project_updates",
+    recordId: id,
+    oldData: { photos: existing.photos } as Record<string, unknown>,
+    newData: { photos: merged } as Record<string, unknown>,
+  });
+
+  revalidateProjectPaths();
+  return { success: true as const, added: uploaded.length };
+}
+
+/** Vienos nuotraukos pašalinimas iš eigos įrašo (ir iš saugyklos). */
+export async function removeProjectUpdatePhoto(id: string, photoPath: string) {
+  const supabase = createServerSupabaseClient();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
+
+  if (!LOOSE_UUID.test(id)) return { error: "Neteisingas įrašo ID" };
+
+  const { data: existing, error: loadError } = await supabase
+    .from("project_updates")
+    .select("id, photos")
+    .eq("id", id)
+    .single();
+  if (loadError || !existing) return { error: "Įrašas nerastas" };
+
+  const photos = (existing.photos as string[]) || [];
+  if (!photos.includes(photoPath)) return { error: "Tokios nuotraukos įraše nėra" };
+
+  const remaining = photos.filter((p) => p !== photoPath);
+
+  const { error } = await supabase
+    .from("project_updates")
+    .update({ photos: remaining })
+    .eq("id", id);
+  if (error) return { error: error.message };
+
+  // Failą trinam tik po sėkmingo DB update'o
+  await supabase.storage.from("images").remove([photoPath]);
+
+  await logAudit(supabase, {
+    userId: user?.id ?? null,
+    action: "UPDATE",
+    tableName: "project_updates",
+    recordId: id,
+    oldData: { photos } as Record<string, unknown>,
+    newData: { photos: remaining } as Record<string, unknown>,
+  });
+
+  revalidateProjectPaths();
+  return { success: true as const };
+}
+
 export async function deleteProjectUpdate(id: string) {
   const supabase = createServerSupabaseClient();
   const auth = await requireAdmin(supabase);

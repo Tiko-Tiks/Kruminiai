@@ -9,12 +9,14 @@ import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import {
   addProjectUpdate,
+  addProjectUpdatePhotos,
+  removeProjectUpdatePhoto,
   deleteProjectUpdate,
   addProjectExpense,
   deleteProjectExpense,
 } from "@/actions/project-progress";
 import { toast } from "sonner";
-import { Plus, Trash2, Hammer, Wallet, ImageIcon } from "lucide-react";
+import { Plus, Trash2, Hammer, Wallet, ImageIcon, X } from "lucide-react";
 import { formatDate, getImagePublicUrl } from "@/lib/utils";
 import { compressImage } from "@/lib/image-compress";
 
@@ -106,6 +108,55 @@ export function ProgressPanel({
       toast.success("Eigos įrašas paskelbtas");
       form.reset();
       setShowUpdateForm(false);
+      router.refresh();
+    });
+  }
+
+  // Nuotraukų pridėjimas prie esamo įrašo – telefone atsidaro kamera/galerija
+  async function handleAddPhotos(updateId: string, fileList: FileList | null) {
+    const files = Array.from(fileList || []);
+    if (files.length === 0) return;
+
+    const formData = new FormData();
+    formData.append("update_id", updateId);
+
+    setUploading(true);
+    try {
+      for (const f of files) {
+        const compressed = await compressImage(f);
+        formData.append("photos", compressed);
+      }
+    } finally {
+      setUploading(false);
+    }
+
+    startTransition(async () => {
+      const r = (await addProjectUpdatePhotos(formData)) as {
+        error?: unknown;
+        success?: boolean;
+        added?: number;
+      };
+      if (r.error) {
+        toast.error(extractError(r.error));
+        return;
+      }
+      toast.success(`Pridėta nuotraukų: ${r.added ?? files.length}`);
+      router.refresh();
+    });
+  }
+
+  function handleRemovePhoto(updateId: string, photoPath: string) {
+    if (!confirm("Pašalinti šią nuotrauką?")) return;
+    startTransition(async () => {
+      const r = (await removeProjectUpdatePhoto(updateId, photoPath)) as {
+        error?: string;
+        success?: boolean;
+      };
+      if (r.error) {
+        toast.error(r.error);
+        return;
+      }
+      toast.success("Nuotrauka pašalinta");
       router.refresh();
     });
   }
@@ -268,17 +319,46 @@ export function ProgressPanel({
                   )}
                   {(u.photos || []).length > 0 && (
                     <div className="flex gap-1.5 mt-2 flex-wrap">
-                      {(u.photos || []).slice(0, 6).map((p) => (
-                        <a key={p} href={getImagePublicUrl(p)} target="_blank" rel="noopener noreferrer">
-                          <img
-                            src={getImagePublicUrl(p)}
-                            alt=""
-                            className="h-12 w-12 object-cover rounded-md border border-gray-200"
-                          />
-                        </a>
+                      {(u.photos || []).map((p) => (
+                        <div key={p} className="relative group">
+                          <a href={getImagePublicUrl(p)} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={getImagePublicUrl(p)}
+                              alt=""
+                              className="h-12 w-12 object-cover rounded-md border border-gray-200"
+                            />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePhoto(u.id, p)}
+                            disabled={busy}
+                            aria-label="Pašalinti nuotrauką"
+                            className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-white border border-gray-300 text-gray-500 hover:text-red-600 hover:border-red-300 shadow-sm flex items-center justify-center"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
                       ))}
                     </div>
                   )}
+
+                  {/* Nuotraukų pridėjimas prie jau paskelbto įrašo */}
+                  <label className="inline-flex items-center gap-1.5 mt-2 text-xs font-semibold text-green-700 hover:text-green-800 cursor-pointer">
+                    <ImageIcon className="h-3.5 w-3.5" />
+                    {(u.photos || []).length > 0 ? "Pridėti dar nuotraukų" : "Pridėti nuotraukų"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      disabled={busy}
+                      onChange={(e) => {
+                        handleAddPhotos(u.id, e.target.files);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+
                   <p className="text-xs text-gray-500 mt-1">{formatDate(u.update_date)}</p>
                 </div>
                 <button
