@@ -2,6 +2,7 @@ import { getVotingTokenData } from "@/actions/tokens";
 import { VotingFlow } from "./VotingFlow";
 import { CheckCircle2, XCircle, Clock } from "lucide-react";
 import { COMMUNITY_LEGAL } from "@/lib/constants";
+import { getDict, getLocale } from "@/lib/i18n-server";
 
 export const metadata = {
   title: "Balsavimas",
@@ -95,28 +96,33 @@ export default async function VotingPage({ params }: { params: { token: string }
 }
 
 function ErrorView({ code, votedAt }: { code: string; votedAt?: string }) {
+  const t = getDict().voteErrors;
+  const locale = getLocale();
   const messages: Record<string, { icon: React.ReactNode; title: string; text: string }> = {
     invalid_token: {
       icon: <XCircle className="h-12 w-12 text-red-500" />,
-      title: "Neteisinga nuoroda",
-      text: "Nuoroda negaliojanti arba neteisinga. Susisiekite su bendruomenės pirmininku.",
+      title: t.invalidTokenTitle,
+      text: t.invalidTokenBody,
     },
     already_voted: {
       icon: <CheckCircle2 className="h-12 w-12 text-green-500" />,
-      title: "Jūs jau balsavote",
+      title: t.alreadyVotedTitle,
       text: votedAt
-        ? `Jūsų balsas užregistruotas ${new Date(votedAt).toLocaleString("lt-LT")}. Ačiū!`
-        : "Jūsų balsas jau užregistruotas. Ačiū!",
+        ? t.alreadyVotedBodyWithDate.replace(
+            "{date}",
+            new Date(votedAt).toLocaleString(locale === "en" ? "en-GB" : "lt-LT")
+          )
+        : t.alreadyVotedBody,
     },
     expired: {
       icon: <Clock className="h-12 w-12 text-amber-500" />,
-      title: "Balsavimo laikas baigėsi",
-      text: "Šios nuorodos galiojimas pasibaigė – susirinkimas jau prasidėjo arba pasibaigė.",
+      title: t.expiredTitle,
+      text: t.expiredBody,
     },
     not_eligible: {
       icon: <XCircle className="h-12 w-12 text-red-500" />,
-      title: "Balso teisė nesuteikta",
-      text: "Pagal dabartinį narystės statusą balsuoti negalite (garbės nariai dalyvauja patariamojo balso teise). Susisiekite su bendruomenės pirmininku.",
+      title: t.notEligibleTitle,
+      text: t.notEligibleBody,
     },
   };
 

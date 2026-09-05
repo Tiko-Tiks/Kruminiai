@@ -1,6 +1,5 @@
 "use client";
 
-import { VOTE_ERROR_MESSAGES } from "@/lib/constants";
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/Button";
@@ -8,7 +7,8 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { castVotesByToken, registerLiveIntentByToken } from "@/actions/tokens";
 import { VOTE_LABELS } from "@/lib/constants";
-import { useLocale } from "@/components/i18n/LocaleProvider";
+import { useLocale, useT } from "@/components/i18n/LocaleProvider";
+import { voteErrorMessage } from "@/lib/vote-errors";
 
 // PDF Viewer įkraunamas tik kliente (react-pdf reikalauja browser API)
 const PdfViewer = dynamic(() => import("@/components/PdfViewer").then((m) => m.PdfViewer), {
@@ -86,6 +86,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function VotingFlow({ token, data }: Props) {
   const locale = useLocale();
+  const tErr = useT().voteErrors;
   const [step, setStep] = useState<Step>("contacts");
   const [email, setEmail] = useState(data.member.email || "");
   const [phone, setPhone] = useState(data.member.phone || "");
@@ -157,7 +158,7 @@ export function VotingFlow({ token, data }: Props) {
     setSubmitting(false);
 
     if ("error" in result) {
-      toast.error(VOTE_ERROR_MESSAGES[result.error ?? ""] ?? result.error ?? "Klaida fiksuojant balsą");
+      toast.error(voteErrorMessage(result.error, tErr));
       return;
     }
     setStep("done_voted");
@@ -169,7 +170,7 @@ export function VotingFlow({ token, data }: Props) {
     setRegisteringLive(false);
 
     if ("error" in result) {
-      toast.error(result.error || "Klaida");
+      toast.error(voteErrorMessage(result.error, tErr));
       return;
     }
     setStep("done_live");

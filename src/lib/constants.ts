@@ -82,20 +82,8 @@ export const VOTE_LABELS: Record<string, string> = {
   susilaike: "Susilaikau",
 };
 
-// Balsavimo RPC (cast_votes_as_member / cast_votes_with_token) klaidų kodai →
-// žmogui suprantamas tekstas. Nežinomas kodas rodomas kaip yra.
-export const VOTE_ERROR_MESSAGES: Record<string, string> = {
-  not_eligible:
-    "Pagal dabartinį narystės statusą balso teisės neturite (garbės nariai dalyvauja patariamojo balso teise).",
-  voting_closed:
-    "Nuotolinis balsavimas šiam susirinkimui neaktyvus – laikotarpis dar neprasidėjo arba jau pasibaigė.",
-  incomplete_ballot: "Pateikite atsakymą į visus darbotvarkės klausimus.",
-  already_voted: "Jūs jau balsavote šiame susirinkime.",
-  meeting_not_found: "Susirinkimas nerastas.",
-  expired: "Nuorodos galiojimas pasibaigė.",
-  invalid_token: "Nuoroda negaliojanti.",
-  no_member_link: "Paskyra nesusieta su nario įrašu.",
-};
+// Balsavimo RPC klaidų kodai → nario kalba: žr. `voteErrorMessage()`
+// (`src/lib/vote-errors.ts`) ir `voteErrors` namespace `src/lib/i18n.ts`.
 
 // Rezultatų / protokolo etiketės – trečiasis asmuo, kaip atsiskaitoma
 export const VOTE_RESULT_LABELS: Record<string, string> = {

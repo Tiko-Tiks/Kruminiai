@@ -354,6 +354,26 @@ export interface Dictionary {
     closedSectionTitle: string;
     closedBadge: string;
   };
+  voteErrors: {
+    notEligible: string;
+    votingClosed: string;
+    incompleteBallot: string;
+    alreadyVoted: string;
+    meetingNotFound: string;
+    expired: string;
+    invalidToken: string;
+    noMemberLink: string;
+    generic: string;
+    invalidTokenTitle: string;
+    invalidTokenBody: string;
+    alreadyVotedTitle: string;
+    alreadyVotedBodyWithDate: string;
+    alreadyVotedBody: string;
+    expiredTitle: string;
+    expiredBody: string;
+    notEligibleTitle: string;
+    notEligibleBody: string;
+  };
   portalHistory: {
     pageTitle: string;
     pageSubtitle: string;
@@ -789,6 +809,31 @@ const lt: Dictionary = {
       "Nuotolinis balsavimas šiam susirinkimui dar neprasidėjo arba jau pasibaigė. Balsuoti internetu galima iki susirinkimo pradžios.",
     closedSectionTitle: "Balsavimas neaktyvus ({count})",
     closedBadge: "Neaktyvus",
+  },
+  voteErrors: {
+    notEligible:
+      "Pagal dabartinį narystės statusą balso teisės neturite (garbės nariai dalyvauja patariamojo balso teise).",
+    votingClosed:
+      "Nuotolinis balsavimas šiam susirinkimui neaktyvus – laikotarpis dar neprasidėjo arba jau pasibaigė.",
+    incompleteBallot: "Pateikite atsakymą į visus darbotvarkės klausimus.",
+    alreadyVoted: "Jūs jau balsavote šiame susirinkime.",
+    meetingNotFound: "Susirinkimas nerastas.",
+    expired: "Nuorodos galiojimas pasibaigė.",
+    invalidToken: "Nuoroda negaliojanti.",
+    noMemberLink: "Paskyra nesusieta su nario įrašu.",
+    generic: "Klaida fiksuojant balsą",
+    invalidTokenTitle: "Neteisinga nuoroda",
+    invalidTokenBody:
+      "Nuoroda negaliojanti arba neteisinga. Susisiekite su bendruomenės pirmininku.",
+    alreadyVotedTitle: "Jūs jau balsavote",
+    alreadyVotedBodyWithDate: "Jūsų balsas užregistruotas {date}. Ačiū!",
+    alreadyVotedBody: "Jūsų balsas jau užregistruotas. Ačiū!",
+    expiredTitle: "Balsavimo laikas baigėsi",
+    expiredBody:
+      "Šios nuorodos galiojimas pasibaigė – susirinkimas jau prasidėjo arba pasibaigė.",
+    notEligibleTitle: "Balso teisė nesuteikta",
+    notEligibleBody:
+      "Pagal dabartinį narystės statusą balsuoti negalite (garbės nariai dalyvauja patariamojo balso teise). Susisiekite su bendruomenės pirmininku.",
   },
   portalHistory: {
     pageTitle: "Mano balsavimo istorija",
@@ -1227,6 +1272,30 @@ const en: Dictionary = {
       "Remote voting for this meeting has not started yet or has already ended. Online votes can be cast until the meeting begins.",
     closedSectionTitle: "Voting not open ({count})",
     closedBadge: "Not open",
+  },
+  voteErrors: {
+    notEligible:
+      "Your current membership status does not include voting rights (honorary members take part with an advisory vote).",
+    votingClosed:
+      "Remote voting for this meeting is not open — the period has not started yet or has already ended.",
+    incompleteBallot: "Please answer every item on the agenda.",
+    alreadyVoted: "You have already voted at this meeting.",
+    meetingNotFound: "Meeting not found.",
+    expired: "This link has expired.",
+    invalidToken: "This link is not valid.",
+    noMemberLink: "Your account is not linked to a member record.",
+    generic: "Could not record your vote",
+    invalidTokenTitle: "Invalid link",
+    invalidTokenBody:
+      "This link is invalid or no longer valid. Please contact the community chairperson.",
+    alreadyVotedTitle: "You have already voted",
+    alreadyVotedBodyWithDate: "Your vote was recorded on {date}. Thank you!",
+    alreadyVotedBody: "Your vote has already been recorded. Thank you!",
+    expiredTitle: "Voting has closed",
+    expiredBody: "This link has expired — the meeting has already started or ended.",
+    notEligibleTitle: "No voting rights",
+    notEligibleBody:
+      "Your current membership status does not allow voting (honorary members take part with an advisory vote). Please contact the community chairperson.",
   },
   portalHistory: {
     pageTitle: "My voting history",
