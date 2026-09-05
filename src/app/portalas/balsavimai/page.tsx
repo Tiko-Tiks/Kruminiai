@@ -39,6 +39,32 @@ export default async function PortalVotingsPage() {
         </div>
       )}
 
+      {/* Garbės nariui – tik informacinės nuorodos į susirinkimo puslapį (be „Balsuoti") */}
+      {isHonorary && meetings.length > 0 && (
+        <section className="space-y-3">
+          {meetings.map((m) => (
+            <Link
+              key={m.id}
+              href={`/susirinkimai/${m.id}`}
+              className="block bg-white rounded-xl border border-gray-200 p-5 hover:border-green-300 hover:shadow-sm transition-all"
+            >
+              <h3 className="font-semibold text-gray-900 mb-1">{m.title}</h3>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-gray-600 mb-2">
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4" />
+                  {formatDateLong(m.meeting_date)}
+                </span>
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-4 w-4" />
+                  {m.location}
+                </span>
+              </div>
+              <span className="text-sm font-medium text-green-700">{t.honoraryViewMeetingLink}</span>
+            </Link>
+          ))}
+        </section>
+      )}
+
       {meetings.length === 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
           <Vote className="h-10 w-10 text-gray-300 mx-auto mb-3" />
@@ -46,7 +72,7 @@ export default async function PortalVotingsPage() {
         </div>
       )}
 
-      {pending.length > 0 && (
+      {!isHonorary && pending.length > 0 && (
         <section>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
             {t.pendingSectionTitle.replace("{count}", String(pending.length))}
@@ -83,7 +109,7 @@ export default async function PortalVotingsPage() {
         </section>
       )}
 
-      {voted.length > 0 && (
+      {!isHonorary && voted.length > 0 && (
         <section>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
             {t.votedSectionTitle.replace("{count}", String(voted.length))}

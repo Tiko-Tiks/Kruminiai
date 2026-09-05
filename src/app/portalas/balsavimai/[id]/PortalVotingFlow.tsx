@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/Button";
 import { castVotesAsMember } from "@/actions/portal";
-import { VOTE_LABELS } from "@/lib/constants";
+import { VOTE_LABELS, VOTE_ERROR_MESSAGES } from "@/lib/constants";
 import { formatDateLong, formatFileSize, getDocumentPublicUrl } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -90,7 +90,7 @@ export function PortalVotingFlow({ meetingId, meeting, resolutions }: Props) {
     setSubmitting(false);
 
     if ("error" in result) {
-      toast.error(result.error || "Klaida fiksuojant balsą");
+      toast.error(VOTE_ERROR_MESSAGES[result.error ?? ""] ?? result.error ?? "Klaida fiksuojant balsą");
       return;
     }
     setStep("done");

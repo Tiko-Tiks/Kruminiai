@@ -284,7 +284,9 @@ prievolės ir be balso teisės** (tik patariamasis balsas).
 | Nario mokestis / skola | **Nėra** – `get_member_financial_status` grąžina `unpaid=[]`, `total_debt_cents=0` (mokėjimo istorija, jei aukojo, vis tiek rodoma) |
 | Kvorumas, dalyvių sąrašas, veiklos planas | **Neskaičiuojamas** – visos tos užklausos filtruoja `status IN ('aktyvus','pasyvus')` |
 | SMS balsavimo tokenai, priminimai, deklaracijos, portalo invite'ai | **Negauna** – tie patys filtrai |
-| Balsavimas iš portalo | **Blokuojama** – `cast_votes_as_member` grąžina `not_eligible` (taip pat ir `išstojęs`); `/portalas/balsavimai[/id]` rodo paaiškinimą vietoj formos |
+| Balsavimas iš portalo | **Blokuojama** – `cast_votes_as_member` grąžina `not_eligible` (taip pat ir `išstojęs`); `/portalas/balsavimai[/id]` ir portalo pradžia rodo informacines nuorodas į `/susirinkimai/[id]` vietoj „Balsuoti" |
+| SMS tokenas, išduotas DAR būnant aktyviu | **Anuliuojamas** – trigger'is `members_revoke_voting_tokens` (migr. 037) nustato `expires_at=NOW()`; `cast_votes_with_token` papildomai tikrina DABARTINĮ statusą (`not_eligible`) |
+| Portalo paskyros kvietimai (`/admin/nariai/paskyros`) | **Gali gauti** – `portal-invites.ts` įtraukia `garbes_narys` |
 | Portalas, `/susirinkimai`, `/dokumentai`, `/skaidrumas` | **Gali** – middleware praleidžia `garbes_narys` į `/susirinkimai` kaip ir `aktyvus` |
 | `/admin/nariai` | Atskiras filtras „Garbės nariai"; į numatytą „Aktyvūs" rodinį nepatenka |
 
@@ -504,6 +506,12 @@ dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
 - **Tokenas**: 16 baitų hex (32 simb.) – per `crypto.randomBytes(16).toString("hex")`
 - **Balsai NIEKADA nerodomi nariui** apie kitus narius – tik suvestinės
 - **`vote_ballots` UNIQUE(resolution_id, member_id)** – DB lygyje vienas balsas
+- **Balsavimo RPC apsaugos (migr. 037):** abu RPC (`cast_votes_as_member`, `cast_votes_with_token`)
+  priima tik PILNĄ biuletenį – po vieną balsą už kiekvieną neprocedūrinį klausimą, be dublikatų
+  (`_is_complete_ballot` → `incomplete_ballot`), ir tik `aktyvus`/`pasyvus` nariui (`not_eligible`).
+  Portalo RPC dar tikrina langą: NOW() < `meeting_date`, statusas ne baigtas/atšauktas,
+  `early_voting_start/end` jei nustatyti (`voting_closed`); `/portalas/balsavimai/[id]` tą patį
+  tikrina UI pusėje. Klaidų kodai → LT tekstai: `VOTE_ERROR_MESSAGES` (`constants.ts`)
 - **Procedūriniai klausimai** (`is_procedural=true`) – tik gyvai, į balsavimo srautą neįeina
 - **Tokeno gyvavimo ciklas:** `sent_at` (admin išsiuntė SMS) → `viewed_at` + `view_count++` (nuoroda atidaryta) → `voted_at` (balsai įrašyti) ARBA `live_intent_at` (pasirinko gyvai)
 - Admin panelėj `/admin/susirinkimai/[id]` rodoma kiekvieno tokeno būsena
@@ -579,6 +587,7 @@ dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
 | 033 | `033_expulsions_rpc_minimize_pii.sql` | **Saugumo auditas** – `get_meeting_expulsions_data` nebegrąžina nario telefono/el. pašto anon iframe srautui (tik `has_contacts` bool); GDPR duomenų minimizavimas |
 | 034 | `034_iframe_route_token_guard_and_grants.sql` | **Saugumo auditas** – `voting_token_meeting` helper iframe route'ų prieigos kontrolei (žr. `canViewMeetingDoc`); atimtas anon `EXECUTE` nuo `log_notification` (anti log-injection) |
 | 036 | `036_honorary_member_status.sql` | **Garbės nario statusas** – `members.status` CHECK + `'garbes_narys'`; `get_member_financial_status` garbės nariui skola 0; `cast_votes_as_member` leidžia balsuoti tik `aktyvus`/`pasyvus` (`not_eligible`) |
+| 037 | `037_voting_rpc_hardening.sql` | **Balsavimo RPC užveržimas** (Codex peržiūra) – `_is_complete_ballot` (pilnas biuletenis abiem RPC, `incomplete_ballot`); `cast_votes_as_member` tikrina balsavimo langą (`voting_closed`); `cast_votes_with_token` tikrina dabartinį nario statusą; trigger'is `members_revoke_voting_tokens` anuliuoja tokenus pakeitus statusą į nebalsuojantį |
 
 DB pakeitimai daromi **per Supabase MCP** (`apply_migration`) IR sinchronizuojami į `supabase/migrations/` lokaliam repo įrašymui.
 

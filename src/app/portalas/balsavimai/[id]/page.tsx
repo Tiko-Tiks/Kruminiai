@@ -99,6 +99,46 @@ export default async function PortalVotingPage({ params }: { params: { id: strin
     );
   }
 
+  // Balsavimo langas uždarytas (susirinkimas prasidėjo / baigtas / už
+  // išankstinio balsavimo laikotarpio) – rodom pranešimą, ne formą.
+  // RPC cast_votes_as_member tą patį tikrina serveryje ('voting_closed').
+  const mtg = data.meeting as unknown as {
+    status: string;
+    meeting_date: string;
+    early_voting_start?: string | null;
+    early_voting_end?: string | null;
+  };
+  const now = Date.now();
+  const votingClosed =
+    mtg.status === "baigtas" ||
+    mtg.status === "atšauktas" ||
+    now >= new Date(mtg.meeting_date).getTime() ||
+    (!!mtg.early_voting_start && now < new Date(mtg.early_voting_start).getTime()) ||
+    (!!mtg.early_voting_end && now > new Date(mtg.early_voting_end).getTime());
+  if (votingClosed) {
+    const t = getDict().portalVoting;
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">{data.meeting.title}</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {formatDateLong(data.meeting.meeting_date)} · {data.meeting.location}
+          </p>
+        </div>
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-6">
+          <h2 className="font-semibold text-gray-900 mb-2">{t.votingClosedTitle}</h2>
+          <p className="text-sm text-gray-600 leading-relaxed">{t.votingClosedBody}</p>
+          <Link
+            href={`/susirinkimai/${data.meeting.id}`}
+            className="inline-block mt-4 text-sm font-medium text-green-700 hover:underline"
+          >
+            {t.honoraryViewMeetingLink}
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <PortalVotingFlow
       meetingId={data.meeting.id}

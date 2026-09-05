@@ -329,6 +329,7 @@ export interface Dictionary {
     viewAllLink: string;
     votedBadge: string;
     voteNowBadge: string;
+    infoBadge: string;
     documentsCardTitle: string;
     documentsCardDescription: string;
     myDataCardTitle: string;
@@ -345,6 +346,8 @@ export interface Dictionary {
     honoraryNoticeTitle: string;
     honoraryNoticeBody: string;
     honoraryViewMeetingLink: string;
+    votingClosedTitle: string;
+    votingClosedBody: string;
   };
   portalHistory: {
     pageTitle: string;
@@ -754,6 +757,7 @@ const lt: Dictionary = {
     viewAllLink: "Visi →",
     votedBadge: "Balsavote",
     voteNowBadge: "Balsuokite",
+    infoBadge: "Informacija",
     documentsCardTitle: "Dokumentai",
     documentsCardDescription: "Įstatai, protokolai, ataskaitos",
     myDataCardTitle: "Mano duomenys",
@@ -771,6 +775,9 @@ const lt: Dictionary = {
     honoraryNoticeBody:
       "Garbės nariai susirinkimuose dalyvauja patariamojo balso teise – balsavimas internetu jiems nenumatytas. Darbotvarkę ir dokumentus galite peržiūrėti susirinkimo puslapyje.",
     honoraryViewMeetingLink: "Žiūrėti susirinkimo informaciją →",
+    votingClosedTitle: "Balsavimas šiuo metu neaktyvus",
+    votingClosedBody:
+      "Nuotolinis balsavimas šiam susirinkimui dar neprasidėjo arba jau pasibaigė. Balsuoti internetu galima iki susirinkimo pradžios.",
   },
   portalHistory: {
     pageTitle: "Mano balsavimo istorija",
@@ -1182,6 +1189,7 @@ const en: Dictionary = {
     viewAllLink: "All →",
     votedBadge: "Voted",
     voteNowBadge: "Vote now",
+    infoBadge: "Details",
     documentsCardTitle: "Documents",
     documentsCardDescription: "Bylaws, minutes, reports",
     myDataCardTitle: "My details",
@@ -1199,6 +1207,9 @@ const en: Dictionary = {
     honoraryNoticeBody:
       "Honorary members take part in meetings in an advisory capacity – online voting is not available to them. You can review the agenda and documents on the meeting page.",
     honoraryViewMeetingLink: "View meeting information →",
+    votingClosedTitle: "Voting is not open right now",
+    votingClosedBody:
+      "Remote voting for this meeting has not started yet or has already ended. Online votes can be cast until the meeting begins.",
   },
   portalHistory: {
     pageTitle: "My voting history",

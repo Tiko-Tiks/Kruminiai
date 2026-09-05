@@ -32,7 +32,8 @@ export async function getMembersAccountStatus(): Promise<MemberAccountStatus[]> 
   const { data: members, error: memErr } = await supabase
     .from("members")
     .select("id, first_name, last_name, email, status")
-    .in("status", ["aktyvus", "pasyvus"])
+    // Garbės narys portalo paskyrą turėti GALI (archyvas, dokumentai) – tik nebalsuoja
+    .in("status", ["aktyvus", "pasyvus", "garbes_narys"])
     .order("first_name", { ascending: true })
     .order("last_name", { ascending: true });
   if (memErr) throw memErr;
@@ -106,11 +107,11 @@ export async function bulkCreateMemberAccounts(memberIds?: string[]): Promise<{
     return { error: "Trūksta teisių (reikia admin arba super_admin)" };
   }
 
-  // Atrenkam aktyvius+pasyvius su email, kurie dar neturi paskyros
+  // Atrenkam aktyvius+pasyvius+garbės narius su email, kurie dar neturi paskyros
   let memQ = supabase
     .from("members")
     .select("id, first_name, last_name, email, status, language")
-    .in("status", ["aktyvus", "pasyvus"])
+    .in("status", ["aktyvus", "pasyvus", "garbes_narys"])
     .not("email", "is", null);
   if (memberIds && memberIds.length > 0) {
     memQ = memQ.in("id", memberIds);

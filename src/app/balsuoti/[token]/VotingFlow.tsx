@@ -1,5 +1,6 @@
 "use client";
 
+import { VOTE_ERROR_MESSAGES } from "@/lib/constants";
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/Button";
@@ -156,7 +157,7 @@ export function VotingFlow({ token, data }: Props) {
     setSubmitting(false);
 
     if ("error" in result) {
-      toast.error(result.error || "Klaida fiksuojant balsą");
+      toast.error(VOTE_ERROR_MESSAGES[result.error ?? ""] ?? result.error ?? "Klaida fiksuojant balsą");
       return;
     }
     setStep("done_voted");

@@ -113,6 +113,11 @@ function ErrorView({ code, votedAt }: { code: string; votedAt?: string }) {
       title: "Balsavimo laikas baigėsi",
       text: "Šios nuorodos galiojimas pasibaigė – susirinkimas jau prasidėjo arba pasibaigė.",
     },
+    not_eligible: {
+      icon: <XCircle className="h-12 w-12 text-red-500" />,
+      title: "Balso teisė nesuteikta",
+      text: "Pagal dabartinį narystės statusą balsuoti negalite (garbės nariai dalyvauja patariamojo balso teise). Susisiekite su bendruomenės pirmininku.",
+    },
   };
 
   const m = messages[code] || messages.invalid_token;

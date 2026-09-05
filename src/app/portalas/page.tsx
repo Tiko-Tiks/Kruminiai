@@ -50,6 +50,8 @@ export default async function PortalDashboard() {
 
   const t = getDict().portalHome;
   const noMemberLink = profile?.error === "no_member_link" || !profile?.member;
+  // Garbės narys – patariamasis balsas: be „laukia balso" skaitiklio ir CTA
+  const isHonorary = profile?.member?.status === "garbes_narys";
   const firstName = profile?.member?.first_name || "";
   // Šauksmininkas tik lietuvių kalbai – anglų vardas lieka kaip yra.
   const greetName = getLocale() === "en" ? firstName : vocative(firstName);
@@ -84,7 +86,7 @@ export default async function PortalDashboard() {
             <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-gray-500" />
           </div>
           <p className="text-2xl font-bold text-gray-900">
-            {meetings?.meetings?.filter((m) => !m.has_voted).length ?? 0}
+            {isHonorary ? 0 : (meetings?.meetings?.filter((m) => !m.has_voted).length ?? 0)}
           </p>
           <p className="text-sm text-gray-500">{t.activeVotesLabel}</p>
         </Link>
@@ -144,7 +146,7 @@ export default async function PortalDashboard() {
             {meetings!.meetings!.slice(0, 3).map((m) => (
               <Link
                 key={m.id}
-                href={`/portalas/balsavimai/${m.id}`}
+                href={isHonorary ? `/susirinkimai/${m.id}` : `/portalas/balsavimai/${m.id}`}
                 className="block p-4 rounded-lg border border-gray-100 hover:border-green-200 hover:bg-green-50/30 transition-colors"
               >
                 <div className="flex items-start justify-between gap-3">
@@ -162,7 +164,11 @@ export default async function PortalDashboard() {
                       </span>
                     </div>
                   </div>
-                  {m.has_voted ? (
+                  {isHonorary ? (
+                    <span className="inline-flex items-center gap-1 text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded font-medium flex-shrink-0">
+                      {t.infoBadge}
+                    </span>
+                  ) : m.has_voted ? (
                     <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-1 rounded font-medium flex-shrink-0">
                       <CheckCircle2 className="h-3 w-3" /> {t.votedBadge}
                     </span>
