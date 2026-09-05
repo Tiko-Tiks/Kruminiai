@@ -53,8 +53,9 @@ export default async function PortalDashboard() {
 
   const t = getDict().portalHome;
   const noMemberLink = profile?.error === "no_member_link" || !profile?.member;
-  // Garbės narys – patariamasis balsas: be „laukia balso" skaitiklio ir CTA
-  const isHonorary = profile?.member?.status === "garbes_narys";
+  // Balso teisę turi tik aktyvus/pasyvus – kitiems be „laukia balso" skaitiklio ir CTA
+  const memberStatus = profile?.member?.status ?? "";
+  const isEligible = memberStatus === "aktyvus" || memberStatus === "pasyvus";
   const firstName = profile?.member?.first_name || "";
   // Šauksmininkas tik lietuvių kalbai – anglų vardas lieka kaip yra.
   const greetName = getLocale() === "en" ? firstName : vocative(firstName);
@@ -89,7 +90,7 @@ export default async function PortalDashboard() {
             <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-gray-500" />
           </div>
           <p className="text-2xl font-bold text-gray-900">
-            {isHonorary
+            {!isEligible
               ? 0
               : (meetings?.meetings?.filter((m) => !m.has_voted && isVotingWindowOpen(m)).length ?? 0)}
           </p>
@@ -152,8 +153,8 @@ export default async function PortalDashboard() {
               <Link
                 key={m.id}
                 href={
-                  isHonorary || (!m.has_voted && !isVotingWindowOpen(m))
-                    ? `/susirinkimai/${m.id}`
+                  !isEligible || (!m.has_voted && !isVotingWindowOpen(m))
+                    ? `/portalas/susirinkimai/${m.id}`
                     : `/portalas/balsavimai/${m.id}`
                 }
                 className="block p-4 rounded-lg border border-gray-100 hover:border-green-200 hover:bg-green-50/30 transition-colors"
@@ -173,7 +174,7 @@ export default async function PortalDashboard() {
                       </span>
                     </div>
                   </div>
-                  {isHonorary ? (
+                  {!isEligible ? (
                     <span className="inline-flex items-center gap-1 text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded font-medium flex-shrink-0">
                       {t.infoBadge}
                     </span>

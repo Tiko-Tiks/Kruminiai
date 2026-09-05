@@ -284,8 +284,9 @@ prievolės ir be balso teisės** (tik patariamasis balsas).
 | Nario mokestis / skola | **Nėra** – `get_member_financial_status` grąžina `unpaid=[]`, `total_debt_cents=0` (mokėjimo istorija, jei aukojo, vis tiek rodoma) |
 | Kvorumas, dalyvių sąrašas, veiklos planas | **Neskaičiuojamas** – visos tos užklausos filtruoja `status IN ('aktyvus','pasyvus')` |
 | SMS balsavimo tokenai, priminimai, deklaracijos, portalo invite'ai | **Negauna** – tie patys filtrai |
-| Balsavimas iš portalo | **Blokuojama** – `cast_votes_as_member` grąžina `not_eligible` (taip pat ir `išstojęs`); `/portalas/balsavimai[/id]` ir portalo pradžia rodo informacines nuorodas į `/susirinkimai/[id]` vietoj „Balsuoti" |
+| Balsavimas iš portalo | **Blokuojama** – `cast_votes_as_member` grąžina `not_eligible` (taip pat ir `išstojęs`); `/portalas/balsavimai[/id]` ir portalo pradžia rodo informacines nuorodas į `/portalas/susirinkimai/[id]` (prieinamas ir pasyviems; `/susirinkimai/*` – tik aktyvus/garbės) vietoj „Balsuoti". UI požymis `isEligible = status IN ('aktyvus','pasyvus')` – galioja ir `išstojęs` |
 | SMS tokenas, išduotas DAR būnant aktyviu | **Anuliuojamas** – trigger'is `members_status_change_sync` (migr. 038) nustato `expires_at=NOW()`; grąžinus balso teisę – galiojimas atstatomas iki `meeting_date`; `cast_votes_with_token` papildomai tikrina DABARTINĮ statusą (`not_eligible`); admin panelė anuliuotų nerodo kaip „laukia" ir jiems priminimų nesiunčia |
+| Jau paduoti išankstiniai balsai / dalyvavimas BŪSIMAM susirinkimui | **Pašalinami** – tas pats trigger'is (migr. 039) ištrina `vote_ballots` + `meeting_attendance` dar neprasidėjusiems susirinkimams, perskaičiuoja nutarimų suvestines, tokeną grąžina į nebalsuotą (anuliuotą); `audit_log` įrašas `member_lost_voting_rights`. Praėjusių susirinkimų istorija neliečiama |
 | Kvorumas jau sukurtiems būsimiems susirinkimams | **Persiskaičiuoja** – tas pats trigger'is atnaujina `total_members_at_time`/`quorum_required` (`planuojamas`/`registracija`, `meeting_date > NOW()`) |
 | Portalo welcome laiškas | **Be „balsuoti" pažado** – `renderWelcomeEmail({ isHonorary })` |
 | Portalo paskyros kvietimai (`/admin/nariai/paskyros`) | **Gali gauti** – `portal-invites.ts` įtraukia `garbes_narys` |
@@ -595,6 +596,7 @@ dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
 | 036 | `036_honorary_member_status.sql` | **Garbės nario statusas** – `members.status` CHECK + `'garbes_narys'`; `get_member_financial_status` garbės nariui skola 0; `cast_votes_as_member` leidžia balsuoti tik `aktyvus`/`pasyvus` (`not_eligible`) |
 | 037 | `037_voting_rpc_hardening.sql` | **Balsavimo RPC užveržimas** (Codex peržiūra) – `_is_complete_ballot` (pilnas biuletenis abiem RPC, `incomplete_ballot`); `cast_votes_as_member` tikrina balsavimo langą (`voting_closed`); `cast_votes_with_token` tikrina dabartinį nario statusą; trigger'is `members_revoke_voting_tokens` (pakeistas 038) |
 | 038 | `038_ballot_null_guard_and_member_status_sync.sql` | `_is_complete_ballot` NULL/ne-masyvo saugi (CASE), kvietėjai `IS NOT TRUE`; vienas trigger'is `members_status_change_sync` – tokenų anuliavimas/atstatymas + būsimų susirinkimų kvorumo persiskaičiavimas |
+| 039 | `039_member_status_change_purge_future_votes.sql` | Tas pats trigger'is netekus balso teisės ištrina BŪSIMŲ susirinkimų `vote_ballots`/`meeting_attendance`, perskaičiuoja suvestines, tokeną grąžina į nebalsuotą-anuliuotą, rašo `audit_log` |
 
 DB pakeitimai daromi **per Supabase MCP** (`apply_migration`) IR sinchronizuojami į `supabase/migrations/` lokaliam repo įrašymui.
 

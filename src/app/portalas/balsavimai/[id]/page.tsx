@@ -38,10 +38,14 @@ export default async function PortalVotingPage({ params }: { params: { id: strin
   const data = await getMeetingForVoting(params.id);
   if ("error" in data) notFound();
 
-  // Garbės narys – patariamasis balsas, balsavimo forma nerodoma
-  // (RPC cast_votes_as_member tokį bandymą vis tiek atmestų su 'not_eligible').
+  // Balso teisę turi tik aktyvus/pasyvus narys – kitiems (garbės narys,
+  // išstojęs) balsavimo forma nerodoma. RPC cast_votes_as_member tokį bandymą
+  // vis tiek atmestų su 'not_eligible'.
   const profile = (await getMemberProfile()) as { member?: { status?: string } | null };
-  if (profile?.member?.status === "garbes_narys") {
+  const memberStatus = profile?.member?.status ?? "";
+  const isEligible = memberStatus === "aktyvus" || memberStatus === "pasyvus";
+  const isHonorary = memberStatus === "garbes_narys";
+  if (!isEligible) {
     const t = getDict().portalVoting;
     return (
       <div className="space-y-6">
@@ -52,10 +56,14 @@ export default async function PortalVotingPage({ params }: { params: { id: strin
           </p>
         </div>
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
-          <h2 className="font-semibold text-amber-900 mb-2">{t.honoraryNoticeTitle}</h2>
-          <p className="text-sm text-amber-800 leading-relaxed">{t.honoraryNoticeBody}</p>
+          <h2 className="font-semibold text-amber-900 mb-2">
+            {isHonorary ? t.honoraryNoticeTitle : t.notEligibleNoticeTitle}
+          </h2>
+          <p className="text-sm text-amber-800 leading-relaxed">
+            {isHonorary ? t.honoraryNoticeBody : t.notEligibleNoticeBody}
+          </p>
           <Link
-            href={`/susirinkimai/${data.meeting.id}`}
+            href={`/portalas/susirinkimai/${data.meeting.id}`}
             className="inline-block mt-4 text-sm font-medium text-green-700 hover:underline"
           >
             {t.honoraryViewMeetingLink}
@@ -118,7 +126,7 @@ export default async function PortalVotingPage({ params }: { params: { id: strin
           <h2 className="font-semibold text-gray-900 mb-2">{t.votingClosedTitle}</h2>
           <p className="text-sm text-gray-600 leading-relaxed">{t.votingClosedBody}</p>
           <Link
-            href={`/susirinkimai/${data.meeting.id}`}
+            href={`/portalas/susirinkimai/${data.meeting.id}`}
             className="inline-block mt-4 text-sm font-medium text-green-700 hover:underline"
           >
             {t.honoraryViewMeetingLink}

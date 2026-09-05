@@ -26,9 +26,12 @@ export default async function PortalVotingsPage() {
   const closed = meetings.filter((m) => !m.has_voted && !isVotingWindowOpen(m));
   const voted = meetings.filter((m) => m.has_voted);
   const t = getDict().portalVoting;
-  // Garbės narys – patariamasis balsas; rodom paaiškinimą virš sąrašo.
+  // Balso teisę turi tik aktyvus/pasyvus narys (RPC cast_votes_as_member tą patį
+  // tikrina). Garbės nariui – patariamasis balsas; išstojusiam – balso nėra.
   const profile = (await getMemberProfile()) as { member?: { status?: string } | null };
-  const isHonorary = profile?.member?.status === "garbes_narys";
+  const memberStatus = profile?.member?.status ?? "";
+  const isEligible = memberStatus === "aktyvus" || memberStatus === "pasyvus";
+  const isHonorary = memberStatus === "garbes_narys";
 
   return (
     <div className="space-y-6">
@@ -37,20 +40,24 @@ export default async function PortalVotingsPage() {
         <p className="text-sm text-gray-500 mt-1">{t.pageSubtitle}</p>
       </div>
 
-      {isHonorary && (
+      {!isEligible && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
-          <h2 className="font-semibold text-amber-900 mb-1">{t.honoraryNoticeTitle}</h2>
-          <p className="text-sm text-amber-800 leading-relaxed">{t.honoraryNoticeBody}</p>
+          <h2 className="font-semibold text-amber-900 mb-1">
+            {isHonorary ? t.honoraryNoticeTitle : t.notEligibleNoticeTitle}
+          </h2>
+          <p className="text-sm text-amber-800 leading-relaxed">
+            {isHonorary ? t.honoraryNoticeBody : t.notEligibleNoticeBody}
+          </p>
         </div>
       )}
 
-      {/* Garbės nariui – tik informacinės nuorodos į susirinkimo puslapį (be „Balsuoti") */}
-      {isHonorary && meetings.length > 0 && (
+      {/* Be balso teisės – tik informacinės nuorodos į susirinkimo puslapį (be „Balsuoti") */}
+      {!isEligible && meetings.length > 0 && (
         <section className="space-y-3">
           {meetings.map((m) => (
             <Link
               key={m.id}
-              href={`/susirinkimai/${m.id}`}
+              href={`/portalas/susirinkimai/${m.id}`}
               className="block bg-white rounded-xl border border-gray-200 p-5 hover:border-green-300 hover:shadow-sm transition-all"
             >
               <h3 className="font-semibold text-gray-900 mb-1">{m.title}</h3>
@@ -77,7 +84,7 @@ export default async function PortalVotingsPage() {
         </div>
       )}
 
-      {!isHonorary && pending.length > 0 && (
+      {isEligible && pending.length > 0 && (
         <section>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
             {t.pendingSectionTitle.replace("{count}", String(pending.length))}
@@ -114,7 +121,7 @@ export default async function PortalVotingsPage() {
         </section>
       )}
 
-      {!isHonorary && closed.length > 0 && (
+      {isEligible && closed.length > 0 && (
         <section>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
             {t.closedSectionTitle.replace("{count}", String(closed.length))}
@@ -123,7 +130,7 @@ export default async function PortalVotingsPage() {
             {closed.map((m) => (
               <Link
                 key={m.id}
-                href={`/susirinkimai/${m.id}`}
+                href={`/portalas/susirinkimai/${m.id}`}
                 className="block bg-white rounded-xl border border-gray-200 p-5 hover:border-green-300 hover:shadow-sm transition-all"
               >
                 <div className="flex items-start justify-between gap-3">
@@ -150,7 +157,7 @@ export default async function PortalVotingsPage() {
         </section>
       )}
 
-      {!isHonorary && voted.length > 0 && (
+      {isEligible && voted.length > 0 && (
         <section>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
             {t.votedSectionTitle.replace("{count}", String(voted.length))}
