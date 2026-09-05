@@ -1,4 +1,4 @@
-import { getMemberActiveMeetings } from "@/actions/portal";
+import { getMemberActiveMeetings, getMemberProfile } from "@/actions/portal";
 import { formatDateLong } from "@/lib/utils";
 import { getDict } from "@/lib/i18n-server";
 import { Calendar, MapPin, CheckCircle2, Vote, ArrowRight } from "lucide-react";
@@ -21,6 +21,9 @@ export default async function PortalVotingsPage() {
   const pending = meetings.filter((m) => !m.has_voted);
   const voted = meetings.filter((m) => m.has_voted);
   const t = getDict().portalVoting;
+  // Garbės narys – patariamasis balsas; rodom paaiškinimą virš sąrašo.
+  const profile = (await getMemberProfile()) as { member?: { status?: string } | null };
+  const isHonorary = profile?.member?.status === "garbes_narys";
 
   return (
     <div className="space-y-6">
@@ -28,6 +31,13 @@ export default async function PortalVotingsPage() {
         <h1 className="text-2xl font-bold text-gray-900">{t.pageTitle}</h1>
         <p className="text-sm text-gray-500 mt-1">{t.pageSubtitle}</p>
       </div>
+
+      {isHonorary && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+          <h2 className="font-semibold text-amber-900 mb-1">{t.honoraryNoticeTitle}</h2>
+          <p className="text-sm text-amber-800 leading-relaxed">{t.honoraryNoticeBody}</p>
+        </div>
+      )}
 
       {meetings.length === 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">

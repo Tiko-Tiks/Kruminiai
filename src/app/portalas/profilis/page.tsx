@@ -65,12 +65,16 @@ export default async function PortalProfilePage() {
                   {t.memberSincePrefix} {formatDate(data.member.join_date)} ·{" "}
                   <span
                     className={
-                      data.member.status === "aktyvus"
+                      data.member.status === "aktyvus" || data.member.status === "garbes_narys"
                         ? "text-green-700 font-medium"
                         : "text-gray-500"
                     }
                   >
-                    {data.member.status === "aktyvus" ? t.statusActive : data.member.status}
+                    {data.member.status === "aktyvus"
+                      ? t.statusActive
+                      : data.member.status === "garbes_narys"
+                        ? t.statusHonorary
+                        : data.member.status}
                   </span>
                 </p>
               </div>

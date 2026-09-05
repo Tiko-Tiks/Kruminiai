@@ -1,7 +1,10 @@
-import { getMeetingForVoting } from "@/actions/portal";
+import { getMeetingForVoting, getMemberProfile } from "@/actions/portal";
 import { PortalVotingFlow } from "./PortalVotingFlow";
 import { AlreadyVotedView } from "./AlreadyVotedView";
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import { getDict } from "@/lib/i18n-server";
+import { formatDateLong } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +36,33 @@ type RawResolution = {
 export default async function PortalVotingPage({ params }: { params: { id: string } }) {
   const data = await getMeetingForVoting(params.id);
   if ("error" in data) notFound();
+
+  // Garbės narys – patariamasis balsas, balsavimo forma nerodoma
+  // (RPC cast_votes_as_member tokį bandymą vis tiek atmestų su 'not_eligible').
+  const profile = (await getMemberProfile()) as { member?: { status?: string } | null };
+  if (profile?.member?.status === "garbes_narys") {
+    const t = getDict().portalVoting;
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">{data.meeting.title}</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {formatDateLong(data.meeting.meeting_date)} · {data.meeting.location}
+          </p>
+        </div>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
+          <h2 className="font-semibold text-amber-900 mb-2">{t.honoraryNoticeTitle}</h2>
+          <p className="text-sm text-amber-800 leading-relaxed">{t.honoraryNoticeBody}</p>
+          <Link
+            href={`/susirinkimai/${data.meeting.id}`}
+            className="inline-block mt-4 text-sm font-medium text-green-700 hover:underline"
+          >
+            {t.honoraryViewMeetingLink}
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const resolutions = (data.resolutions as unknown as RawResolution[]).map((r) => {
     const docs: DocItem[] = (r.resolution_documents || [])

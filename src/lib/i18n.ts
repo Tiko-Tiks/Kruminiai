@@ -342,6 +342,9 @@ export interface Dictionary {
     voteButton: string;
     votedSectionTitle: string;
     votedBadge: string;
+    honoraryNoticeTitle: string;
+    honoraryNoticeBody: string;
+    honoraryViewMeetingLink: string;
   };
   portalHistory: {
     pageTitle: string;
@@ -366,6 +369,7 @@ export interface Dictionary {
     noMemberLinkBody: string;
     memberSincePrefix: string;
     statusActive: string;
+    statusHonorary: string;
     changeNameNotice: string;
     contactsHeading: string;
     emailLabel: string;
@@ -763,6 +767,10 @@ const lt: Dictionary = {
     voteButton: "Balsuoti",
     votedSectionTitle: "Jau balsavote ({count})",
     votedBadge: "Balsavote",
+    honoraryNoticeTitle: "Garbės nario statusas",
+    honoraryNoticeBody:
+      "Garbės nariai susirinkimuose dalyvauja patariamojo balso teise – balsavimas internetu jiems nenumatytas. Darbotvarkę ir dokumentus galite peržiūrėti susirinkimo puslapyje.",
+    honoraryViewMeetingLink: "Žiūrėti susirinkimo informaciją →",
   },
   portalHistory: {
     pageTitle: "Mano balsavimo istorija",
@@ -789,6 +797,7 @@ const lt: Dictionary = {
       "Susisiekite su bendruomenės administratoriumi, kad jūsų paskyrą susietų su nario įrašu.",
     memberSincePrefix: "Narys nuo",
     statusActive: "Aktyvus",
+    statusHonorary: "Garbės narys",
     changeNameNotice: "Norint pakeisti vardą ar pavardę, susisiekite su administratoriumi.",
     contactsHeading: "Kontaktai",
     emailLabel: "El. paštas",
@@ -1186,6 +1195,10 @@ const en: Dictionary = {
     voteButton: "Vote",
     votedSectionTitle: "Already voted ({count})",
     votedBadge: "Voted",
+    honoraryNoticeTitle: "Honorary member status",
+    honoraryNoticeBody:
+      "Honorary members take part in meetings in an advisory capacity – online voting is not available to them. You can review the agenda and documents on the meeting page.",
+    honoraryViewMeetingLink: "View meeting information →",
   },
   portalHistory: {
     pageTitle: "My voting history",
@@ -1212,6 +1225,7 @@ const en: Dictionary = {
       "Please contact the community administrator to have your account linked to a member record.",
     memberSincePrefix: "Member since",
     statusActive: "Active",
+    statusHonorary: "Honorary member",
     changeNameNotice: "To change your first or last name, please contact the administrator.",
     contactsHeading: "Contact details",
     emailLabel: "Email",

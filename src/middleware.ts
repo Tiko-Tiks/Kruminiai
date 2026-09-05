@@ -75,11 +75,12 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // /susirinkimai – tik admin arba 'aktyvus' narys
+    // /susirinkimai – tik admin, 'aktyvus' narys arba garbės narys
+    // (garbės narys mato archyvą/darbotvarkę, bet nebalsuoja – žr. CLAUDE.md)
     if (isMeetingsPath && !isAdmin) {
       const m = Array.isArray(profile.members) ? profile.members[0] : profile.members;
       const memberStatus = m && typeof m === "object" && "status" in m ? m.status : null;
-      if (memberStatus !== "aktyvus") {
+      if (memberStatus !== "aktyvus" && memberStatus !== "garbes_narys") {
         const url = request.nextUrl.clone();
         url.pathname = "/portalas";
         url.searchParams.set("error", "members_only");

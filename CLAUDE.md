@@ -273,6 +273,29 @@ Kitos vietos, kurios naudoja narių sąrašą balsavimui / dalyvavimui,
 JAU naudoja explicit filtrą `getMembers(undefined, "aktyvus")`
 (pvz., AttendanceManager, RemoteVotingPanel).
 
+## ARCHITEKTŪRA: Garbės nario statusas (`garbes_narys`)
+
+Ketvirtas `members.status` variantas (migracija 036) – bendruomenei nusipelnęs
+asmuo (pvz. išeivijos rėmėjas), kuriam narystė suteikta **be mokesčio
+prievolės ir be balso teisės** (tik patariamasis balsas).
+
+| Aspektas | Garbės narys |
+|---|---|
+| Nario mokestis / skola | **Nėra** – `get_member_financial_status` grąžina `unpaid=[]`, `total_debt_cents=0` (mokėjimo istorija, jei aukojo, vis tiek rodoma) |
+| Kvorumas, dalyvių sąrašas, veiklos planas | **Neskaičiuojamas** – visos tos užklausos filtruoja `status IN ('aktyvus','pasyvus')` |
+| SMS balsavimo tokenai, priminimai, deklaracijos, portalo invite'ai | **Negauna** – tie patys filtrai |
+| Balsavimas iš portalo | **Blokuojama** – `cast_votes_as_member` grąžina `not_eligible` (taip pat ir `išstojęs`); `/portalas/balsavimai[/id]` rodo paaiškinimą vietoj formos |
+| Portalas, `/susirinkimai`, `/dokumentai`, `/skaidrumas` | **Gali** – middleware praleidžia `garbes_narys` į `/susirinkimai` kaip ir `aktyvus` |
+| `/admin/nariai` | Atskiras filtras „Garbės nariai"; į numatytą „Aktyvūs" rodinį nepatenka |
+
+Kuriant naują užklausą, kuri skaičiuoja „tikruosius" narius (kvorumas, skolos,
+SMS), toliau naudoti `IN ('aktyvus','pasyvus')` – garbės narys ten NEpatenka
+automatiškai. UI etiketės: `MEMBER_STATUS_LABELS.garbes_narys` (admin),
+`portalProfile.statusHonorary` ir `portalVoting.honorary*` (i18n LT/EN).
+
+Pirmasis garbės narys: Gintautas Kazimieras Kairys (`language='en'`,
+įrašas sukurtas 2026-09-05).
+
 ## ARCHITEKTŪRA: Dalyvių pavardžių privatumas (GDPR + vote secrecy)
 
 **Vieši susirinkimo archyvai (`/susirinkimai/[id]` ir `/portalas/susirinkimai/[id]`)
@@ -555,6 +578,7 @@ dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
 | 032 | `032_fundraising_projects_i18n.sql` | `fundraising_projects.title_en/short_desc_en/story_md_en` – projekto marketinginio turinio EN vertimas (+ Liepto EN turinys) |
 | 033 | `033_expulsions_rpc_minimize_pii.sql` | **Saugumo auditas** – `get_meeting_expulsions_data` nebegrąžina nario telefono/el. pašto anon iframe srautui (tik `has_contacts` bool); GDPR duomenų minimizavimas |
 | 034 | `034_iframe_route_token_guard_and_grants.sql` | **Saugumo auditas** – `voting_token_meeting` helper iframe route'ų prieigos kontrolei (žr. `canViewMeetingDoc`); atimtas anon `EXECUTE` nuo `log_notification` (anti log-injection) |
+| 036 | `036_honorary_member_status.sql` | **Garbės nario statusas** – `members.status` CHECK + `'garbes_narys'`; `get_member_financial_status` garbės nariui skola 0; `cast_votes_as_member` leidžia balsuoti tik `aktyvus`/`pasyvus` (`not_eligible`) |
 
 DB pakeitimai daromi **per Supabase MCP** (`apply_migration`) IR sinchronizuojami į `supabase/migrations/` lokaliam repo įrašymui.
 

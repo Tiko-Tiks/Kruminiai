@@ -6,7 +6,7 @@ export interface Profile {
   updated_at: string;
 }
 
-export type MemberStatus = "aktyvus" | "pasyvus" | "išstojęs";
+export type MemberStatus = "aktyvus" | "pasyvus" | "išstojęs" | "garbes_narys";
 
 export interface Member {
   id: string;

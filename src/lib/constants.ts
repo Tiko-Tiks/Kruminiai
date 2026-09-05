@@ -24,6 +24,9 @@ export const MEMBER_STATUS_LABELS: Record<string, string> = {
   aktyvus: "Aktyvus",
   pasyvus: "Pasyvus",
   "išstojęs": "Išstojęs",
+  // Garbės narys – be mokesčio prievolės, be balso teisės (tik patariamasis),
+  // neskaičiuojamas į kvorumą. Žr. CLAUDE.md „Garbės nario statusas".
+  garbes_narys: "Garbės narys",
 };
 
 export const DOCUMENT_CATEGORY_LABELS: Record<string, string> = {
