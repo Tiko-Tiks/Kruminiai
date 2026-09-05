@@ -225,7 +225,7 @@ export async function getVotingTokensStats(meetingId: string) {
   const supabase = createServerSupabaseClient();
   const auth = await requireAdmin(supabase);
   if (auth.error) {
-    return { total: 0, sent: 0, viewed: 0, voted: 0, liveIntent: 0, pending: 0, expired: 0, tokens: [] };
+    return { total: 0, sent: 0, viewed: 0, voted: 0, liveIntent: 0, pending: 0, expired: 0, missing: 0, tokens: [] };
   }
 
   const { data: tokens } = await supabase
@@ -237,6 +237,23 @@ export async function getVotingTokensStats(meetingId: string) {
     .order("voted_at", { ascending: false, nullsFirst: false });
 
   const all = tokens || [];
+
+  // Balso teisę turintys nariai su telefonu, kuriems šio susirinkimo nuoroda
+  // dar NEsukurta. Praktinis atvejis: narys tapo balsuojančiu jau po to, kai
+  // partija buvo išsiųsta (pvz. naujas arba garbės narys po migr. 042) –
+  // panelėje rodomas įspėjimas, kad reikia dar kartą spausti „Siųsti SMS".
+  const { data: eligible } = await supabase
+    .from("members")
+    .select("id")
+    .in("status", ACTIVE_MEMBER_STATUSES)
+    .not("phone", "is", null);
+  const { data: tokenMemberRows } = await supabase
+    .from("meeting_voting_tokens")
+    .select("member_id")
+    .eq("meeting_id", meetingId);
+  const withToken = new Set((tokenMemberRows || []).map((t) => t.member_id as string));
+  const missing = (eligible || []).filter((m) => !withToken.has(m.id as string)).length;
+
   // Tokenas „galioja", jei dar nepasibaigęs IR narys tebeturi balso teisę.
   // Anuliuoti (narys išstojo) ar pasibaigę – ne „laukia".
   const now = Date.now();
@@ -257,6 +274,7 @@ export async function getVotingTokensStats(meetingId: string) {
     liveIntent: all.filter((t) => t.live_intent_at && !t.voted_at).length,
     pending: all.filter((t) => t.sent_at && !t.voted_at && !t.live_intent_at && stillValid(t)).length,
     expired: all.filter((t) => !t.voted_at && !t.live_intent_at && !stillValid(t)).length,
+    missing,
     tokens: all,
   };
 }

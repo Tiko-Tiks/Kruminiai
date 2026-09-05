@@ -32,6 +32,7 @@ interface Props {
     voted: number;
     liveIntent: number;
     pending: number;
+    missing?: number;
     tokens: TokenStat[];
   };
 }
@@ -105,6 +106,13 @@ export function RemoteVotingPanel({ meetingId, stats }: Props) {
           </div>
         ) : (
           <>
+            {(stats.missing ?? 0) > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-900">
+                {stats.missing} balso teisę turintiems nariams su telefonu nuoroda dar nesukurta –
+                paspauskite {"„Siųsti SMS visiems nariams"}, kad jie irgi gautų balsavimo nuorodą.
+              </div>
+            )}
+
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <Stat
                 icon={<CheckCircle2 className="h-4 w-4 text-green-600" />}
