@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { castVotesByToken, registerLiveIntentByToken } from "@/actions/tokens";
 import { VOTE_LABELS } from "@/lib/constants";
-import { useLocale, useT } from "@/components/i18n/LocaleProvider";
+import { getDictionary, type Locale } from "@/lib/i18n";
 import { voteErrorMessage } from "@/lib/vote-errors";
 
 // PDF Viewer įkraunamas tik kliente (react-pdf reikalauja browser API)
@@ -77,16 +77,20 @@ interface Props {
     resolutions: Resolution[];
     expires_at: string;
     live_intent_at?: string | null;
+    voting_open?: boolean;
   };
+  // Nario kalba (iš tokeno duomenų), NE svetainės cookie – žr. page.tsx
+  locale: Locale;
 }
 
 type Step = "contacts" | "voting" | "review" | "done_voted" | "done_live";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function VotingFlow({ token, data }: Props) {
-  const locale = useLocale();
-  const tErr = useT().voteErrors;
+export function VotingFlow({ token, data, locale }: Props) {
+  const tErr = getDictionary(locale).voteErrors;
+  // Balsavimo langas – RPC tą patį atmestų su 'voting_closed'
+  const votingOpen = data.voting_open !== false;
   const [step, setStep] = useState<Step>("contacts");
   const [email, setEmail] = useState(data.member.email || "");
   const [phone, setPhone] = useState(data.member.phone || "");
@@ -266,6 +270,8 @@ export function VotingFlow({ token, data }: Props) {
             onEmailChange={setEmail}
             onPhoneChange={setPhone}
             onNext={() => setStep("voting")}
+            votingOpen={votingOpen}
+            votingClosedText={tErr.votingClosed}
             onLive={handleRegisterLive}
             registeringLive={registeringLive}
             alreadyChoseLive={!!data.live_intent_at}
@@ -484,6 +490,8 @@ function ContactsStep({
   onEmailChange,
   onPhoneChange,
   onNext,
+  votingOpen,
+  votingClosedText,
   onLive,
   registeringLive,
   alreadyChoseLive,
@@ -497,6 +505,8 @@ function ContactsStep({
   onEmailChange: (v: string) => void;
   onPhoneChange: (v: string) => void;
   onNext: () => void;
+  votingOpen: boolean;
+  votingClosedText: string;
   onLive: () => void;
   registeringLive: boolean;
   alreadyChoseLive: boolean;
@@ -549,6 +559,14 @@ function ContactsStep({
           Jūsų balsas bus įskaičiuotas į susirinkimo rezultatus, o jūs gausite balsų suvestinę el. paštu.
         </p>
 
+        {/* Langas uždarytas – „Dalyvausiu gyvai" (variantas A) vis tiek galioja */}
+        {!votingOpen && (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4 flex items-start gap-2 text-base text-gray-700">
+            <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+            <span>{votingClosedText}</span>
+          </div>
+        )}
+
         {hasExistingEmail ? (
           <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-4 flex items-start gap-2 text-base text-blue-900">
             <Mail className="h-5 w-5 flex-shrink-0 mt-0.5" />
@@ -594,7 +612,7 @@ function ContactsStep({
           </div>
         )}
 
-        <Button onClick={onNext} disabled={!canVote} className="w-full text-lg py-3">
+        <Button onClick={onNext} disabled={!canVote || !votingOpen} className="w-full text-lg py-3">
           <ChevronRight className="h-5 w-5" />
           Balsuoti
         </Button>
