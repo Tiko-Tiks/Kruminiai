@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { vocative } from "@/lib/utils";
 import crypto from "crypto";
+import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
 
 export interface MemberAccountStatus {
   id: string;
@@ -32,8 +33,7 @@ export async function getMembersAccountStatus(): Promise<MemberAccountStatus[]> 
   const { data: members, error: memErr } = await supabase
     .from("members")
     .select("id, first_name, last_name, email, status")
-    // Garbės narys portalo paskyrą turėti GALI (archyvas, dokumentai) – tik nebalsuoja
-    .in("status", ["aktyvus", "pasyvus", "garbes_narys"])
+    .in("status", ACTIVE_MEMBER_STATUSES)
     .order("first_name", { ascending: true })
     .order("last_name", { ascending: true });
   if (memErr) throw memErr;
@@ -107,11 +107,11 @@ export async function bulkCreateMemberAccounts(memberIds?: string[]): Promise<{
     return { error: "Trūksta teisių (reikia admin arba super_admin)" };
   }
 
-  // Atrenkam aktyvius+pasyvius+garbės narius su email, kurie dar neturi paskyros
+  // Atrenkam esamus narius su email, kurie dar neturi paskyros
   let memQ = supabase
     .from("members")
     .select("id, first_name, last_name, email, status, language")
-    .in("status", ["aktyvus", "pasyvus", "garbes_narys"])
+    .in("status", ACTIVE_MEMBER_STATUSES)
     .not("email", "is", null);
   if (memberIds && memberIds.length > 0) {
     memQ = memQ.in("id", memberIds);
@@ -369,7 +369,7 @@ function renderWelcomeEmail(opts: {
   resetUrl: string;
   isResend?: boolean;
   locale?: "lt" | "en";
-  // Garbės narys – patariamasis balsas, balsavimo internetu nežadam
+  // Garbės nariui nario mokestis netaikomas (balsuoja kaip visi)
   isHonorary?: boolean;
 }): string {
   const locale = opts.locale === "en" ? "en" : "lt";
@@ -381,12 +381,12 @@ function renderWelcomeEmail(opts: {
       : `<p style="font-size:15px;line-height:1.6;margin:0 0 16px;color:#1f2937;">Hello ${opts.name},</p>
          <p style="font-size:14px;line-height:1.6;margin:0 0 16px;color:#374151;">An account has been created for you in the Krūminiai Village Community member portal. With it you can:</p>
          <ul style="font-size:14px;line-height:1.7;margin:0 0 20px;padding-left:20px;color:#374151;">
-           <li>see your membership-fee history and balance</li>
            ${
              opts.isHonorary
-               ? "<li>follow general meetings as an honorary member (advisory vote – agendas, documents, results)</li>"
-               : "<li>vote directly during general meetings (no SMS needed)</li>"
+               ? "<li>see your payment history – as an honorary member you owe no membership fee</li>"
+               : "<li>see your membership-fee history and balance</li>"
            }
+           <li>vote directly during general meetings (no SMS needed)</li>
            <li>read community documents (minutes, reports, statutes)</li>
            <li>see meeting results and agendas</li>
            <li>update your contact details</li>
@@ -416,12 +416,12 @@ function renderWelcomeEmail(opts: {
     : `<p style="font-size:15px;line-height:1.6;margin:0 0 16px;color:#1f2937;">Sveiki, ${greetingName},</p>
        <p style="font-size:14px;line-height:1.6;margin:0 0 16px;color:#374151;">Jums sukurta paskyra Krūminių kaimo bendruomenės narių portale. Per ją galėsite:</p>
        <ul style="font-size:14px;line-height:1.7;margin:0 0 20px;padding-left:20px;color:#374151;">
-         <li>matyti savo nario mokesčio istoriją ir likučius</li>
          ${
            opts.isHonorary
-             ? "<li>sekti visuotinius susirinkimus garbės nario teisėmis (patariamasis balsas – darbotvarkės, dokumentai, rezultatai)</li>"
-             : "<li>balsuoti visuotinių susirinkimų metu tiesiogiai (be SMS)</li>"
+             ? "<li>matyti savo mokėjimų istoriją – garbės nariui nario mokestis netaikomas</li>"
+             : "<li>matyti savo nario mokesčio istoriją ir likučius</li>"
          }
+         <li>balsuoti visuotinių susirinkimų metu tiesiogiai (be SMS)</li>
          <li>skaityti bendruomenės dokumentus (protokolai, ataskaitos, įstatai)</li>
          <li>matyti susirinkimų rezultatus ir darbotvarkes</li>
          <li>atnaujinti savo kontaktinius duomenis</li>

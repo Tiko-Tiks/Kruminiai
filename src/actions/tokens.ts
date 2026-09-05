@@ -9,6 +9,7 @@ import { logNotification, logNotificationSystem } from "@/lib/notification-log";
 import { vocative } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
+import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
 
 function generateToken(): string {
   // 16 baitu = 32 hex simboliai = 128 bitu entropija (saugu, telpa i 1 SMS)
@@ -41,12 +42,12 @@ export async function generateAndSendVotingTokens(meetingId: string) {
 
   if (meetingErr || !meeting) return { success: false as const, error: "Susirinkimas nerastas" };
 
-  // Aktyvūs IR pasyvūs nariai – pasyvūs vis dar turi balsavimo teisę,
-  // kol Taryba nepriima sprendimo dėl jų pašalinimo (įstatų 5.3.1 p.).
+  // Visi balso teisę turintys nariai – aktyvūs, pasyvūs (balso teisę turi,
+  // kol Taryba nepriima sprendimo dėl pašalinimo, įstatų 5.3.1 p.) ir garbės.
   const { data: members, error: membersErr } = await supabase
     .from("members")
     .select("id, first_name, last_name, phone, email, status, language")
-    .in("status", ["aktyvus", "pasyvus"]);
+    .in("status", ACTIVE_MEMBER_STATUSES);
 
   if (membersErr) return { success: false as const, error: membersErr.message };
   if (!members || members.length === 0)
@@ -184,8 +185,8 @@ export async function resendVotingSms(meetingId: string) {
   for (const t of tokens) {
     const member = Array.isArray(t.members) ? t.members[0] : t.members;
     if (!member?.phone) continue;
-    // Balso teisę turi tik aktyvus/pasyvus – kitiems nuoroda nebeveiktų
-    if (!["aktyvus", "pasyvus"].includes((member as { status?: string }).status ?? "")) continue;
+    // Balso teisės netekusiam (išstojusiam) nariui nuoroda nebeveiktų
+    if (!ACTIVE_MEMBER_STATUSES.includes((member as { status?: string }).status ?? "")) continue;
 
     const url = `${baseUrl}/balsuoti/${t.token}`;
     const text =
@@ -237,7 +238,7 @@ export async function getVotingTokensStats(meetingId: string) {
 
   const all = tokens || [];
   // Tokenas „galioja", jei dar nepasibaigęs IR narys tebeturi balso teisę.
-  // Anuliuoti (narys tapo garbės nariu / išstojo) ar pasibaigę – ne „laukia".
+  // Anuliuoti (narys išstojo) ar pasibaigę – ne „laukia".
   const now = Date.now();
   const stillValid = (t: { expires_at?: string | null; member?: unknown }) => {
     const m = Array.isArray(t.member) ? t.member[0] : t.member;
@@ -245,7 +246,7 @@ export async function getVotingTokensStats(meetingId: string) {
     return (
       !!t.expires_at &&
       new Date(t.expires_at).getTime() > now &&
-      ["aktyvus", "pasyvus"].includes(status)
+      ACTIVE_MEMBER_STATUSES.includes(status)
     );
   };
   return {

@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase";
 import { toast } from "sonner";
+import { FEE_STATUSES } from "@/lib/constants";
 
 interface UnpaidPeriod {
   id: string;
@@ -39,7 +40,7 @@ export default function NewPaymentPage() {
       const { data } = await supabase
         .from("members")
         .select("id, first_name, last_name, phone, email, status")
-        .in("status", ["aktyvus", "pasyvus"])
+        .in("status", FEE_STATUSES)
         .order("first_name")
         .order("last_name");
       setMembers(

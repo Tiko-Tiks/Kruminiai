@@ -131,7 +131,7 @@ export async function approveUser(
     if (memberId) {
       const { data: member } = await supabase
         .from("members")
-        .select("first_name, email, language")
+        .select("first_name, email, language, status")
         .eq("id", memberId)
         .single();
       if (member?.email) {
@@ -140,7 +140,11 @@ export async function approveUser(
           locale === "en"
             ? "Welcome to the Krūminiai Village Community!"
             : "Sveiki tapę Krūminių kaimo bendruomenės nariu!";
-        const html = renderMemberWelcomeEmail({ firstName: member.first_name as string, locale });
+        const html = renderMemberWelcomeEmail({
+          firstName: member.first_name as string,
+          locale,
+          isHonorary: (member as { status?: string }).status === "garbes_narys",
+        });
         const r = await sendEmail(member.email as string, subject, html);
         await logNotification(supabase, {
           memberId,

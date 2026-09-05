@@ -6,6 +6,7 @@ import Link from "next/link";
 import { getDict } from "@/lib/i18n-server";
 import { formatDateLong } from "@/lib/utils";
 import { isVotingWindowOpen, type VotingWindowMeeting } from "@/lib/voting-window";
+import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -38,13 +39,12 @@ export default async function PortalVotingPage({ params }: { params: { id: strin
   const data = await getMeetingForVoting(params.id);
   if ("error" in data) notFound();
 
-  // Balso teisę turi tik aktyvus/pasyvus narys – kitiems (garbės narys,
-  // išstojęs) balsavimo forma nerodoma. RPC cast_votes_as_member tokį bandymą
-  // vis tiek atmestų su 'not_eligible'.
+  // Balso teisę turi visi esami nariai (įsk. garbės narius) – forma
+  // nerodoma tik išstojusiam. RPC cast_votes_as_member tokį bandymą vis tiek
+  // atmestų su 'not_eligible'.
   const profile = (await getMemberProfile()) as { member?: { status?: string } | null };
   const memberStatus = profile?.member?.status ?? "";
-  const isEligible = memberStatus === "aktyvus" || memberStatus === "pasyvus";
-  const isHonorary = memberStatus === "garbes_narys";
+  const isEligible = ACTIVE_MEMBER_STATUSES.includes(memberStatus);
   if (!isEligible) {
     const t = getDict().portalVoting;
     return (
@@ -56,17 +56,13 @@ export default async function PortalVotingPage({ params }: { params: { id: strin
           </p>
         </div>
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
-          <h2 className="font-semibold text-amber-900 mb-2">
-            {isHonorary ? t.honoraryNoticeTitle : t.notEligibleNoticeTitle}
-          </h2>
-          <p className="text-sm text-amber-800 leading-relaxed">
-            {isHonorary ? t.honoraryNoticeBody : t.notEligibleNoticeBody}
-          </p>
+          <h2 className="font-semibold text-amber-900 mb-2">{t.notEligibleNoticeTitle}</h2>
+          <p className="text-sm text-amber-800 leading-relaxed">{t.notEligibleNoticeBody}</p>
           <Link
             href={`/portalas/susirinkimai/${data.meeting.id}`}
             className="inline-block mt-4 text-sm font-medium text-green-700 hover:underline"
           >
-            {t.honoraryViewMeetingLink}
+            {t.viewMeetingLink}
           </Link>
         </div>
       </div>
@@ -129,7 +125,7 @@ export default async function PortalVotingPage({ params }: { params: { id: strin
             href={`/portalas/susirinkimai/${data.meeting.id}`}
             className="inline-block mt-4 text-sm font-medium text-green-700 hover:underline"
           >
-            {t.honoraryViewMeetingLink}
+            {t.viewMeetingLink}
           </Link>
         </div>
       </div>

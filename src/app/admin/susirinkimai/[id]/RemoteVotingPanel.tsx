@@ -7,6 +7,7 @@ import { Send, RotateCcw, Users, CheckCircle2, Clock, Phone, UserCheck, Eye } fr
 import { generateAndSendVotingTokens, resendVotingSms } from "@/actions/tokens";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
 
 interface TokenStat {
   id: string;
@@ -192,7 +193,7 @@ export function RemoteVotingPanel({ meetingId, stats }: Props) {
                             Atvyks gyvai
                           </span>
                         ) : (t.expires_at && new Date(t.expires_at).getTime() <= Date.now()) ||
-                          (member.status && !["aktyvus", "pasyvus"].includes(member.status)) ? (
+                          (member.status && !ACTIVE_MEMBER_STATUSES.includes(member.status)) ? (
                           <span
                             className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded"
                             title="Nuoroda nebegalioja (pasibaigė arba narys neteko balso teisės)"
