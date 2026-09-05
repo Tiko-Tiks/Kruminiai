@@ -330,6 +330,7 @@ export interface Dictionary {
     votedBadge: string;
     voteNowBadge: string;
     infoBadge: string;
+    closedBadge: string;
     documentsCardTitle: string;
     documentsCardDescription: string;
     myDataCardTitle: string;
@@ -348,6 +349,8 @@ export interface Dictionary {
     honoraryViewMeetingLink: string;
     votingClosedTitle: string;
     votingClosedBody: string;
+    closedSectionTitle: string;
+    closedBadge: string;
   };
   portalHistory: {
     pageTitle: string;
@@ -758,6 +761,7 @@ const lt: Dictionary = {
     votedBadge: "Balsavote",
     voteNowBadge: "Balsuokite",
     infoBadge: "Informacija",
+    closedBadge: "Balsavimas neaktyvus",
     documentsCardTitle: "Dokumentai",
     documentsCardDescription: "Įstatai, protokolai, ataskaitos",
     myDataCardTitle: "Mano duomenys",
@@ -778,6 +782,8 @@ const lt: Dictionary = {
     votingClosedTitle: "Balsavimas šiuo metu neaktyvus",
     votingClosedBody:
       "Nuotolinis balsavimas šiam susirinkimui dar neprasidėjo arba jau pasibaigė. Balsuoti internetu galima iki susirinkimo pradžios.",
+    closedSectionTitle: "Balsavimas neaktyvus ({count})",
+    closedBadge: "Neaktyvus",
   },
   portalHistory: {
     pageTitle: "Mano balsavimo istorija",
@@ -1190,6 +1196,7 @@ const en: Dictionary = {
     votedBadge: "Voted",
     voteNowBadge: "Vote now",
     infoBadge: "Details",
+    closedBadge: "Voting closed",
     documentsCardTitle: "Documents",
     documentsCardDescription: "Bylaws, minutes, reports",
     myDataCardTitle: "My details",
@@ -1210,6 +1217,8 @@ const en: Dictionary = {
     votingClosedTitle: "Voting is not open right now",
     votingClosedBody:
       "Remote voting for this meeting has not started yet or has already ended. Online votes can be cast until the meeting begins.",
+    closedSectionTitle: "Voting not open ({count})",
+    closedBadge: "Not open",
   },
   portalHistory: {
     pageTitle: "My voting history",

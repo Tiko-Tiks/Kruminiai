@@ -237,6 +237,7 @@ export async function bulkCreateMemberAccounts(memberIds?: string[]): Promise<{
         email,
         resetUrl: linkData.properties.action_link,
         locale: memberLocale,
+        isHonorary: (m as { status?: string }).status === "garbes_narys",
       });
       const emailResult = await sendEmail(
         email,
@@ -318,7 +319,7 @@ export async function resendPasswordSetupLink(memberId: string): Promise<{
 
   const { data: member } = await supabase
     .from("members")
-    .select("id, first_name, last_name, email, language")
+    .select("id, first_name, last_name, email, language, status")
     .eq("id", memberId)
     .single();
   if (!member || !member.email) {
@@ -346,6 +347,7 @@ export async function resendPasswordSetupLink(memberId: string): Promise<{
     resetUrl: linkData.properties.action_link,
     isResend: true,
     locale: memberLocale,
+    isHonorary: (member as { status?: string }).status === "garbes_narys",
   });
   const result = await sendEmail(
     member.email as string,
@@ -367,6 +369,8 @@ function renderWelcomeEmail(opts: {
   resetUrl: string;
   isResend?: boolean;
   locale?: "lt" | "en";
+  // Garbės narys – patariamasis balsas, balsavimo internetu nežadam
+  isHonorary?: boolean;
 }): string {
   const locale = opts.locale === "en" ? "en" : "lt";
 
@@ -378,7 +382,11 @@ function renderWelcomeEmail(opts: {
          <p style="font-size:14px;line-height:1.6;margin:0 0 16px;color:#374151;">An account has been created for you in the Krūminiai Village Community member portal. With it you can:</p>
          <ul style="font-size:14px;line-height:1.7;margin:0 0 20px;padding-left:20px;color:#374151;">
            <li>see your membership-fee history and balance</li>
-           <li>vote directly during general meetings (no SMS needed)</li>
+           ${
+             opts.isHonorary
+               ? "<li>follow general meetings as an honorary member (advisory vote – agendas, documents, results)</li>"
+               : "<li>vote directly during general meetings (no SMS needed)</li>"
+           }
            <li>read community documents (minutes, reports, statutes)</li>
            <li>see meeting results and agendas</li>
            <li>update your contact details</li>
@@ -409,7 +417,11 @@ function renderWelcomeEmail(opts: {
        <p style="font-size:14px;line-height:1.6;margin:0 0 16px;color:#374151;">Jums sukurta paskyra Krūminių kaimo bendruomenės narių portale. Per ją galėsite:</p>
        <ul style="font-size:14px;line-height:1.7;margin:0 0 20px;padding-left:20px;color:#374151;">
          <li>matyti savo nario mokesčio istoriją ir likučius</li>
-         <li>balsuoti visuotinių susirinkimų metu tiesiogiai (be SMS)</li>
+         ${
+           opts.isHonorary
+             ? "<li>sekti visuotinius susirinkimus garbės nario teisėmis (patariamasis balsas – darbotvarkės, dokumentai, rezultatai)</li>"
+             : "<li>balsuoti visuotinių susirinkimų metu tiesiogiai (be SMS)</li>"
+         }
          <li>skaityti bendruomenės dokumentus (protokolai, ataskaitos, įstatai)</li>
          <li>matyti susirinkimų rezultatus ir darbotvarkes</li>
          <li>atnaujinti savo kontaktinius duomenis</li>

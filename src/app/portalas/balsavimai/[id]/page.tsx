@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getDict } from "@/lib/i18n-server";
 import { formatDateLong } from "@/lib/utils";
+import { isVotingWindowOpen, type VotingWindowMeeting } from "@/lib/voting-window";
 
 export const dynamic = "force-dynamic";
 
@@ -102,19 +103,7 @@ export default async function PortalVotingPage({ params }: { params: { id: strin
   // Balsavimo langas uždarytas (susirinkimas prasidėjo / baigtas / už
   // išankstinio balsavimo laikotarpio) – rodom pranešimą, ne formą.
   // RPC cast_votes_as_member tą patį tikrina serveryje ('voting_closed').
-  const mtg = data.meeting as unknown as {
-    status: string;
-    meeting_date: string;
-    early_voting_start?: string | null;
-    early_voting_end?: string | null;
-  };
-  const now = Date.now();
-  const votingClosed =
-    mtg.status === "baigtas" ||
-    mtg.status === "atšauktas" ||
-    now >= new Date(mtg.meeting_date).getTime() ||
-    (!!mtg.early_voting_start && now < new Date(mtg.early_voting_start).getTime()) ||
-    (!!mtg.early_voting_end && now > new Date(mtg.early_voting_end).getTime());
+  const votingClosed = !isVotingWindowOpen(data.meeting as unknown as VotingWindowMeeting);
   if (votingClosed) {
     const t = getDict().portalVoting;
     return (

@@ -285,7 +285,9 @@ prievolės ir be balso teisės** (tik patariamasis balsas).
 | Kvorumas, dalyvių sąrašas, veiklos planas | **Neskaičiuojamas** – visos tos užklausos filtruoja `status IN ('aktyvus','pasyvus')` |
 | SMS balsavimo tokenai, priminimai, deklaracijos, portalo invite'ai | **Negauna** – tie patys filtrai |
 | Balsavimas iš portalo | **Blokuojama** – `cast_votes_as_member` grąžina `not_eligible` (taip pat ir `išstojęs`); `/portalas/balsavimai[/id]` ir portalo pradžia rodo informacines nuorodas į `/susirinkimai/[id]` vietoj „Balsuoti" |
-| SMS tokenas, išduotas DAR būnant aktyviu | **Anuliuojamas** – trigger'is `members_revoke_voting_tokens` (migr. 037) nustato `expires_at=NOW()`; `cast_votes_with_token` papildomai tikrina DABARTINĮ statusą (`not_eligible`) |
+| SMS tokenas, išduotas DAR būnant aktyviu | **Anuliuojamas** – trigger'is `members_status_change_sync` (migr. 038) nustato `expires_at=NOW()`; grąžinus balso teisę – galiojimas atstatomas iki `meeting_date`; `cast_votes_with_token` papildomai tikrina DABARTINĮ statusą (`not_eligible`); admin panelė anuliuotų nerodo kaip „laukia" ir jiems priminimų nesiunčia |
+| Kvorumas jau sukurtiems būsimiems susirinkimams | **Persiskaičiuoja** – tas pats trigger'is atnaujina `total_members_at_time`/`quorum_required` (`planuojamas`/`registracija`, `meeting_date > NOW()`) |
+| Portalo welcome laiškas | **Be „balsuoti" pažado** – `renderWelcomeEmail({ isHonorary })` |
 | Portalo paskyros kvietimai (`/admin/nariai/paskyros`) | **Gali gauti** – `portal-invites.ts` įtraukia `garbes_narys` |
 | Portalas, `/susirinkimai`, `/dokumentai`, `/skaidrumas` | **Gali** – middleware praleidžia `garbes_narys` į `/susirinkimai` kaip ir `aktyvus` |
 | `/admin/nariai` | Atskiras filtras „Garbės nariai"; į numatytą „Aktyvūs" rodinį nepatenka |
@@ -510,8 +512,12 @@ dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
   priima tik PILNĄ biuletenį – po vieną balsą už kiekvieną neprocedūrinį klausimą, be dublikatų
   (`_is_complete_ballot` → `incomplete_ballot`), ir tik `aktyvus`/`pasyvus` nariui (`not_eligible`).
   Portalo RPC dar tikrina langą: NOW() < `meeting_date`, statusas ne baigtas/atšauktas,
-  `early_voting_start/end` jei nustatyti (`voting_closed`); `/portalas/balsavimai/[id]` tą patį
-  tikrina UI pusėje. Klaidų kodai → LT tekstai: `VOTE_ERROR_MESSAGES` (`constants.ts`)
+  `early_voting_start/end` jei nustatyti (`voting_closed`); UI pusėje tą patį tikrina
+  `isVotingWindowOpen()` iš `src/lib/voting-window.ts` (portalo pradžia, balsavimų sąrašas,
+  balsavimo puslapis). `resolutions.early_voting_open` čia NEnaudojamas – tai gyvo
+  susirinkimo (admin `/admin/balsavimas`, `castOnlineVote`) vėliavėlė; SMS/portalo išankstinis
+  balsavimas apima VISUS neprocedūrinius klausimus per visą langą. Klaidų kodai → LT tekstai:
+  `VOTE_ERROR_MESSAGES` (`constants.ts`)
 - **Procedūriniai klausimai** (`is_procedural=true`) – tik gyvai, į balsavimo srautą neįeina
 - **Tokeno gyvavimo ciklas:** `sent_at` (admin išsiuntė SMS) → `viewed_at` + `view_count++` (nuoroda atidaryta) → `voted_at` (balsai įrašyti) ARBA `live_intent_at` (pasirinko gyvai)
 - Admin panelėj `/admin/susirinkimai/[id]` rodoma kiekvieno tokeno būsena
@@ -587,7 +593,8 @@ dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
 | 033 | `033_expulsions_rpc_minimize_pii.sql` | **Saugumo auditas** – `get_meeting_expulsions_data` nebegrąžina nario telefono/el. pašto anon iframe srautui (tik `has_contacts` bool); GDPR duomenų minimizavimas |
 | 034 | `034_iframe_route_token_guard_and_grants.sql` | **Saugumo auditas** – `voting_token_meeting` helper iframe route'ų prieigos kontrolei (žr. `canViewMeetingDoc`); atimtas anon `EXECUTE` nuo `log_notification` (anti log-injection) |
 | 036 | `036_honorary_member_status.sql` | **Garbės nario statusas** – `members.status` CHECK + `'garbes_narys'`; `get_member_financial_status` garbės nariui skola 0; `cast_votes_as_member` leidžia balsuoti tik `aktyvus`/`pasyvus` (`not_eligible`) |
-| 037 | `037_voting_rpc_hardening.sql` | **Balsavimo RPC užveržimas** (Codex peržiūra) – `_is_complete_ballot` (pilnas biuletenis abiem RPC, `incomplete_ballot`); `cast_votes_as_member` tikrina balsavimo langą (`voting_closed`); `cast_votes_with_token` tikrina dabartinį nario statusą; trigger'is `members_revoke_voting_tokens` anuliuoja tokenus pakeitus statusą į nebalsuojantį |
+| 037 | `037_voting_rpc_hardening.sql` | **Balsavimo RPC užveržimas** (Codex peržiūra) – `_is_complete_ballot` (pilnas biuletenis abiem RPC, `incomplete_ballot`); `cast_votes_as_member` tikrina balsavimo langą (`voting_closed`); `cast_votes_with_token` tikrina dabartinį nario statusą; trigger'is `members_revoke_voting_tokens` (pakeistas 038) |
+| 038 | `038_ballot_null_guard_and_member_status_sync.sql` | `_is_complete_ballot` NULL/ne-masyvo saugi (CASE), kvietėjai `IS NOT TRUE`; vienas trigger'is `members_status_change_sync` – tokenų anuliavimas/atstatymas + būsimų susirinkimų kvorumo persiskaičiavimas |
 
 DB pakeitimai daromi **per Supabase MCP** (`apply_migration`) IR sinchronizuojami į `supabase/migrations/` lokaliam repo įrašymui.
 

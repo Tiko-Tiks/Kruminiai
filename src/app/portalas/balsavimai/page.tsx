@@ -1,6 +1,7 @@
 import { getMemberActiveMeetings, getMemberProfile } from "@/actions/portal";
 import { formatDateLong } from "@/lib/utils";
 import { getDict } from "@/lib/i18n-server";
+import { isVotingWindowOpen } from "@/lib/voting-window";
 import { Calendar, MapPin, CheckCircle2, Vote, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
@@ -13,12 +14,16 @@ interface MeetingItem {
   location: string;
   status: string;
   has_voted: boolean;
+  early_voting_start?: string | null;
+  early_voting_end?: string | null;
 }
 
 export default async function PortalVotingsPage() {
   const data = (await getMemberActiveMeetings()) as { meetings?: MeetingItem[]; error?: string };
   const meetings = data?.meetings || [];
-  const pending = meetings.filter((m) => !m.has_voted);
+  // „Laukia balso" – tik kai balsavimo langas atviras (RPC tą patį tikrina).
+  const pending = meetings.filter((m) => !m.has_voted && isVotingWindowOpen(m));
+  const closed = meetings.filter((m) => !m.has_voted && !isVotingWindowOpen(m));
   const voted = meetings.filter((m) => m.has_voted);
   const t = getDict().portalVoting;
   // Garbės narys – patariamasis balsas; rodom paaiškinimą virš sąrašo.
@@ -101,6 +106,42 @@ export default async function PortalVotingsPage() {
                   </div>
                   <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-sm font-semibold rounded-lg flex-shrink-0">
                     {t.voteButton} <ArrowRight className="h-4 w-4" />
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {!isHonorary && closed.length > 0 && (
+        <section>
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+            {t.closedSectionTitle.replace("{count}", String(closed.length))}
+          </h2>
+          <div className="space-y-3">
+            {closed.map((m) => (
+              <Link
+                key={m.id}
+                href={`/susirinkimai/${m.id}`}
+                className="block bg-white rounded-xl border border-gray-200 p-5 hover:border-green-300 hover:shadow-sm transition-all"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-medium text-gray-900 mb-1">{m.title}</h3>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3.5 w-3.5" />
+                        {formatDateLong(m.meeting_date)}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5" />
+                        {m.location}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded font-medium flex-shrink-0">
+                    {t.closedBadge}
                   </span>
                 </div>
               </Link>
