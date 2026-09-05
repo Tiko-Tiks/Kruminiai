@@ -12,6 +12,14 @@ interface Props {
   searchParams: { paieska?: string; statusas?: string };
 }
 
+// Antraštės skaitiklio etiketės pagal pasirinktą statusą (kilmininkas, dgs.)
+const STATUS_COUNT_LABELS: Record<string, string> = {
+  aktyvus: "aktyvių narių",
+  pasyvus: "pasyvių narių",
+  "išstojęs": "išstojusių narių",
+  garbes_narys: "garbės narių",
+};
+
 export default async function MembersPage({ searchParams }: Props) {
   // Pagal nutylėjimą rodomi TIK aktyvūs nariai – išstoję, pašalinti ir
   // pasyvūs nariai į „bendruomenės narių" sąrašą nepatenka, kol admin'as
@@ -30,9 +38,7 @@ export default async function MembersPage({ searchParams }: Props) {
             {members.length}{" "}
             {showingAll
               ? "narių (visi statusai)"
-              : effectiveStatus === "aktyvus"
-                ? "aktyvių narių"
-                : `narių (${effectiveStatus})`}
+              : STATUS_COUNT_LABELS[effectiveStatus] ?? `narių (${effectiveStatus})`}
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">

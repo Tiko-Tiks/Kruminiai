@@ -24,6 +24,9 @@ export const MEMBER_STATUS_LABELS: Record<string, string> = {
   aktyvus: "Aktyvus",
   pasyvus: "Pasyvus",
   "išstojęs": "Išstojęs",
+  // Garbės narys – be mokesčio prievolės, be balso teisės (tik patariamasis),
+  // neskaičiuojamas į kvorumą. Žr. CLAUDE.md „Garbės nario statusas".
+  garbes_narys: "Garbės narys",
 };
 
 export const DOCUMENT_CATEGORY_LABELS: Record<string, string> = {
@@ -78,6 +81,9 @@ export const VOTE_LABELS: Record<string, string> = {
   pries: "Prieš",
   susilaike: "Susilaikau",
 };
+
+// Balsavimo RPC klaidų kodai → nario kalba: žr. `voteErrorMessage()`
+// (`src/lib/vote-errors.ts`) ir `voteErrors` namespace `src/lib/i18n.ts`.
 
 // Rezultatų / protokolo etiketės – trečiasis asmuo, kaip atsiskaitoma
 export const VOTE_RESULT_LABELS: Record<string, string> = {

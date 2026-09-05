@@ -15,9 +15,10 @@ interface TokenStat {
   view_count: number | null;
   voted_at: string | null;
   live_intent_at: string | null;
+  expires_at?: string | null;
   member:
-    | { first_name: string; last_name: string; phone: string | null }
-    | { first_name: string; last_name: string; phone: string | null }[]
+    | { first_name: string; last_name: string; phone: string | null; status?: string }
+    | { first_name: string; last_name: string; phone: string | null; status?: string }[]
     | null;
 }
 
@@ -189,6 +190,15 @@ export function RemoteVotingPanel({ meetingId, stats }: Props) {
                           <span className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
                             <UserCheck className="h-3 w-3" />
                             Atvyks gyvai
+                          </span>
+                        ) : (t.expires_at && new Date(t.expires_at).getTime() <= Date.now()) ||
+                          (member.status && !["aktyvus", "pasyvus"].includes(member.status)) ? (
+                          <span
+                            className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded"
+                            title="Nuoroda nebegalioja (pasibaigė arba narys neteko balso teisės)"
+                          >
+                            <Clock className="h-3 w-3" />
+                            Nebegalioja
                           </span>
                         ) : t.viewed_at ? (
                           <span className="inline-flex items-center gap-1 text-xs text-purple-700 bg-purple-50 px-2 py-0.5 rounded">

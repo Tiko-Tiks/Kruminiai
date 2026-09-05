@@ -5,6 +5,8 @@ import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/Button";
 import { castVotesAsMember } from "@/actions/portal";
 import { VOTE_LABELS } from "@/lib/constants";
+import { useT } from "@/components/i18n/LocaleProvider";
+import { voteErrorMessage } from "@/lib/vote-errors";
 import { formatDateLong, formatFileSize, getDocumentPublicUrl } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -79,6 +81,7 @@ export function PortalVotingFlow({ meetingId, meeting, resolutions }: Props) {
     };
   }, [previewDoc]);
 
+  const tErr = useT().voteErrors;
   const allVoted = resolutions.every((r) => votes[r.id]);
 
   async function handleSubmit() {
@@ -90,7 +93,7 @@ export function PortalVotingFlow({ meetingId, meeting, resolutions }: Props) {
     setSubmitting(false);
 
     if ("error" in result) {
-      toast.error(result.error || "Klaida fiksuojant balsą");
+      toast.error(voteErrorMessage(result.error, tErr));
       return;
     }
     setStep("done");

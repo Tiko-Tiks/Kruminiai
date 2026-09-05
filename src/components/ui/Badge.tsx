@@ -33,6 +33,8 @@ export function statusBadgeVariant(status: string) {
       return "warning" as const;
     case "išstojęs":
       return "danger" as const;
+    case "garbes_narys":
+      return "info" as const;
     default:
       return "default" as const;
   }

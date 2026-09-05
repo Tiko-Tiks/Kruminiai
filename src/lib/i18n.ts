@@ -329,6 +329,8 @@ export interface Dictionary {
     viewAllLink: string;
     votedBadge: string;
     voteNowBadge: string;
+    infoBadge: string;
+    closedBadge: string;
     documentsCardTitle: string;
     documentsCardDescription: string;
     myDataCardTitle: string;
@@ -342,6 +344,35 @@ export interface Dictionary {
     voteButton: string;
     votedSectionTitle: string;
     votedBadge: string;
+    honoraryNoticeTitle: string;
+    honoraryNoticeBody: string;
+    honoraryViewMeetingLink: string;
+    notEligibleNoticeTitle: string;
+    notEligibleNoticeBody: string;
+    votingClosedTitle: string;
+    votingClosedBody: string;
+    closedSectionTitle: string;
+    closedBadge: string;
+  };
+  voteErrors: {
+    notEligible: string;
+    votingClosed: string;
+    incompleteBallot: string;
+    alreadyVoted: string;
+    meetingNotFound: string;
+    expired: string;
+    invalidToken: string;
+    noMemberLink: string;
+    generic: string;
+    invalidTokenTitle: string;
+    invalidTokenBody: string;
+    alreadyVotedTitle: string;
+    alreadyVotedBodyWithDate: string;
+    alreadyVotedBody: string;
+    expiredTitle: string;
+    expiredBody: string;
+    notEligibleTitle: string;
+    notEligibleBody: string;
   };
   portalHistory: {
     pageTitle: string;
@@ -366,6 +397,7 @@ export interface Dictionary {
     noMemberLinkBody: string;
     memberSincePrefix: string;
     statusActive: string;
+    statusHonorary: string;
     changeNameNotice: string;
     contactsHeading: string;
     emailLabel: string;
@@ -750,6 +782,8 @@ const lt: Dictionary = {
     viewAllLink: "Visi →",
     votedBadge: "Balsavote",
     voteNowBadge: "Balsuokite",
+    infoBadge: "Informacija",
+    closedBadge: "Balsavimas neaktyvus",
     documentsCardTitle: "Dokumentai",
     documentsCardDescription: "Įstatai, protokolai, ataskaitos",
     myDataCardTitle: "Mano duomenys",
@@ -763,6 +797,43 @@ const lt: Dictionary = {
     voteButton: "Balsuoti",
     votedSectionTitle: "Jau balsavote ({count})",
     votedBadge: "Balsavote",
+    honoraryNoticeTitle: "Garbės nario statusas",
+    honoraryNoticeBody:
+      "Garbės nariai susirinkimuose dalyvauja patariamojo balso teise – balsavimas internetu jiems nenumatytas. Darbotvarkę ir dokumentus galite peržiūrėti susirinkimo puslapyje.",
+    honoraryViewMeetingLink: "Žiūrėti susirinkimo informaciją →",
+    notEligibleNoticeTitle: "Balso teisė nesuteikta",
+    notEligibleNoticeBody:
+      "Pagal dabartinį narystės statusą balsuoti negalite. Darbotvarkę ir dokumentus galite peržiūrėti susirinkimo puslapyje. Dėl narystės kreipkitės į administratorių.",
+    votingClosedTitle: "Balsavimas šiuo metu neaktyvus",
+    votingClosedBody:
+      "Nuotolinis balsavimas šiam susirinkimui dar neprasidėjo arba jau pasibaigė. Balsuoti internetu galima iki susirinkimo pradžios.",
+    closedSectionTitle: "Balsavimas neaktyvus ({count})",
+    closedBadge: "Neaktyvus",
+  },
+  voteErrors: {
+    notEligible:
+      "Pagal dabartinį narystės statusą balso teisės neturite (garbės nariai dalyvauja patariamojo balso teise).",
+    votingClosed:
+      "Nuotolinis balsavimas šiam susirinkimui neaktyvus – laikotarpis dar neprasidėjo arba jau pasibaigė.",
+    incompleteBallot: "Pateikite atsakymą į visus darbotvarkės klausimus.",
+    alreadyVoted: "Jūs jau balsavote šiame susirinkime.",
+    meetingNotFound: "Susirinkimas nerastas.",
+    expired: "Nuorodos galiojimas pasibaigė.",
+    invalidToken: "Nuoroda negaliojanti.",
+    noMemberLink: "Paskyra nesusieta su nario įrašu.",
+    generic: "Klaida fiksuojant balsą",
+    invalidTokenTitle: "Neteisinga nuoroda",
+    invalidTokenBody:
+      "Nuoroda negaliojanti arba neteisinga. Susisiekite su bendruomenės pirmininku.",
+    alreadyVotedTitle: "Jūs jau balsavote",
+    alreadyVotedBodyWithDate: "Jūsų balsas užregistruotas {date}. Ačiū!",
+    alreadyVotedBody: "Jūsų balsas jau užregistruotas. Ačiū!",
+    expiredTitle: "Balsavimo laikas baigėsi",
+    expiredBody:
+      "Šios nuorodos galiojimas pasibaigė – susirinkimas jau prasidėjo arba pasibaigė.",
+    notEligibleTitle: "Balso teisė nesuteikta",
+    notEligibleBody:
+      "Pagal dabartinį narystės statusą balsuoti negalite (garbės nariai dalyvauja patariamojo balso teise). Susisiekite su bendruomenės pirmininku.",
   },
   portalHistory: {
     pageTitle: "Mano balsavimo istorija",
@@ -789,6 +860,7 @@ const lt: Dictionary = {
       "Susisiekite su bendruomenės administratoriumi, kad jūsų paskyrą susietų su nario įrašu.",
     memberSincePrefix: "Narys nuo",
     statusActive: "Aktyvus",
+    statusHonorary: "Garbės narys",
     changeNameNotice: "Norint pakeisti vardą ar pavardę, susisiekite su administratoriumi.",
     contactsHeading: "Kontaktai",
     emailLabel: "El. paštas",
@@ -1173,6 +1245,8 @@ const en: Dictionary = {
     viewAllLink: "All →",
     votedBadge: "Voted",
     voteNowBadge: "Vote now",
+    infoBadge: "Details",
+    closedBadge: "Voting closed",
     documentsCardTitle: "Documents",
     documentsCardDescription: "Bylaws, minutes, reports",
     myDataCardTitle: "My details",
@@ -1186,6 +1260,42 @@ const en: Dictionary = {
     voteButton: "Vote",
     votedSectionTitle: "Already voted ({count})",
     votedBadge: "Voted",
+    honoraryNoticeTitle: "Honorary member status",
+    honoraryNoticeBody:
+      "Honorary members take part in meetings in an advisory capacity – online voting is not available to them. You can review the agenda and documents on the meeting page.",
+    honoraryViewMeetingLink: "View meeting information →",
+    notEligibleNoticeTitle: "No voting rights",
+    notEligibleNoticeBody:
+      "Your current membership status does not include voting rights. You can review the agenda and documents on the meeting page. Please contact the administrator about your membership.",
+    votingClosedTitle: "Voting is not open right now",
+    votingClosedBody:
+      "Remote voting for this meeting has not started yet or has already ended. Online votes can be cast until the meeting begins.",
+    closedSectionTitle: "Voting not open ({count})",
+    closedBadge: "Not open",
+  },
+  voteErrors: {
+    notEligible:
+      "Your current membership status does not include voting rights (honorary members take part with an advisory vote).",
+    votingClosed:
+      "Remote voting for this meeting is not open — the period has not started yet or has already ended.",
+    incompleteBallot: "Please answer every item on the agenda.",
+    alreadyVoted: "You have already voted at this meeting.",
+    meetingNotFound: "Meeting not found.",
+    expired: "This link has expired.",
+    invalidToken: "This link is not valid.",
+    noMemberLink: "Your account is not linked to a member record.",
+    generic: "Could not record your vote",
+    invalidTokenTitle: "Invalid link",
+    invalidTokenBody:
+      "This link is invalid or no longer valid. Please contact the community chairperson.",
+    alreadyVotedTitle: "You have already voted",
+    alreadyVotedBodyWithDate: "Your vote was recorded on {date}. Thank you!",
+    alreadyVotedBody: "Your vote has already been recorded. Thank you!",
+    expiredTitle: "Voting has closed",
+    expiredBody: "This link has expired — the meeting has already started or ended.",
+    notEligibleTitle: "No voting rights",
+    notEligibleBody:
+      "Your current membership status does not allow voting (honorary members take part with an advisory vote). Please contact the community chairperson.",
   },
   portalHistory: {
     pageTitle: "My voting history",
@@ -1212,6 +1322,7 @@ const en: Dictionary = {
       "Please contact the community administrator to have your account linked to a member record.",
     memberSincePrefix: "Member since",
     statusActive: "Active",
+    statusHonorary: "Honorary member",
     changeNameNotice: "To change your first or last name, please contact the administrator.",
     contactsHeading: "Contact details",
     emailLabel: "Email",

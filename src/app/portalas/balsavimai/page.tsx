@@ -1,6 +1,7 @@
-import { getMemberActiveMeetings } from "@/actions/portal";
+import { getMemberActiveMeetings, getMemberProfile } from "@/actions/portal";
 import { formatDateLong } from "@/lib/utils";
 import { getDict } from "@/lib/i18n-server";
+import { isVotingWindowOpen } from "@/lib/voting-window";
 import { Calendar, MapPin, CheckCircle2, Vote, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
@@ -13,14 +14,24 @@ interface MeetingItem {
   location: string;
   status: string;
   has_voted: boolean;
+  early_voting_start?: string | null;
+  early_voting_end?: string | null;
 }
 
 export default async function PortalVotingsPage() {
   const data = (await getMemberActiveMeetings()) as { meetings?: MeetingItem[]; error?: string };
   const meetings = data?.meetings || [];
-  const pending = meetings.filter((m) => !m.has_voted);
+  // „Laukia balso" – tik kai balsavimo langas atviras (RPC tą patį tikrina).
+  const pending = meetings.filter((m) => !m.has_voted && isVotingWindowOpen(m));
+  const closed = meetings.filter((m) => !m.has_voted && !isVotingWindowOpen(m));
   const voted = meetings.filter((m) => m.has_voted);
   const t = getDict().portalVoting;
+  // Balso teisę turi tik aktyvus/pasyvus narys (RPC cast_votes_as_member tą patį
+  // tikrina). Garbės nariui – patariamasis balsas; išstojusiam – balso nėra.
+  const profile = (await getMemberProfile()) as { member?: { status?: string } | null };
+  const memberStatus = profile?.member?.status ?? "";
+  const isEligible = memberStatus === "aktyvus" || memberStatus === "pasyvus";
+  const isHonorary = memberStatus === "garbes_narys";
 
   return (
     <div className="space-y-6">
@@ -29,6 +40,43 @@ export default async function PortalVotingsPage() {
         <p className="text-sm text-gray-500 mt-1">{t.pageSubtitle}</p>
       </div>
 
+      {!isEligible && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+          <h2 className="font-semibold text-amber-900 mb-1">
+            {isHonorary ? t.honoraryNoticeTitle : t.notEligibleNoticeTitle}
+          </h2>
+          <p className="text-sm text-amber-800 leading-relaxed">
+            {isHonorary ? t.honoraryNoticeBody : t.notEligibleNoticeBody}
+          </p>
+        </div>
+      )}
+
+      {/* Be balso teisės – tik informacinės nuorodos į susirinkimo puslapį (be „Balsuoti") */}
+      {!isEligible && meetings.length > 0 && (
+        <section className="space-y-3">
+          {meetings.map((m) => (
+            <Link
+              key={m.id}
+              href={`/portalas/susirinkimai/${m.id}`}
+              className="block bg-white rounded-xl border border-gray-200 p-5 hover:border-green-300 hover:shadow-sm transition-all"
+            >
+              <h3 className="font-semibold text-gray-900 mb-1">{m.title}</h3>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-gray-600 mb-2">
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4" />
+                  {formatDateLong(m.meeting_date)}
+                </span>
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-4 w-4" />
+                  {m.location}
+                </span>
+              </div>
+              <span className="text-sm font-medium text-green-700">{t.honoraryViewMeetingLink}</span>
+            </Link>
+          ))}
+        </section>
+      )}
+
       {meetings.length === 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
           <Vote className="h-10 w-10 text-gray-300 mx-auto mb-3" />
@@ -36,7 +84,7 @@ export default async function PortalVotingsPage() {
         </div>
       )}
 
-      {pending.length > 0 && (
+      {isEligible && pending.length > 0 && (
         <section>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
             {t.pendingSectionTitle.replace("{count}", String(pending.length))}
@@ -73,7 +121,43 @@ export default async function PortalVotingsPage() {
         </section>
       )}
 
-      {voted.length > 0 && (
+      {isEligible && closed.length > 0 && (
+        <section>
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+            {t.closedSectionTitle.replace("{count}", String(closed.length))}
+          </h2>
+          <div className="space-y-3">
+            {closed.map((m) => (
+              <Link
+                key={m.id}
+                href={`/portalas/susirinkimai/${m.id}`}
+                className="block bg-white rounded-xl border border-gray-200 p-5 hover:border-green-300 hover:shadow-sm transition-all"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-medium text-gray-900 mb-1">{m.title}</h3>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3.5 w-3.5" />
+                        {formatDateLong(m.meeting_date)}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5" />
+                        {m.location}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded font-medium flex-shrink-0">
+                    {t.closedBadge}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {isEligible && voted.length > 0 && (
         <section>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
             {t.votedSectionTitle.replace("{count}", String(voted.length))}

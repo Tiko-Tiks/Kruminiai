@@ -2,6 +2,7 @@ import { getVotingTokenData } from "@/actions/tokens";
 import { VotingFlow } from "./VotingFlow";
 import { CheckCircle2, XCircle, Clock } from "lucide-react";
 import { COMMUNITY_LEGAL } from "@/lib/constants";
+import { getDictionary, type Locale } from "@/lib/i18n";
 
 export const metadata = {
   title: "Balsavimas",
@@ -29,6 +30,11 @@ export const dynamic = "force-dynamic";
 interface TokenData {
   error?: string;
   voted_at?: string;
+  // Nario kalba – grąžinama ir prie klaidų (already_voted / expired), nes SMS
+  // gavėjo naršyklėje NEXT_LOCALE cookie paprastai nėra (migr. 041)
+  language?: string;
+  // Ar nuotolinio balsavimo langas atviras (tą patį enforce'ina RPC)
+  voting_open?: boolean;
   meeting?: {
     id: string;
     title: string;
@@ -42,6 +48,7 @@ interface TokenData {
     last_name: string;
     email: string | null;
     phone: string | null;
+    language?: string;
   };
   resolutions?: {
     id: string;
@@ -65,13 +72,16 @@ interface TokenData {
 
 export default async function VotingPage({ params }: { params: { token: string } }) {
   const data = (await getVotingTokenData(params.token)) as TokenData;
+  // Kalba imama iš nario įrašo: SMS nuoroda atidaroma naujoje naršyklėje, kur
+  // NEXT_LOCALE cookie nėra, todėl svetainės kalba čia netinka (migr. 041).
+  const locale: Locale = (data?.member?.language ?? data?.language) === "en" ? "en" : "lt";
 
   if (!data || data.error) {
-    return <ErrorView code={data?.error || "invalid_token"} votedAt={data?.voted_at} />;
+    return <ErrorView code={data?.error || "invalid_token"} votedAt={data?.voted_at} locale={locale} />;
   }
 
   if (!data.meeting || !data.member || !data.resolutions) {
-    return <ErrorView code="invalid_token" />;
+    return <ErrorView code="invalid_token" locale={locale} />;
   }
 
   return (
@@ -84,7 +94,7 @@ export default async function VotingPage({ params }: { params: { token: string }
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6">
-        <VotingFlow token={params.token} data={data as Required<TokenData>} />
+        <VotingFlow token={params.token} data={data as Required<TokenData>} locale={locale} />
       </main>
 
       <footer className="max-w-3xl mx-auto px-4 py-8 text-center text-xs text-gray-400">
@@ -94,24 +104,41 @@ export default async function VotingPage({ params }: { params: { token: string }
   );
 }
 
-function ErrorView({ code, votedAt }: { code: string; votedAt?: string }) {
+function ErrorView({
+  code,
+  votedAt,
+  locale,
+}: {
+  code: string;
+  votedAt?: string;
+  locale: Locale;
+}) {
+  const t = getDictionary(locale).voteErrors;
   const messages: Record<string, { icon: React.ReactNode; title: string; text: string }> = {
     invalid_token: {
       icon: <XCircle className="h-12 w-12 text-red-500" />,
-      title: "Neteisinga nuoroda",
-      text: "Nuoroda negaliojanti arba neteisinga. Susisiekite su bendruomenės pirmininku.",
+      title: t.invalidTokenTitle,
+      text: t.invalidTokenBody,
     },
     already_voted: {
       icon: <CheckCircle2 className="h-12 w-12 text-green-500" />,
-      title: "Jūs jau balsavote",
+      title: t.alreadyVotedTitle,
       text: votedAt
-        ? `Jūsų balsas užregistruotas ${new Date(votedAt).toLocaleString("lt-LT")}. Ačiū!`
-        : "Jūsų balsas jau užregistruotas. Ačiū!",
+        ? t.alreadyVotedBodyWithDate.replace(
+            "{date}",
+            new Date(votedAt).toLocaleString(locale === "en" ? "en-GB" : "lt-LT")
+          )
+        : t.alreadyVotedBody,
     },
     expired: {
       icon: <Clock className="h-12 w-12 text-amber-500" />,
-      title: "Balsavimo laikas baigėsi",
-      text: "Šios nuorodos galiojimas pasibaigė – susirinkimas jau prasidėjo arba pasibaigė.",
+      title: t.expiredTitle,
+      text: t.expiredBody,
+    },
+    not_eligible: {
+      icon: <XCircle className="h-12 w-12 text-red-500" />,
+      title: t.notEligibleTitle,
+      text: t.notEligibleBody,
     },
   };
 

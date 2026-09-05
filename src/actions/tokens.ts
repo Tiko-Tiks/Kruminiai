@@ -95,6 +95,14 @@ export async function generateAndSendVotingTokens(meetingId: string) {
       // Jau balsavo – nesiunčiame
       smsSkipped++;
       continue;
+    } else {
+      // Esamas, dar nebalsuotas tokenas – atnaujinam galiojimą iki susirinkimo
+      // pradžios (jei narys buvo laikinai nebalsuojantis, trigger'is tokeną
+      // anuliavo; grąžinus statusą nuoroda vėl turi galioti).
+      await supabase
+        .from("meeting_voting_tokens")
+        .update({ expires_at: expiresAt })
+        .eq("id", existing.id);
     }
 
     // SMS be lt diakritikos (GSM-7 = 160 simb./SMS), su trumpu tokenu telpa i 1 SMS.
@@ -158,9 +166,11 @@ export async function resendVotingSms(meetingId: string) {
 
   const { data: tokens } = await supabase
     .from("meeting_voting_tokens")
-    .select("token, member_id, members(first_name, last_name, phone, language)")
+    .select("token, member_id, expires_at, members(first_name, last_name, phone, language, status)")
     .eq("meeting_id", meetingId)
-    .is("voted_at", null);
+    .is("voted_at", null)
+    // Anuliuoti / pasibaigę tokenai (pvz. narys tapo garbės nariu) – nesiunčiam
+    .gt("expires_at", new Date().toISOString());
 
   if (!tokens || tokens.length === 0) {
     return { success: true as const, smsSent: 0, errors: [] };
@@ -174,6 +184,8 @@ export async function resendVotingSms(meetingId: string) {
   for (const t of tokens) {
     const member = Array.isArray(t.members) ? t.members[0] : t.members;
     if (!member?.phone) continue;
+    // Balso teisę turi tik aktyvus/pasyvus – kitiems nuoroda nebeveiktų
+    if (!["aktyvus", "pasyvus"].includes((member as { status?: string }).status ?? "")) continue;
 
     const url = `${baseUrl}/balsuoti/${t.token}`;
     const text =
@@ -212,25 +224,38 @@ export async function getVotingTokensStats(meetingId: string) {
   const supabase = createServerSupabaseClient();
   const auth = await requireAdmin(supabase);
   if (auth.error) {
-    return { total: 0, sent: 0, viewed: 0, voted: 0, liveIntent: 0, pending: 0, tokens: [] };
+    return { total: 0, sent: 0, viewed: 0, voted: 0, liveIntent: 0, pending: 0, expired: 0, tokens: [] };
   }
 
   const { data: tokens } = await supabase
     .from("meeting_voting_tokens")
     .select(
-      "id, sent_at, viewed_at, view_count, voted_at, live_intent_at, member:members(first_name, last_name, phone)"
+      "id, sent_at, viewed_at, view_count, voted_at, live_intent_at, expires_at, member:members(first_name, last_name, phone, status)"
     )
     .eq("meeting_id", meetingId)
     .order("voted_at", { ascending: false, nullsFirst: false });
 
   const all = tokens || [];
+  // Tokenas „galioja", jei dar nepasibaigęs IR narys tebeturi balso teisę.
+  // Anuliuoti (narys tapo garbės nariu / išstojo) ar pasibaigę – ne „laukia".
+  const now = Date.now();
+  const stillValid = (t: { expires_at?: string | null; member?: unknown }) => {
+    const m = Array.isArray(t.member) ? t.member[0] : t.member;
+    const status = (m as { status?: string } | null | undefined)?.status ?? "";
+    return (
+      !!t.expires_at &&
+      new Date(t.expires_at).getTime() > now &&
+      ["aktyvus", "pasyvus"].includes(status)
+    );
+  };
   return {
     total: all.length,
     sent: all.filter((t) => t.sent_at).length,
     viewed: all.filter((t) => t.viewed_at && !t.voted_at && !t.live_intent_at).length,
     voted: all.filter((t) => t.voted_at).length,
     liveIntent: all.filter((t) => t.live_intent_at && !t.voted_at).length,
-    pending: all.filter((t) => t.sent_at && !t.voted_at && !t.live_intent_at).length,
+    pending: all.filter((t) => t.sent_at && !t.voted_at && !t.live_intent_at && stillValid(t)).length,
+    expired: all.filter((t) => !t.voted_at && !t.live_intent_at && !stillValid(t)).length,
     tokens: all,
   };
 }

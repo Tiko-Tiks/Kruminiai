@@ -67,7 +67,7 @@ export async function getMeetingForVoting(meetingId: string) {
 
   const { data: meeting } = await supabase
     .from("meetings")
-    .select("id, title, description, meeting_date, location, status")
+    .select("id, title, description, meeting_date, location, status, early_voting_start, early_voting_end")
     .eq("id", meetingId)
     .single();
 

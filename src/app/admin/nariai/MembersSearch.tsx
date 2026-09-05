@@ -55,6 +55,7 @@ export function MembersSearch() {
         <option value="aktyvus">Aktyvūs (numatyta)</option>
         <option value="pasyvus">Pasyvūs</option>
         <option value="išstojęs">Išstoję</option>
+        <option value="garbes_narys">Garbės nariai</option>
         <option value="visi">Visi statusai</option>
       </select>
     </div>

@@ -1,7 +1,11 @@
-import { getMeetingForVoting } from "@/actions/portal";
+import { getMeetingForVoting, getMemberProfile } from "@/actions/portal";
 import { PortalVotingFlow } from "./PortalVotingFlow";
 import { AlreadyVotedView } from "./AlreadyVotedView";
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import { getDict } from "@/lib/i18n-server";
+import { formatDateLong } from "@/lib/utils";
+import { isVotingWindowOpen, type VotingWindowMeeting } from "@/lib/voting-window";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +37,41 @@ type RawResolution = {
 export default async function PortalVotingPage({ params }: { params: { id: string } }) {
   const data = await getMeetingForVoting(params.id);
   if ("error" in data) notFound();
+
+  // Balso teisę turi tik aktyvus/pasyvus narys – kitiems (garbės narys,
+  // išstojęs) balsavimo forma nerodoma. RPC cast_votes_as_member tokį bandymą
+  // vis tiek atmestų su 'not_eligible'.
+  const profile = (await getMemberProfile()) as { member?: { status?: string } | null };
+  const memberStatus = profile?.member?.status ?? "";
+  const isEligible = memberStatus === "aktyvus" || memberStatus === "pasyvus";
+  const isHonorary = memberStatus === "garbes_narys";
+  if (!isEligible) {
+    const t = getDict().portalVoting;
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">{data.meeting.title}</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {formatDateLong(data.meeting.meeting_date)} · {data.meeting.location}
+          </p>
+        </div>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
+          <h2 className="font-semibold text-amber-900 mb-2">
+            {isHonorary ? t.honoraryNoticeTitle : t.notEligibleNoticeTitle}
+          </h2>
+          <p className="text-sm text-amber-800 leading-relaxed">
+            {isHonorary ? t.honoraryNoticeBody : t.notEligibleNoticeBody}
+          </p>
+          <Link
+            href={`/portalas/susirinkimai/${data.meeting.id}`}
+            className="inline-block mt-4 text-sm font-medium text-green-700 hover:underline"
+          >
+            {t.honoraryViewMeetingLink}
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const resolutions = (data.resolutions as unknown as RawResolution[]).map((r) => {
     const docs: DocItem[] = (r.resolution_documents || [])
@@ -66,6 +105,34 @@ export default async function PortalVotingPage({ params }: { params: { id: strin
           votedAt: votesMap.get(r.id)?.voted_at,
         }))}
       />
+    );
+  }
+
+  // Balsavimo langas uždarytas (susirinkimas prasidėjo / baigtas / už
+  // išankstinio balsavimo laikotarpio) – rodom pranešimą, ne formą.
+  // RPC cast_votes_as_member tą patį tikrina serveryje ('voting_closed').
+  const votingClosed = !isVotingWindowOpen(data.meeting as unknown as VotingWindowMeeting);
+  if (votingClosed) {
+    const t = getDict().portalVoting;
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">{data.meeting.title}</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {formatDateLong(data.meeting.meeting_date)} · {data.meeting.location}
+          </p>
+        </div>
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-6">
+          <h2 className="font-semibold text-gray-900 mb-2">{t.votingClosedTitle}</h2>
+          <p className="text-sm text-gray-600 leading-relaxed">{t.votingClosedBody}</p>
+          <Link
+            href={`/portalas/susirinkimai/${data.meeting.id}`}
+            className="inline-block mt-4 text-sm font-medium text-green-700 hover:underline"
+          >
+            {t.honoraryViewMeetingLink}
+          </Link>
+        </div>
+      </div>
     );
   }
 

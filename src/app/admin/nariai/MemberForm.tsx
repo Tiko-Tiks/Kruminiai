@@ -114,6 +114,7 @@ export function MemberForm({ member }: Props) {
                 { value: "aktyvus", label: "Aktyvus" },
                 { value: "pasyvus", label: "Pasyvus" },
                 { value: "išstojęs", label: "Išstojęs" },
+                { value: "garbes_narys", label: "Garbės narys" },
               ]}
             />
           </div>
