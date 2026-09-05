@@ -4,6 +4,7 @@ import { getDict } from "@/lib/i18n-server";
 import { isVotingWindowOpen } from "@/lib/voting-window";
 import { Calendar, MapPin, CheckCircle2, Vote, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -26,12 +27,11 @@ export default async function PortalVotingsPage() {
   const closed = meetings.filter((m) => !m.has_voted && !isVotingWindowOpen(m));
   const voted = meetings.filter((m) => m.has_voted);
   const t = getDict().portalVoting;
-  // Balso teisę turi tik aktyvus/pasyvus narys (RPC cast_votes_as_member tą patį
-  // tikrina). Garbės nariui – patariamasis balsas; išstojusiam – balso nėra.
+  // Balso teisę turi visi esami nariai – įsk. garbės narius. Neturi tik
+  // išstojęs (RPC cast_votes_as_member tikrina tą patį per is_voting_status).
   const profile = (await getMemberProfile()) as { member?: { status?: string } | null };
   const memberStatus = profile?.member?.status ?? "";
-  const isEligible = memberStatus === "aktyvus" || memberStatus === "pasyvus";
-  const isHonorary = memberStatus === "garbes_narys";
+  const isEligible = ACTIVE_MEMBER_STATUSES.includes(memberStatus);
 
   return (
     <div className="space-y-6">
@@ -42,12 +42,8 @@ export default async function PortalVotingsPage() {
 
       {!isEligible && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
-          <h2 className="font-semibold text-amber-900 mb-1">
-            {isHonorary ? t.honoraryNoticeTitle : t.notEligibleNoticeTitle}
-          </h2>
-          <p className="text-sm text-amber-800 leading-relaxed">
-            {isHonorary ? t.honoraryNoticeBody : t.notEligibleNoticeBody}
-          </p>
+          <h2 className="font-semibold text-amber-900 mb-1">{t.notEligibleNoticeTitle}</h2>
+          <p className="text-sm text-amber-800 leading-relaxed">{t.notEligibleNoticeBody}</p>
         </div>
       )}
 
@@ -71,7 +67,7 @@ export default async function PortalVotingsPage() {
                   {m.location}
                 </span>
               </div>
-              <span className="text-sm font-medium text-green-700">{t.honoraryViewMeetingLink}</span>
+              <span className="text-sm font-medium text-green-700">{t.viewMeetingLink}</span>
             </Link>
           ))}
         </section>

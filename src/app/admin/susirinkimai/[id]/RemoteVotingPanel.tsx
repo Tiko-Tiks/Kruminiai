@@ -7,6 +7,7 @@ import { Send, RotateCcw, Users, CheckCircle2, Clock, Phone, UserCheck, Eye } fr
 import { generateAndSendVotingTokens, resendVotingSms } from "@/actions/tokens";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
 
 interface TokenStat {
   id: string;
@@ -31,6 +32,7 @@ interface Props {
     voted: number;
     liveIntent: number;
     pending: number;
+    missing?: number;
     tokens: TokenStat[];
   };
 }
@@ -104,6 +106,13 @@ export function RemoteVotingPanel({ meetingId, stats }: Props) {
           </div>
         ) : (
           <>
+            {(stats.missing ?? 0) > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-900">
+                {stats.missing} balso teisę turintiems nariams su telefonu nuoroda dar nesukurta –
+                paspauskite {"„Siųsti SMS visiems nariams"}, kad jie irgi gautų balsavimo nuorodą.
+              </div>
+            )}
+
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <Stat
                 icon={<CheckCircle2 className="h-4 w-4 text-green-600" />}
@@ -192,7 +201,7 @@ export function RemoteVotingPanel({ meetingId, stats }: Props) {
                             Atvyks gyvai
                           </span>
                         ) : (t.expires_at && new Date(t.expires_at).getTime() <= Date.now()) ||
-                          (member.status && !["aktyvus", "pasyvus"].includes(member.status)) ? (
+                          (member.status && !ACTIVE_MEMBER_STATUSES.includes(member.status)) ? (
                           <span
                             className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded"
                             title="Nuoroda nebegalioja (pasibaigė arba narys neteko balso teisės)"

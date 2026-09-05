@@ -28,6 +28,25 @@ async function tooManyRecentRequests(email: string): Promise<boolean> {
   }
 }
 
+// Garbės nariui mokesčiai netaikomi. Registracija yra ANON srautas, todėl
+// nario įrašo ieškom per service-role (RLS neleistų). Jei admin'o kliento nėra
+// arba narys dar nesukurtas – elgiamės kaip su įprastu stojančiuoju.
+async function isHonoraryMemberEmail(email: string): Promise<boolean> {
+  if (!isAdminClientAvailable()) return false;
+  try {
+    const admin = createAdminSupabaseClient();
+    const { data } = await admin
+      .from("members")
+      .select("status")
+      .ilike("email", email)
+      .limit(1)
+      .maybeSingle();
+    return (data as { status?: string } | null)?.status === "garbes_narys";
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Laiškas #1 – išsiunčiamas ką tik /registracija formą užpildžiusiam žmogui:
  * pasveikinimas + kaip apmokėti stojamąjį ir nario mokestį, kad narystė būtų
@@ -52,14 +71,19 @@ export async function sendMembershipRequestEmail(input: {
 
   const locale = input.locale === "en" ? "en" : "lt";
   const fullName = `${firstName} ${lastName}`.trim() || email;
-  const subject =
-    locale === "en"
+  const isHonorary = await isHonoraryMemberEmail(email);
+  const subject = isHonorary
+    ? locale === "en"
+      ? "Membership request received – Krūminiai Village Community"
+      : "Narystės užklausa gauta – Krūminių kaimo bendruomenė"
+    : locale === "en"
       ? "Membership request received – how to join the Krūminiai Village Community"
       : "Narystės užklausa gauta – kaip tapti Krūminių kaimo bendruomenės nariu";
   const html = renderMembershipRequestEmail({
     firstName: firstName || fullName,
     fullName,
     locale,
+    isHonorary,
   });
 
   const r = await sendEmail(email, subject, html);

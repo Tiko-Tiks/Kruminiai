@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { revalidateMeetingPaths } from "@/lib/revalidate";
+import { FEE_STATUSES } from "@/lib/constants";
 
 // =============================================================================
 // Šalinamų narių sąrašas konkrečiam susirinkimui
@@ -78,7 +79,7 @@ export async function getMeetingExpulsions(
   const { data: members } = await supabase
     .from("members")
     .select("id, first_name, last_name, status, phone, email, join_date")
-    .in("status", ["aktyvus", "pasyvus"]);
+    .in("status", FEE_STATUSES);
 
   const { data: periods } = await supabase
     .from("fee_periods")

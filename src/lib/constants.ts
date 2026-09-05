@@ -24,10 +24,20 @@ export const MEMBER_STATUS_LABELS: Record<string, string> = {
   aktyvus: "Aktyvus",
   pasyvus: "Pasyvus",
   "išstojęs": "Išstojęs",
-  // Garbės narys – be mokesčio prievolės, be balso teisės (tik patariamasis),
-  // neskaičiuojamas į kvorumą. Žr. CLAUDE.md „Garbės nario statusas".
+  // Garbės narys – be nario mokesčio prievolės, bet su PILNA balso teise ir
+  // įskaičiuojamas į kvorumą. Žr. CLAUDE.md „Garbės nario statusas".
   garbes_narys: "Garbės narys",
 };
+
+// Esami nariai – VISI, išskyrus išstojusius. Garbės narys turi tas pačias
+// teises kaip įprastas narys (balsavimas, kvorumas, dalyvavimas), todėl šis
+// sąrašas naudojamas balsavimo, kvorumo ir dalyvių užklausose.
+// DB pusėje tą patį sako `public.is_voting_status()` (migr. 042).
+export const ACTIVE_MEMBER_STATUSES: string[] = ["aktyvus", "pasyvus", "garbes_narys"];
+
+// Nario mokestį mokantys nariai – garbės narys nuo mokesčio ATLEISTAS, todėl
+// skolų, priminimų, deklaracijų ir šalinimo už nemokėjimą užklausose jo nėra.
+export const FEE_STATUSES: string[] = ["aktyvus", "pasyvus"];
 
 export const DOCUMENT_CATEGORY_LABELS: Record<string, string> = {
   protokolai: "Protokolai",

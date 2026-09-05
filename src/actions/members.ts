@@ -32,7 +32,9 @@ const memberSchema = z.object({
   notes: z.string().optional().or(z.literal("")),
 });
 
-export async function getMembers(search?: string, status?: string) {
+// `status` gali būti vienas statusas arba jų sąrašas (pvz.
+// ACTIVE_MEMBER_STATUSES gyvo dalyvavimo / balsavimo sąrašams), arba "visi".
+export async function getMembers(search?: string, status?: string | string[]) {
   const supabase = createServerSupabaseClient();
   let query = supabase
     .from("members")
@@ -41,7 +43,7 @@ export async function getMembers(search?: string, status?: string) {
     .order("last_name", { ascending: true });
 
   if (status && status !== "visi") {
-    query = query.eq("status", status);
+    query = Array.isArray(status) ? query.in("status", status) : query.eq("status", status);
   }
 
   const { data, error } = await query;

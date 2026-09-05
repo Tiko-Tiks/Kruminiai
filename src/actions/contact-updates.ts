@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import crypto from "crypto";
+import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
 
 export interface MemberContactStatus {
   id: string;
@@ -31,7 +32,7 @@ export async function getMembersForContactUpdate(): Promise<MemberContactStatus[
   const { data: members } = await supabase
     .from("members")
     .select("id, first_name, last_name, email, phone, status")
-    .in("status", ["aktyvus", "pasyvus"])
+    .in("status", ACTIVE_MEMBER_STATUSES)
     .order("first_name", { ascending: true });
 
   if (!members) return [];
@@ -115,7 +116,7 @@ export async function sendContactUpdateSmsBatch(memberIds: string[]): Promise<{
     .from("members")
     .select("id, first_name, last_name, phone, language")
     .in("id", memberIds)
-    .in("status", ["aktyvus", "pasyvus"])
+    .in("status", ACTIVE_MEMBER_STATUSES)
     .not("phone", "is", null);
 
   if (!members || members.length === 0) {

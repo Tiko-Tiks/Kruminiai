@@ -26,8 +26,12 @@ export function renderMembershipRequestEmail(opts: {
   firstName: string;
   fullName: string;
   locale?: EmailLocale;
+  // Garbės nariui stojamasis ir metinis mokestis NETAIKOMI – laiške jų
+  // neprašom (žr. CLAUDE.md „Garbės nario statusas")
+  isHonorary?: boolean;
 }): string {
   const locale = opts.locale ?? "lt";
+  const isHonorary = opts.isHonorary === true;
   const currentYear = new Date().getFullYear();
   const paymentBlock = renderPaymentDetailsBlock({
     amountLabel: `${TOTAL_EUR} EUR`,
@@ -38,13 +42,23 @@ export function renderMembershipRequestEmail(opts: {
   if (locale === "en") {
     return renderBrandedEmail({
       locale,
-      preheader: `Welcome! To become a member, pay the joining fee (${ENTRY_FEE_EUR} EUR) and the annual membership fee (${MEMBERSHIP_FEE_EUR} EUR).`,
+      preheader: isHonorary
+        ? "Welcome! Honorary membership carries no fees – the administrator will activate your account."
+        : `Welcome! To become a member, pay the joining fee (${ENTRY_FEE_EUR} EUR) and the annual membership fee (${MEMBERSHIP_FEE_EUR} EUR).`,
       body: `
         <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">Hello, ${escapeHtml(opts.firstName)}!</h1>
         <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#374151;">
           Thank you for submitting a membership request to the Krūminiai Village Community. We are glad you would like to join!
         </p>
-        <p style="margin:0 0 8px;font-size:15px;line-height:1.7;color:#374151;">
+        ${
+          isHonorary
+            ? `<p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#374151;">
+          You have been granted <strong>honorary membership</strong> of the Krūminiai Village Community, so <strong>neither the joining fee nor the annual membership fee applies</strong> to you.
+        </p>
+        <p style="margin:0 0 16px;font-size:14px;line-height:1.65;color:#4b5563;">
+          The administrator will confirm your account shortly – you will then receive the member portal details in a separate email.
+        </p>`
+            : `<p style="margin:0 0 8px;font-size:15px;line-height:1.7;color:#374151;">
           To become a <strong>full member</strong>, please pay:
         </p>
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#fafaf7;border:1px solid #e7e5dd;border-radius:4px;margin:0 0 8px;font-size:14px;">
@@ -67,7 +81,8 @@ export function renderMembershipRequestEmail(opts: {
         </p>
         <p style="margin:0 0 16px;font-size:14px;line-height:1.65;color:#4b5563;">
           You can also pay in <strong>cash</strong> at our village shop (with Jūratė) or by contacting the chairperson.
-        </p>
+        </p>`
+        }
         <p style="margin:24px 0 0;font-size:14px;line-height:1.6;color:#6b7280;">
           Questions: <a href="mailto:info@kruminiai.lt" style="color:#15803d;">info@kruminiai.lt</a> or +370 658 49514.
         </p>
@@ -77,13 +92,25 @@ export function renderMembershipRequestEmail(opts: {
 
   return renderBrandedEmail({
     locale,
-    preheader: `Sveiki! Kad taptumėte nariu, sumokėkite stojamąjį (${ENTRY_FEE_EUR} EUR) ir metinį nario mokestį (${MEMBERSHIP_FEE_EUR} EUR).`,
+    preheader: isHonorary
+      ? "Sveiki! Garbės nariui mokesčiai netaikomi – paskyrą aktyvuos administratorius."
+      : `Sveiki! Kad taptumėte nariu, sumokėkite stojamąjį (${ENTRY_FEE_EUR} EUR) ir metinį nario mokestį (${MEMBERSHIP_FEE_EUR} EUR).`,
     body: `
       <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">Sveiki, ${escapeHtml(vocative(opts.firstName))}!</h1>
       <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#374151;">
         Ačiū, kad pateikėte narystės užklausą Krūminių kaimo bendruomenei. Džiaugiamės, kad norite prisijungti!
       </p>
-      <p style="margin:0 0 8px;font-size:15px;line-height:1.7;color:#374151;">
+      ${
+        isHonorary
+          ? `<p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#374151;">
+        Jums suteikta <strong>Krūminių kaimo bendruomenės garbės nario</strong> narystė, todėl
+        <strong>stojamasis ir metinis nario mokestis Jums netaikomi</strong>.
+      </p>
+      <p style="margin:0 0 16px;font-size:14px;line-height:1.65;color:#4b5563;">
+        Netrukus administratorius patvirtins Jūsų paskyrą – tada atskiru laišku atsiųsime
+        prisijungimo prie nario portalo informaciją.
+      </p>`
+          : `<p style="margin:0 0 8px;font-size:15px;line-height:1.7;color:#374151;">
         Kad taptumėte <strong>pilnaverčiu bendruomenės nariu</strong>, prašome sumokėti:
       </p>
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#fafaf7;border:1px solid #e7e5dd;border-radius:4px;margin:0 0 8px;font-size:14px;">
@@ -107,7 +134,8 @@ export function renderMembershipRequestEmail(opts: {
       <p style="margin:0 0 16px;font-size:14px;line-height:1.65;color:#4b5563;">
         Taip pat galite sumokėti <strong>grynaisiais</strong> mūsų kaimo parduotuvėje pas Jūratę
         arba susisiekę su manimi.
-      </p>
+      </p>`
+      }
       <p style="margin:24px 0 0;font-size:14px;line-height:1.6;color:#6b7280;">
         Klausimai: <a href="mailto:info@kruminiai.lt" style="color:#15803d;">info@kruminiai.lt</a> arba +370 658 49514.
       </p>
@@ -122,8 +150,12 @@ export function renderMembershipRequestEmail(opts: {
 export function renderMemberWelcomeEmail(opts: {
   firstName: string;
   locale?: EmailLocale;
+  // Garbės narys balsuoja kaip įprastas narys – skiriasi tik tai, kad nario
+  // mokesčio neturi
+  isHonorary?: boolean;
 }): string {
   const locale = opts.locale ?? "lt";
+  const isHonorary = opts.isHonorary === true;
 
   if (locale === "en") {
     return renderBrandedEmail({
@@ -132,7 +164,11 @@ export function renderMemberWelcomeEmail(opts: {
       body: `
         <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">Welcome, ${opts.firstName}!</h1>
         <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#374151;">
-          Your membership of the Krūminiai Village Community has been <strong>confirmed</strong>. Congratulations, and welcome to the member portal.
+          ${
+            isHonorary
+              ? "Your <strong>honorary membership</strong> of the Krūminiai Village Community has been confirmed. Thank you, and welcome to the member portal."
+              : "Your membership of the Krūminiai Village Community has been <strong>confirmed</strong>. Congratulations, and welcome to the member portal."
+          }
         </p>
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f0fdf4;border-left:3px solid #15803d;border-radius:4px;margin:0 0 20px;">
           <tr>
@@ -146,7 +182,11 @@ export function renderMemberWelcomeEmail(opts: {
         </table>
         <p style="margin:0 0 8px;font-size:15px;line-height:1.7;color:#374151;">In the portal you can:</p>
         <ul style="margin:0 0 20px;padding-left:20px;font-size:14px;line-height:1.8;color:#374151;">
-          <li>see your membership-fee history and balance (<strong>Finances</strong>)</li>
+          ${
+            isHonorary
+              ? "<li>see your payment history (<strong>Finances</strong>) – as an honorary member you owe no membership fee</li>"
+              : "<li>see your membership-fee history and balance (<strong>Finances</strong>)</li>"
+          }
           <li>vote directly during general meetings (<strong>Votes</strong>)</li>
           <li>read community documents – minutes, reports and the <strong>statutes</strong> (<strong>Documents</strong>)</li>
           <li>see meeting agendas and results</li>
@@ -170,9 +210,13 @@ export function renderMemberWelcomeEmail(opts: {
     locale,
     preheader: "Jūsų narystė patvirtinta! Štai kaip naudotis nario portalu.",
     body: `
-      <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">Sveiki tapę nariu, ${vocative(opts.firstName)}!</h1>
+      <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">Sveiki tapę ${isHonorary ? "garbės nariu" : "nariu"}, ${vocative(opts.firstName)}!</h1>
       <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#374151;">
-        Jūsų narystė Krūminių kaimo bendruomenėje <strong>patvirtinta</strong>. Sveikiname ir kviečiame naudotis nario portalu.
+        ${
+          isHonorary
+            ? "Jūsų <strong>garbės narystė</strong> Krūminių kaimo bendruomenėje patvirtinta. Dėkojame ir kviečiame naudotis nario portalu."
+            : "Jūsų narystė Krūminių kaimo bendruomenėje <strong>patvirtinta</strong>. Sveikiname ir kviečiame naudotis nario portalu."
+        }
       </p>
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f0fdf4;border-left:3px solid #15803d;border-radius:4px;margin:0 0 20px;">
         <tr>
@@ -186,7 +230,11 @@ export function renderMemberWelcomeEmail(opts: {
       </table>
       <p style="margin:0 0 8px;font-size:15px;line-height:1.7;color:#374151;">Portale galėsite:</p>
       <ul style="margin:0 0 20px;padding-left:20px;font-size:14px;line-height:1.8;color:#374151;">
-        <li>matyti savo nario mokesčio istoriją ir likučius (<strong>Finansai</strong>)</li>
+        ${
+          isHonorary
+            ? "<li>matyti savo mokėjimų istoriją (<strong>Finansai</strong>) – garbės nariui nario mokestis netaikomas</li>"
+            : "<li>matyti savo nario mokesčio istoriją ir likučius (<strong>Finansai</strong>)</li>"
+        }
         <li>balsuoti visuotinių susirinkimų metu tiesiogiai (<strong>Balsavimai</strong>)</li>
         <li>skaityti bendruomenės dokumentus – protokolus, ataskaitas ir <strong>įstatus</strong> (<strong>Dokumentai</strong>)</li>
         <li>matyti susirinkimų darbotvarkes ir rezultatus</li>

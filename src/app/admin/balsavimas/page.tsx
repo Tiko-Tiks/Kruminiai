@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import { formatDateLong } from "@/lib/utils";
 import { Calendar, Vote, CheckCircle } from "lucide-react";
 import { OnlineVotingPanel } from "./OnlineVotingPanel";
+import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
 
 export const metadata = {
   title: "Balsavimas | Administravimas",
@@ -19,7 +20,7 @@ export default async function VotingPage() {
     .from("members")
     .select("*")
     .eq("email", user?.email)
-    .eq("status", "aktyvus")
+    .in("status", ACTIVE_MEMBER_STATUSES)
     .single();
 
   // Gauti aktyvius susirinkimus su balsavimais

@@ -344,9 +344,7 @@ export interface Dictionary {
     voteButton: string;
     votedSectionTitle: string;
     votedBadge: string;
-    honoraryNoticeTitle: string;
-    honoraryNoticeBody: string;
-    honoraryViewMeetingLink: string;
+    viewMeetingLink: string;
     notEligibleNoticeTitle: string;
     notEligibleNoticeBody: string;
     votingClosedTitle: string;
@@ -797,10 +795,7 @@ const lt: Dictionary = {
     voteButton: "Balsuoti",
     votedSectionTitle: "Jau balsavote ({count})",
     votedBadge: "Balsavote",
-    honoraryNoticeTitle: "Garbės nario statusas",
-    honoraryNoticeBody:
-      "Garbės nariai susirinkimuose dalyvauja patariamojo balso teise – balsavimas internetu jiems nenumatytas. Darbotvarkę ir dokumentus galite peržiūrėti susirinkimo puslapyje.",
-    honoraryViewMeetingLink: "Žiūrėti susirinkimo informaciją →",
+    viewMeetingLink: "Žiūrėti susirinkimo informaciją →",
     notEligibleNoticeTitle: "Balso teisė nesuteikta",
     notEligibleNoticeBody:
       "Pagal dabartinį narystės statusą balsuoti negalite. Darbotvarkę ir dokumentus galite peržiūrėti susirinkimo puslapyje. Dėl narystės kreipkitės į administratorių.",
@@ -811,8 +806,7 @@ const lt: Dictionary = {
     closedBadge: "Neaktyvus",
   },
   voteErrors: {
-    notEligible:
-      "Pagal dabartinį narystės statusą balso teisės neturite (garbės nariai dalyvauja patariamojo balso teise).",
+    notEligible: "Pagal dabartinį narystės statusą balso teisės neturite.",
     votingClosed:
       "Nuotolinis balsavimas šiam susirinkimui neaktyvus – laikotarpis dar neprasidėjo arba jau pasibaigė.",
     incompleteBallot: "Pateikite atsakymą į visus darbotvarkės klausimus.",
@@ -833,7 +827,7 @@ const lt: Dictionary = {
       "Šios nuorodos galiojimas pasibaigė – susirinkimas jau prasidėjo arba pasibaigė.",
     notEligibleTitle: "Balso teisė nesuteikta",
     notEligibleBody:
-      "Pagal dabartinį narystės statusą balsuoti negalite (garbės nariai dalyvauja patariamojo balso teise). Susisiekite su bendruomenės pirmininku.",
+      "Pagal dabartinį narystės statusą balsuoti negalite. Susisiekite su bendruomenės pirmininku.",
   },
   portalHistory: {
     pageTitle: "Mano balsavimo istorija",
@@ -1260,10 +1254,7 @@ const en: Dictionary = {
     voteButton: "Vote",
     votedSectionTitle: "Already voted ({count})",
     votedBadge: "Voted",
-    honoraryNoticeTitle: "Honorary member status",
-    honoraryNoticeBody:
-      "Honorary members take part in meetings in an advisory capacity – online voting is not available to them. You can review the agenda and documents on the meeting page.",
-    honoraryViewMeetingLink: "View meeting information →",
+    viewMeetingLink: "View meeting information →",
     notEligibleNoticeTitle: "No voting rights",
     notEligibleNoticeBody:
       "Your current membership status does not include voting rights. You can review the agenda and documents on the meeting page. Please contact the administrator about your membership.",
@@ -1275,7 +1266,7 @@ const en: Dictionary = {
   },
   voteErrors: {
     notEligible:
-      "Your current membership status does not include voting rights (honorary members take part with an advisory vote).",
+      "Your current membership status does not include voting rights.",
     votingClosed:
       "Remote voting for this meeting is not open — the period has not started yet or has already ended.",
     incompleteBallot: "Please answer every item on the agenda.",
@@ -1295,7 +1286,7 @@ const en: Dictionary = {
     expiredBody: "This link has expired — the meeting has already started or ended.",
     notEligibleTitle: "No voting rights",
     notEligibleBody:
-      "Your current membership status does not allow voting (honorary members take part with an advisory vote). Please contact the community chairperson.",
+      "Your current membership status does not allow voting. Please contact the community chairperson.",
   },
   portalHistory: {
     pageTitle: "My voting history",

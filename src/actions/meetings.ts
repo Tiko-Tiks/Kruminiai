@@ -5,6 +5,7 @@ import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { revalidateMeetingPaths } from "@/lib/revalidate";
 import { z } from "zod";
+import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
 
 const meetingSchema = z.object({
   title: z.string().min(1, "Pavadinimas privalomas"),
@@ -52,13 +53,13 @@ export async function createMeeting(formData: FormData) {
   const meetingDateTime = `${parsed.data.meeting_date}T${parsed.data.meeting_time}:00`;
   const isRepeat = parsed.data.meeting_type === "pakartotinis";
 
-  // Bendrą narių skaičių kvorumui sudaro aktyvūs IR pasyvūs nariai –
-  // pasyvūs vis dar turi balsavimo teisę, kol Taryba (5.3.1 p.) nepriima
-  // sprendimo dėl jų pašalinimo.
+  // Bendrą narių skaičių kvorumui sudaro VISI balso teisę turintys nariai:
+  // aktyvūs, pasyvūs (jie balso teisę turi, kol Taryba (5.3.1 p.) nepriima
+  // sprendimo dėl pašalinimo) ir garbės nariai.
   const { count } = await supabase
     .from("members")
     .select("*", { count: "exact", head: true })
-    .in("status", ["aktyvus", "pasyvus"]);
+    .in("status", ACTIVE_MEMBER_STATUSES);
 
   const totalMembers = count ?? 0;
   // Kvorumas: >50% narių (4.5), pakartotinis – 0 (4.6)

@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Users, Banknote, FileText, Newspaper, AlertTriangle } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
+import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
 
 async function getDashboardData() {
   const supabase = createServerSupabaseClient();
@@ -14,7 +15,7 @@ async function getDashboardData() {
       supabase
         .from("members")
         .select("id", { count: "exact", head: true })
-        .in("status", ["aktyvus", "pasyvus"]),
+        .in("status", ACTIVE_MEMBER_STATUSES),
       supabase.from("members").select("id", { count: "exact", head: true }).eq("status", "aktyvus"),
       supabase.from("documents").select("id", { count: "exact", head: true }),
       supabase.from("news").select("id", { count: "exact", head: true }).eq("is_published", true),

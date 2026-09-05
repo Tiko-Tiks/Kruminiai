@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 import { COMMUNITY_LEGAL } from "@/lib/constants";
+import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
 
 // Dalyvių sąrašas turi visada atspindėti naujausius dalyvavimo įrašus
 // ir pirmininko/sekretoriaus pavardes – jokio cache'avimo.
@@ -144,7 +145,7 @@ export async function GET(
     const { data: members } = await supabase
       .from("members")
       .select("id, first_name, last_name, status")
-      .in("status", ["aktyvus", "pasyvus"])
+      .in("status", ACTIVE_MEMBER_STATUSES)
       .order("last_name")
       .order("first_name");
     blankList = (members || []) as AttendeeRow[];

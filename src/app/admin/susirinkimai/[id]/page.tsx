@@ -18,6 +18,7 @@ import { AddResolutionForm } from "./AddResolutionForm";
 import { RemoteVotingPanel } from "./RemoteVotingPanel";
 import { MeetingDocumentsPanel } from "./MeetingDocumentsPanel";
 import { AnnouncementsPanel } from "./AnnouncementsPanel";
+import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
 
 async function getCommunityChairpersonName(): Promise<string | null> {
   const supabase = createServerSupabaseClient();
@@ -51,7 +52,9 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
   const meeting = await getMeeting(params.id);
   const resolutions = await getResolutions(params.id);
   const attendance = await getMeetingAttendance(params.id);
-  const allMembers = await getMembers(undefined, "aktyvus");
+  // Visi balso teisę turintys nariai – įsk. garbės narius, kad admin galėtų
+  // registruoti jų dalyvavimą gyvai ir įskaityti į kvorumą (migr. 042)
+  const allMembers = await getMembers(undefined, ACTIVE_MEMBER_STATUSES);
   const allDocuments = await getDocuments();
   const tokenStats = await getVotingTokensStats(params.id);
   const communityChairpersonName = await getCommunityChairpersonName();

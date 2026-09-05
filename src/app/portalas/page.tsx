@@ -4,6 +4,7 @@ import { getDict, getLocale } from "@/lib/i18n-server";
 import { isVotingWindowOpen } from "@/lib/voting-window";
 import { Calendar, MapPin, Vote, Banknote, AlertCircle, CheckCircle2, ArrowRight, FileText, History } from "lucide-react";
 import Link from "next/link";
+import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -53,9 +54,9 @@ export default async function PortalDashboard() {
 
   const t = getDict().portalHome;
   const noMemberLink = profile?.error === "no_member_link" || !profile?.member;
-  // Balso teisę turi tik aktyvus/pasyvus – kitiems be „laukia balso" skaitiklio ir CTA
+  // Balso teisę turi visi esami nariai (įsk. garbės) – be jos lieka išstojęs
   const memberStatus = profile?.member?.status ?? "";
-  const isEligible = memberStatus === "aktyvus" || memberStatus === "pasyvus";
+  const isEligible = ACTIVE_MEMBER_STATUSES.includes(memberStatus);
   const firstName = profile?.member?.first_name || "";
   // Šauksmininkas tik lietuvių kalbai – anglų vardas lieka kaip yra.
   const greetName = getLocale() === "en" ? firstName : vocative(firstName);

@@ -10,6 +10,7 @@ import { vocative } from "@/lib/utils";
 import { BANK_ACCOUNT, BANK_RECIPIENT, ENTRY_FEE_EUR, renderPaymentDetailsBlock } from "@/lib/payment-info";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
+import { FEE_STATUSES } from "@/lib/constants";
 
 export type ChannelChoice = "both" | "email" | "sms";
 
@@ -45,7 +46,7 @@ export async function getMembersWithDebts() {
   const { data: members } = await supabase
     .from("members")
     .select("id, first_name, last_name, email, phone, join_date, status, language")
-    .in("status", ["aktyvus", "pasyvus"]);
+    .in("status", FEE_STATUSES);
 
   const { data: periods } = await supabase
     .from("fee_periods")
