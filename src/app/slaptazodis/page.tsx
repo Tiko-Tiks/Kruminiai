@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase";
+import { requestPasswordReset } from "@/actions/password-reset";
 import { KeyRound } from "lucide-react";
 import Link from "next/link";
 import { PublicHeader } from "@/components/layout/PublicHeader";
+import { useT, useLocale } from "@/components/i18n/LocaleProvider";
 
 export default function ForgotPasswordPage() {
+  const t = useT().auth;
+  const locale = useLocale();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -17,15 +20,13 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     setError("");
 
-    const supabase = createClient();
-    // Vedam tiesiai į slaptažodžio formą – hash fragmentas (#access_token)
-    // apdorojamas supabase-js client'o automatiškai.
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/nustatyti-slaptazodi`,
-    });
+    // Nuorodą generuoja ir laišką siunčia serveris (mūsų SMTP, brand'intas ir
+    // dvikalbis) – ne `supabase.auth.resetPasswordForEmail`. Žr.
+    // `src/actions/password-reset.ts`.
+    const result = await requestPasswordReset({ email, locale });
 
-    if (error) {
-      setError("Nepavyko išsiųsti nuorodos. Patikrinkite el. paštą.");
+    if (!result.success) {
+      setError(t.forgotError);
       setLoading(false);
       return;
     }
@@ -45,39 +46,38 @@ export default function ForgotPasswordPage() {
               <div className="w-16 h-16 rounded-full bg-amber-400 flex items-center justify-center mb-5">
                 <KeyRound className="h-7 w-7 text-white" />
               </div>
-              <h1 className="text-2xl font-bold text-gray-900">Slaptažodžio atstatymas</h1>
-              <p className="text-sm text-gray-500 mt-1">
-                Įveskite savo el. paštą ir atsiųsime nuorodą
-              </p>
+              <h1 className="text-2xl font-bold text-gray-900">{t.forgotTitle}</h1>
+              <p className="text-sm text-gray-500 mt-1 text-center">{t.forgotSubtitle}</p>
             </div>
 
             {success ? (
               <div className="text-center space-y-4">
                 <div className="bg-green-50 text-green-700 text-sm px-4 py-3 rounded-lg">
-                  Nuoroda išsiųsta! Patikrinkite savo el. paštą.
+                  {t.forgotSuccess}
                 </div>
                 <Link
                   href="/prisijungimas"
                   className="inline-block text-sm font-semibold text-gray-900 hover:underline"
                 >
-                  Grįžti į prisijungimą
+                  {t.backToLogin}
                 </Link>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-1">
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                    El. paštas
+                    {t.emailLabel}
                   </label>
                   <input
                     id="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="jusu@pastas.lt"
+                    placeholder={t.emailPlaceholder}
                     required
                     className="block w-full rounded-lg border border-gray-300 bg-blue-50/50 px-4 py-3 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500 placeholder:text-gray-400"
                   />
+                  <p className="text-xs text-gray-500">{t.forgotEmailHint}</p>
                 </div>
 
                 {error && (
@@ -91,7 +91,7 @@ export default function ForgotPasswordPage() {
                   disabled={loading}
                   className="w-full rounded-lg bg-green-800 px-4 py-3 text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
                 >
-                  {loading ? "Siunčiama..." : "Siųsti nuorodą"}
+                  {loading ? t.forgotSending : t.forgotSubmit}
                 </button>
 
                 <div className="text-center">
@@ -99,7 +99,7 @@ export default function ForgotPasswordPage() {
                     href="/prisijungimas"
                     className="text-sm text-gray-500 hover:text-gray-700"
                   >
-                    Grįžti į prisijungimą
+                    {t.backToLogin}
                   </Link>
                 </div>
               </form>
