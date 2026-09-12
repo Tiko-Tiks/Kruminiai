@@ -21,7 +21,7 @@ async function tooManyRecentRequests(email: string): Promise<boolean> {
       .select("id", { count: "exact", head: true })
       .eq("recipient", email)
       .eq("channel", "email")
-      .gte("created_at", since);
+      .gte("sent_at", since);
     return (count ?? 0) >= REQUEST_EMAIL_MAX;
   } catch {
     return false; // throttle klaida neblokuoja teisėtos registracijos

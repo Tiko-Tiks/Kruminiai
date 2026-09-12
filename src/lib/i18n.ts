@@ -271,6 +271,30 @@ export interface Dictionary {
     successLine1: string;
     successLine2: string;
     backHome: string;
+    // Slaptažodžio atstatymas (/slaptazodis) ir nustatymas (/nustatyti-slaptazodi)
+    forgotTitle: string;
+    forgotSubtitle: string;
+    forgotEmailHint: string;
+    forgotSubmit: string;
+    forgotSending: string;
+    forgotSuccess: string;
+    forgotError: string;
+    backToLogin: string;
+    setPasswordTitle: string;
+    setPasswordSubtitle: string;
+    newPasswordLabel: string;
+    newPasswordPlaceholder: string;
+    repeatPasswordPlaceholder: string;
+    setPasswordButton: string;
+    setPasswordSaving: string;
+    setPasswordDone: string;
+    setPasswordRedirecting: string;
+    setPasswordHint: string;
+    linkInvalidTitle: string;
+    linkInvalidBody: string;
+    requestNewLink: string;
+    checking: string;
+    errSetPasswordFailed: string;
   };
   projects: {
     pageTitle: string;
@@ -718,6 +742,32 @@ const lt: Dictionary = {
     successLine2:
       "Kad taptumėte pilnaverčiu nariu, sumokėkite stojamąjį ir nario mokestį. Gavę apmokėjimą, patvirtinsime jūsų narystę ir atsiųsime prisijungimo informaciją.",
     backHome: "Grįžti į pradžią",
+    forgotTitle: "Slaptažodžio atstatymas",
+    forgotSubtitle: "Įveskite savo el. paštą ir atsiųsime nuorodą",
+    forgotEmailHint:
+      "Nuorodą siunčiame tik jei tokiu el. paštu yra registruota paskyra. Nuoroda galioja 24 val.",
+    forgotSubmit: "Siųsti nuorodą",
+    forgotSending: "Siunčiama...",
+    forgotSuccess:
+      "Jei tokia paskyra egzistuoja, nuorodą išsiuntėme. Patikrinkite el. paštą (ir šlamšto aplanką).",
+    forgotError: "Nepavyko išsiųsti nuorodos. Bandykite dar kartą vėliau.",
+    backToLogin: "Grįžti į prisijungimą",
+    setPasswordTitle: "Nustatykite slaptažodį",
+    setPasswordSubtitle: "Pasirinkite slaptažodį, kuriuo prisijungsite į portalą",
+    newPasswordLabel: "Naujas slaptažodis",
+    newPasswordPlaceholder: "Bent 8 simboliai",
+    repeatPasswordPlaceholder: "Pakartokite tą patį slaptažodį",
+    setPasswordButton: "Nustatyti slaptažodį",
+    setPasswordSaving: "Saugoma...",
+    setPasswordDone: "Slaptažodis nustatytas!",
+    setPasswordRedirecting: "Nukreipiame Jus į portalą...",
+    setPasswordHint: "Po slaptažodžio nustatymo automatiškai pateksite į portalą.",
+    linkInvalidTitle: "Nuoroda negalioja arba baigėsi",
+    linkInvalidBody:
+      "Slaptažodžio nustatymo nuorodos paprastai galioja 24 valandas. Paprašykite naujos nuorodos:",
+    requestNewLink: "Užsakyti naują nuorodą",
+    checking: "Tikrinama...",
+    errSetPasswordFailed: "Nepavyko nustatyti slaptažodžio",
   },
   projects: {
     pageTitle: "Bendruomenės projektai",
@@ -1177,6 +1227,32 @@ const en: Dictionary = {
     successLine2:
       "To become a full member, pay the joining fee and the membership fee. Once we receive your payment, we will approve your membership and send you login information.",
     backHome: "Back to home",
+    forgotTitle: "Reset your password",
+    forgotSubtitle: "Enter your email and we will send you a link",
+    forgotEmailHint:
+      "We only send the link if an account is registered with that email. The link is valid for 24 hours.",
+    forgotSubmit: "Send link",
+    forgotSending: "Sending...",
+    forgotSuccess:
+      "If such an account exists, we have sent the link. Check your email (and the spam folder).",
+    forgotError: "Could not send the link. Please try again later.",
+    backToLogin: "Back to login",
+    setPasswordTitle: "Set your password",
+    setPasswordSubtitle: "Choose the password you will use to sign in to the portal",
+    newPasswordLabel: "New password",
+    newPasswordPlaceholder: "At least 8 characters",
+    repeatPasswordPlaceholder: "Repeat the same password",
+    setPasswordButton: "Set password",
+    setPasswordSaving: "Saving...",
+    setPasswordDone: "Password set!",
+    setPasswordRedirecting: "Taking you to the portal...",
+    setPasswordHint: "Once the password is set you will be taken to the portal automatically.",
+    linkInvalidTitle: "The link is invalid or has expired",
+    linkInvalidBody:
+      "Password links are usually valid for 24 hours. Request a new one:",
+    requestNewLink: "Request a new link",
+    checking: "Checking...",
+    errSetPasswordFailed: "Could not set the password",
   },
   projects: {
     pageTitle: "Community projects",

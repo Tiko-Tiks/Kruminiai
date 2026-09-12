@@ -449,6 +449,23 @@ brand'intus laiškus (#1, #2), o prieigą vis tiek saugo `is_approved`.
 **Taisyklė:** vartotojo patvirtinimas/atšaukimas – tik per `approveUser`/`revokeUser`
 server action'us, niekada tiesioginiu kliento `profiles.update({ is_approved })`.
 
+**Slaptažodžio atstatymas eina per MŪSŲ SMTP, ne per Supabase Auth laiškus.**
+`/slaptazodis` kviečia `requestPasswordReset()` (`src/actions/password-reset.ts`),
+kuris nuorodą generuoja admin API'u (`generateLink({type:'recovery'})`, redirectTo
+`/nustatyti-slaptazodi`), o laišką siunčia `sendEmail()` + `renderBrandedEmail()` –
+brand'intą, dvikalbį (nario `members.language`, fallback – svetainės kalba) ir
+įrašomą į `notification_log` (`kind='password_reset'`). `supabase.auth.
+resetPasswordForEmail()` NEnaudoti: jis siunčia per Supabase Auth SMTP Supabase
+šablonu (ne brand'intas, tik viena kalba, be žurnalo). Endpoint'as anon, todėl
+atsakymas visada vienodas (neatskleidžia, ar toks el. paštas registruotas) ir
+ribojamas dažnis pagal gavėją.
+
+**Nariui, kuris JAU turi paskyrą**, nuorodą admin'as gali persiųsti iš
+`/admin/nariai/paskyros` lentelės („Slaptažodžio nuoroda" mygtukas →
+`resendPasswordSetupLink`). Masinio kūrimo blokas tokių narių neapima – jie nebe
+kandidatai, todėl be šio mygtuko savo slaptažodžio nenusistatęs narys iš admin
+pusės buvo nepasiekiamas.
+
 ## ARCHITEKTŪRA: Dvikalbystė (i18n) – LT/EN
 
 **Tikslas:** lankytojai (pvz. garbės narys anglakalbis) gali matyti puslapį +

@@ -5,6 +5,7 @@ import { MEMBER_STATUS_LABELS } from "@/lib/constants";
 import { ArrowLeft, UserCheck, UserX, Mail, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { InvitePanel } from "./InvitePanel";
+import { ResendLinkButton } from "./ResendLinkButton";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,8 @@ export default async function AccountsPage() {
         <p className="text-sm text-gray-500 mt-1">
           Masinis paskyrų kūrimas nariams. Sukūrus paskyrą, narys gauna el. laišką
           su slaptažodžio nustatymo nuoroda ir gali prisijungti į portalą.
+          Jau turinčiam paskyrą nariui (pvz., pamiršusiam slaptažodį) nuorodą
+          galima persiųsti iš žemiau esančios lentelės.
         </p>
       </div>
 
@@ -89,6 +92,7 @@ export default async function AccountsPage() {
                 <th className="px-6 py-3 font-medium">El. paštas</th>
                 <th className="px-6 py-3 font-medium">Statusas</th>
                 <th className="px-6 py-3 font-medium">Paskyra</th>
+                <th className="px-6 py-3 font-medium">Veiksmai</th>
               </tr>
             </thead>
             <tbody>
@@ -130,6 +134,15 @@ export default async function AccountsPage() {
                         Reikia el. pašto
                       </span>
                     )}
+                  </td>
+                  <td className="px-6 py-3">
+                    {m.has_account && m.email ? (
+                      <ResendLinkButton
+                        memberId={m.id}
+                        memberName={`${m.first_name} ${m.last_name}`}
+                        email={m.email}
+                      />
+                    ) : null}
                   </td>
                 </tr>
               ))}

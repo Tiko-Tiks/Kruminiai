@@ -10,6 +10,7 @@ export type NotificationKind =
   | "voting_token"              // SMS su balsavimo nuoroda
   | "voting_resend"             // Pakartotinis balsavimo SMS
   | "vote_confirmation"         // Email po balsavimo
+  | "password_reset"            // Slaptažodžio atstatymo nuoroda
   | "other";
 
 export interface LogNotificationParams {

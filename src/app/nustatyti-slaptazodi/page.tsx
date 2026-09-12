@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { KeyRound, CheckCircle2, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 /**
  * Slaptažodžio nustatymo puslapis – naudojamas:
@@ -18,6 +19,7 @@ import Link from "next/link";
  * naują slaptažodį.
  */
 export default function SetPasswordPage() {
+  const t = useT().auth;
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -96,11 +98,11 @@ export default function SetPasswordPage() {
     setError("");
 
     if (password !== confirm) {
-      setError("Slaptažodžiai nesutampa");
+      setError(t.errPasswordMismatch);
       return;
     }
     if (password.length < 8) {
-      setError("Slaptažodis turi būti bent 8 simbolių");
+      setError(t.errPasswordLength);
       return;
     }
 
@@ -109,7 +111,7 @@ export default function SetPasswordPage() {
     const { error: updateErr } = await supabase.auth.updateUser({ password });
 
     if (updateErr) {
-      setError(`Nepavyko nustatyti slaptažodžio: ${updateErr.message}`);
+      setError(`${t.errSetPasswordFailed}: ${updateErr.message}`);
       setLoading(false);
       return;
     }
@@ -142,26 +144,25 @@ export default function SetPasswordPage() {
                 <KeyRound className="h-7 w-7 text-white" />
               </div>
               <h1 className="text-2xl font-bold text-gray-900 text-center">
-                Nustatykite slaptažodį
+                {t.setPasswordTitle}
               </h1>
               <p className="text-sm text-gray-500 mt-1 text-center">
-                Pasirinkite slaptažodį, kuriuo prisijungsite į portalą
+                {t.setPasswordSubtitle}
               </p>
             </div>
 
             {!authChecked ? (
-              <p className="text-sm text-gray-500 text-center py-8">Tikrinama...</p>
+              <p className="text-sm text-gray-500 text-center py-8">{t.checking}</p>
             ) : !authorized ? (
               <div className="space-y-4">
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-2">
                   <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-sm font-semibold text-red-900 mb-1">
-                      Nuoroda negalioja arba baigėsi
+                      {t.linkInvalidTitle}
                     </p>
                     <p className="text-sm text-red-800">
-                      Slaptažodžio nustatymo nuorodos paprastai galioja 24 valandas.
-                      Paprašykite naujos nuorodos:
+                      {t.linkInvalidBody}
                     </p>
                   </div>
                 </div>
@@ -169,13 +170,13 @@ export default function SetPasswordPage() {
                   href="/slaptazodis"
                   className="block w-full text-center rounded-lg bg-green-800 px-4 py-3 text-sm font-medium text-white hover:bg-green-700"
                 >
-                  Užsakyti naują nuorodą
+                  {t.requestNewLink}
                 </Link>
                 <Link
                   href="/prisijungimas"
                   className="block w-full text-center rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
-                  Grįžti į prisijungimą
+                  {t.backToLogin}
                 </Link>
               </div>
             ) : success ? (
@@ -184,10 +185,10 @@ export default function SetPasswordPage() {
                   <CheckCircle2 className="h-8 w-8 text-green-700" />
                 </div>
                 <p className="text-base font-semibold text-gray-900">
-                  Slaptažodis nustatytas!
+                  {t.setPasswordDone}
                 </p>
                 <p className="text-sm text-gray-600">
-                  Nukreipiame Jus į portalą...
+                  {t.setPasswordRedirecting}
                 </p>
               </div>
             ) : (
@@ -197,14 +198,14 @@ export default function SetPasswordPage() {
                     htmlFor="password"
                     className="block text-sm font-medium text-gray-700"
                   >
-                    Naujas slaptažodis
+                    {t.newPasswordLabel}
                   </label>
                   <input
                     id="password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Bent 8 simboliai"
+                    placeholder={t.newPasswordPlaceholder}
                     required
                     minLength={8}
                     autoFocus
@@ -217,14 +218,14 @@ export default function SetPasswordPage() {
                     htmlFor="confirm"
                     className="block text-sm font-medium text-gray-700"
                   >
-                    Pakartokite slaptažodį
+                    {t.confirmPasswordLabel}
                   </label>
                   <input
                     id="confirm"
                     type="password"
                     value={confirm}
                     onChange={(e) => setConfirm(e.target.value)}
-                    placeholder="Pakartokite tą patį slaptažodį"
+                    placeholder={t.repeatPasswordPlaceholder}
                     required
                     minLength={8}
                     className="block w-full rounded-lg border border-gray-300 bg-blue-50/50 px-4 py-3 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500 placeholder:text-gray-400"
@@ -242,11 +243,11 @@ export default function SetPasswordPage() {
                   disabled={loading}
                   className="w-full rounded-lg bg-green-800 px-4 py-3 text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
                 >
-                  {loading ? "Saugoma..." : "Nustatyti slaptažodį"}
+                  {loading ? t.setPasswordSaving : t.setPasswordButton}
                 </button>
 
                 <p className="text-xs text-gray-500 text-center">
-                  Po slaptažodžio nustatymo automatiškai pateksite į portalą.
+                  {t.setPasswordHint}
                 </p>
               </form>
             )}
