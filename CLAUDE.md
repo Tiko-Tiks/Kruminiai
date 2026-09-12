@@ -28,6 +28,7 @@
 /susirinkimai/[id]                         Auth + status='aktyvus' – pilna darbotvarkė + dokumentai
 /dokumentai                                Auth required (apsaugotas middleware)
 /skaidrumas                                Auth required
+/aukos                                     Auth required (visos aukos + lėšų likutis nariams)
 /balsuoti/[token]                          BE auth (SMS magic link, balsavimo flow)
 /deklaracija/[token]                       BE auth (SMS magic link, narystės deklaracija)
 /portalas/*                                Auth required, member rolė
@@ -41,10 +42,10 @@
 ```
 
 Middleware: `src/middleware.ts` valdo prieigą. Apsaugoti prefiksai (matcher):
-`/admin`, `/portalas`, `/dokumentai`, `/skaidrumas`, `/susirinkimai`. Logika:
+`/admin`, `/portalas`, `/dokumentai`, `/skaidrumas`, `/aukos`, `/susirinkimai`. Logika:
 neprisijungusį → `/prisijungimas?from=`; prisijungusį, bet **nepatvirtintą**
 (`is_approved=false`) → `signOut()` + `/prisijungimas?error=not_approved`
-(galioja VISIEMS 5 prefiksams); narį, bandantį `/admin` → `/portalas`
+(galioja VISIEMS 6 prefiksams); narį, bandantį `/admin` → `/portalas`
 (vienkryptis – admin'as `/portalas` pasiekia laisvai); `/susirinkimai` – tik
 admin arba `members.status='aktyvus'` narys, kitaip `/portalas?error=members_only`.
 
@@ -99,6 +100,7 @@ Naudoti vietoj tiesioginių užklausų į apsaugotas lenteles, ypač viešuose p
 | `get_meeting_plan_data(meeting_id)` | anon | Veiklos plano dokumento iframe'ui (members, payments, debts) |
 | `get_meeting_expulsions_data(meeting_id)` | anon | Šalinamų narių dokumento iframe'ui (kandidatai + bendravimo istorija) |
 | `get_meeting_elections_data(meeting_id)` | anon | Rinkimų pranešimo dokumento iframe'ui (valdymo organai) |
+| `get_member_donations_overview()` | authenticated | VISOS aukos + surinkta/išleista/likutis nariams (įsk. neviešus projektus) – `/aukos` |
 
 ## ARCHITEKTŪRA: Darbotvarkės vienas šaltinis
 
@@ -331,6 +333,34 @@ Pagrindimas:
 - `/api/dalyviu-sarasas/[meeting_id]` PDF – oficialus protokolo priedas
 - `/api/protokolas/[id]` PDF – tik pirmininkas + sekretorė, ne visi dalyviai
 
+## ARCHITEKTŪRA: Aukų matomumo lygiai (viešas / narys / admin)
+
+Aukos matomos trimis lygiais, ir riba eina per `fundraising_projects.is_public`:
+
+| Kas mato | Kur | Ką mato |
+|---|---|---|
+| Visi (anon) | `/projektai`, `/projektai/[slug]`, `/lieptas` | Tik **viešų** projektų (`is_public=true`) aukas – RLS politika `public_read_donations` (migr. 015) |
+| Prisijungęs **patvirtintas** narys | `/skaidrumas` (mokesčiai + viešų projektų aukos), **`/aukos`** (VISOS aukos ir lėšų likutis) | + neviešus projektus, pvz. „Bendruomenės fondą" |
+| Admin | `/admin/aukos` | Viską + registravimas/trynimas (tiesioginės RLS užklausos) |
+
+**Kodėl `/aukos` eina per RPC, o ne per praplėstą RLS:** `/projektai`,
+`/projektai/[slug]` ir `/skaidrumas` renderinami su TO PATIES nario sesija, o
+neviešą fondą nuo jų skiria vienintelis `is_public = true` filtras užklausoje.
+Praplėtus `donations`/`fundraising_projects` RLS politiką nariams, neviešas
+fondas iškart atsirastų ir tuose puslapiuose. Todėl pilnas vaizdas duodamas per
+`get_member_donations_overview()` (SECURITY DEFINER, migr. 043) su vidiniu
+`is_approved_member() OR is_admin()` patikrinimu – **esamos RLS politikos ir
+viešų puslapių užklausos lieka nepaliestos**.
+
+**Taisyklė:** naujam puslapiui, kuriam reikia neviešų projektų duomenų, kurk
+RPC su vidiniais vartais – nekeisk `public_read_donations` /
+`public_read_projects` politikų.
+
+Papildomi barjerai `/aukos`: `middleware.ts` (auth + `is_approved`),
+`robots.ts` disallow, `metadata.robots.index=false`, ir sitemap'e jo NĖRA.
+Anoniminių aukų (`is_anonymous=true`) vardo RPC **negrąžina** – UI rodo
+„Anonimas", o vardas net nepatenka į payload'ą (plg. migr. 033 minimizavimą).
+
 ## ARCHITEKTŪRA: Anonimo RLS apėjimas per RPC
 
 `/balsuoti/[token]` srautas yra **anonymous** – Supabase klientas neturi `authenticated` rolės, todėl RLS blokuoja tiesiogines užklausas į `members`, `payments`, `community_management` ir kt. Tačiau balsavimo iframe atvaizduoja iš trijų dokumentų:
@@ -436,7 +466,7 @@ pilnaverčiu nariu tik kai admin'as patvirtina (po apmokėjimo).
   narystės pabaiga yra Tarybos kompetencija (įstatai 5.3.1)
 
 **Vartai:** tikrasis barjeras – `is_approved`, enforce'inamas ir `/prisijungimas`
-puslapyje, ir `middleware.ts` (visiems 5 apsaugotiems prefiksams). `/prisijungimas`
+puslapyje, ir `middleware.ts` (visiems 6 apsaugotiems prefiksams). `/prisijungimas`
 atpažįsta `email_not_confirmed` ir `?error=not_approved|auth` ir parodo aiškią
 žinutę (ne klaidinantį „neteisingas slaptažodis").
 
@@ -633,6 +663,7 @@ dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
 | 040 | `040_ballot_status_race_and_vyksta_purge.sql` | Nario eilutės `FOR UPDATE` abiejuose balsavimo RPC (lenktynių sąlyga su statuso keitimu; vienoda užraktų tvarka members → tokens); valymas ir kvorumo perskaičiavimas apima VISUS būsimus susirinkimus (`status NOT IN ('baigtas','atšauktas') AND meeting_date > NOW()`), įsk. `vyksta` |
 | 042 | `042_honorary_full_voting_rights.sql` | **Garbės narys – pilna balso teisė** (pakeista 036–041 prielaida): `public.is_voting_status()` helper'is (`aktyvus`/`pasyvus`/`garbes_narys`), naudojamas abiejuose balsavimo RPC, statuso trigger'yje ir kvorumo skaičiavime; `get_meeting_plan_data` narių skaičius su garbės nariais (skolos – ne); esamų būsimų susirinkimų kvorumas perskaičiuotas |
 | 041 | `041_token_voting_window_and_member_locale.sql` | `cast_votes_with_token` tikrina balsavimo langą (`voting_closed`); `get_voting_token_data` grąžina nario `language` (taip pat prie `already_voted`/`expired`) ir `voting_open`; `on_member_status_change` ima `pg_advisory_xact_lock` – lygiagretūs balso teisės keitimai nebeperrašo kvorumo pasenusia reikšme |
+| 043 | `043_member_donations_overview.sql` | **Nariams matomos visos aukos** – `get_member_donations_overview()` (SECURITY DEFINER, tik patvirtintam nariui/adminui): visų projektų aukos + surinkta/išleista/likutis suvestinė, įsk. neviešą „Bendruomenės fondą“. Anoniminės aukos vardo negrąžina; anon neturi EXECUTE. RLS nepraplėsta – vieši puslapiai nepaliesti |
 
 DB pakeitimai daromi **per Supabase MCP** (`apply_migration`) IR sinchronizuojami į `supabase/migrations/` lokaliam repo įrašymui.
 

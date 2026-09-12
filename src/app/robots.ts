@@ -13,6 +13,8 @@ export default function robots(): MetadataRoute.Robots {
           "/admin/",
           "/portalas",
           "/portalas/",
+          "/aukos",
+          "/aukos/",
           "/balsuoti/",
           "/deklaracija/",
           "/api/",

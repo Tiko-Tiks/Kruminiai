@@ -35,6 +35,7 @@ export async function middleware(request: NextRequest) {
     isPortalPath ||
     path.startsWith("/dokumentai") ||
     path.startsWith("/skaidrumas") ||
+    path.startsWith("/aukos") ||
     path.startsWith("/susirinkimai");
 
   // Neprisijungę į apsaugotus puslapius – į login
@@ -98,6 +99,7 @@ export const config = {
     "/portalas/:path*",
     "/dokumentai/:path*",
     "/skaidrumas/:path*",
+    "/aukos/:path*",
     "/susirinkimai/:path*",
   ],
 };
