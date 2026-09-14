@@ -1,14 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { addAttendance, removeAttendance } from "@/actions/meetings";
+import {
+  setAttendance,
+  removeAttendance,
+  updateMeetingQuorum,
+  type EligibleAttendee,
+} from "@/actions/meetings";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Member } from "@/lib/types";
 import { toast } from "sonner";
-import { UserPlus, X, Users, CheckCircle, AlertTriangle } from "lucide-react";
+import {
+  Users,
+  CheckCircle,
+  AlertTriangle,
+  Search,
+  Settings2,
+  UserMinus,
+} from "lucide-react";
 import { ATTENDANCE_TYPE_LABELS } from "@/lib/constants";
+import { transliterateLt } from "@/lib/utils";
+import { hasQuorum as computeHasQuorum, isCouncilMeeting, quorumBasisLabel } from "@/lib/quorum";
 
 interface AttendanceRecord {
   id: string;
@@ -20,202 +33,405 @@ interface AttendanceRecord {
 
 interface Props {
   meetingId: string;
-  attendance: AttendanceRecord[];
-  allMembers: Member[];
-  quorumRequired: number;
+  meetingType: string;
   meetingStatus: string;
+  attendance: AttendanceRecord[];
+  /** Kas gali dalyvauti – sąrašas priklauso nuo posėdžio tipo (žr. meetings.ts) */
+  eligible: EligibleAttendee[];
+  totalMembersAtTime: number;
+  quorumRequired: number;
+  /** Siūlymas „dabar": kiek tinkamų dalyvauti ir koks kvorumas iš to išeina */
+  suggestion: { eligibleCount: number; suggestedQuorum: number };
 }
 
+const TYPE_OPTIONS: { value: string; short: string }[] = [
+  { value: "fizinis", short: "Gyvai" },
+  { value: "nuotolinis", short: "Nuotoliu" },
+  { value: "rastu", short: "Raštu" },
+];
+
+const COUNCIL_ROLE_LABELS: Record<string, string> = {
+  pirmininkas: "Pirmininkas",
+  tarybos_narys: "Tarybos narys",
+  revizorius: "Revizorius",
+};
+
+function matches(member: { first_name: string; last_name: string }, term: string) {
+  if (!term) return true;
+  const haystack = transliterateLt(`${member.first_name} ${member.last_name}`).toLowerCase();
+  return transliterateLt(term)
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((word) => haystack.includes(word));
+}
+
+/**
+ * Posėdžio dalyvių registracija.
+ *
+ * SĄRAŠAS PRIKLAUSO NUO POSĖDŽIO TIPO – Tarybos posėdyje rodomi tik dabartiniai
+ * Tarybos nariai, visuotiniame/neeiliniame/pakartotiniame – visi balso teisę
+ * turintys nariai. Paruošimas daromas serveryje (`getEligibleAttendees`).
+ *
+ * Žymėjimas rašo tiesiai į `meeting_attendance` (UNIQUE meeting_id+member_id →
+ * upsert), nuėmus žymėjimą – įrašas trinamas.
+ */
 export function AttendanceManager({
   meetingId,
-  attendance,
-  allMembers,
-  quorumRequired,
+  meetingType,
   meetingStatus,
+  attendance,
+  eligible,
+  totalMembersAtTime,
+  quorumRequired,
+  suggestion,
 }: Props) {
   const router = useRouter();
-  const [showAdd, setShowAdd] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [attendanceType, setAttendanceType] = useState("fizinis");
-  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [showQuorumEditor, setShowQuorumEditor] = useState(false);
+  const [, startTransition] = useTransition();
 
-  const attendedIds = new Set(attendance.map((a) => a.member_id));
-  const available = allMembers.filter(
-    (m) => !attendedIds.has(m.id) &&
-      (m.first_name.toLowerCase().includes(search.toLowerCase()) ||
-       m.last_name.toLowerCase().includes(search.toLowerCase()))
-  );
+  // Redaguoti leidžiam ir po susirinkimo („baigtas") – dalyviai dažnai
+  // suvedami rašant protokolą, o anksčiau tokiu atveju likdavo tik SQL.
+  const canEdit = meetingStatus !== "atšauktas";
+  const isFinished = meetingStatus === "baigtas";
 
-  const hasQuorum = quorumRequired === 0 || attendance.length >= quorumRequired;
+  const byMemberId = useMemo(() => {
+    const map = new Map<string, AttendanceRecord>();
+    attendance.forEach((a) => map.set(a.member_id, a));
+    return map;
+  }, [attendance]);
 
-  const handleAdd = async () => {
-    if (selectedIds.length === 0) return;
-    setLoading(true);
-    const result = await addAttendance(meetingId, selectedIds, attendanceType);
+  const eligibleIds = useMemo(() => new Set(eligible.map((m) => m.id)), [eligible]);
+
+  // Užregistruoti, bet į dabartinį tinkamų sąrašą nebepatenkantys asmenys
+  // (pvz. Tarybos narys, kurio kadencija tarp posėdžio ir šiandien pasibaigė).
+  // Jų NESLEPIAM – įrašas realus ir turi likti matomas bei pašalinamas.
+  const extraAttendees = attendance.filter((a) => !eligibleIds.has(a.member_id));
+
+  const attendingCount = attendance.length;
+  const quorumOk = computeHasQuorum(attendingCount, quorumRequired);
+
+  const filtered = eligible.filter((m) => matches(m, search));
+
+  const counts = {
+    fizinis: attendance.filter((a) => a.attendance_type === "fizinis").length,
+    nuotolinis: attendance.filter((a) => a.attendance_type === "nuotolinis").length,
+    rastu: attendance.filter((a) => a.attendance_type === "rastu").length,
+  };
+
+  async function mark(memberId: string, type: string) {
+    setPendingId(memberId);
+    const result = await setAttendance(meetingId, memberId, type);
+    setPendingId(null);
     if (result.error) {
       toast.error(result.error);
-    } else {
-      toast.success(`Pridėta dalyvių: ${selectedIds.length}`);
-      setSelectedIds([]);
-      setShowAdd(false);
-      router.refresh();
+      return;
     }
-    setLoading(false);
-  };
+    startTransition(() => router.refresh());
+  }
 
-  const handleRemove = async (memberId: string) => {
+  async function unmark(memberId: string) {
+    setPendingId(memberId);
     const result = await removeAttendance(meetingId, memberId);
-    if (result.error) toast.error(result.error);
-    else router.refresh();
-  };
-
-  const canEdit = meetingStatus !== "baigtas" && meetingStatus !== "atšauktas";
-
-  // Suskirstyti pagal tipą
-  const byType = {
-    fizinis: attendance.filter((a) => a.attendance_type === "fizinis"),
-    nuotolinis: attendance.filter((a) => a.attendance_type === "nuotolinis"),
-    rastu: attendance.filter((a) => a.attendance_type === "rastu"),
-  };
+    setPendingId(null);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    startTransition(() => router.refresh());
+  }
 
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Dalyviai ({attendance.length})
-          </h2>
-          {canEdit && (
-            <Button size="sm" variant="ghost" onClick={() => setShowAdd(!showAdd)}>
-              <UserPlus className="h-4 w-4" />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Dalyvių registracija
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Sąrašas:{" "}
+              {isCouncilMeeting(meetingType)
+                ? `dabartiniai Tarybos nariai (${eligible.length})`
+                : `visi balso teisę turintys nariai (${eligible.length})`}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-sm font-semibold text-gray-900">
+                Dalyvauja {attendingCount} iš {totalMembersAtTime || eligible.length}
+              </p>
+              <p className="text-xs text-gray-500">
+                {counts.fizinis > 0 && `${ATTENDANCE_TYPE_LABELS.fizinis}: ${counts.fizinis}`}
+                {counts.nuotolinis > 0 && ` · ${ATTENDANCE_TYPE_LABELS.nuotolinis}: ${counts.nuotolinis}`}
+                {counts.rastu > 0 && ` · ${ATTENDANCE_TYPE_LABELS.rastu}: ${counts.rastu}`}
+              </p>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => setShowQuorumEditor((v) => !v)}>
+              <Settings2 className="h-4 w-4" />
+              Kvorumas
             </Button>
-          )}
+          </div>
         </div>
       </CardHeader>
-      <CardContent>
-        {/* Kvorumo indikatorius */}
-        <div className={`rounded-lg p-3 mb-4 text-sm ${
-          hasQuorum
-            ? "bg-green-50 text-green-800"
-            : "bg-amber-50 text-amber-800"
-        }`}>
-          <div className="flex items-center gap-2">
-            {hasQuorum ? (
+
+      <CardContent className="space-y-4">
+        {/* Kvorumo būsena */}
+        <div
+          className={`rounded-lg p-3 text-sm ${
+            quorumOk ? "bg-green-50 text-green-900" : "bg-amber-50 text-amber-900"
+          }`}
+        >
+          <div className="flex items-center gap-2 font-medium">
+            {quorumOk ? (
               <CheckCircle className="h-4 w-4 text-green-600" />
             ) : (
               <AlertTriangle className="h-4 w-4 text-amber-600" />
             )}
-            <span className="font-medium">
-              {hasQuorum ? "Kvorumas yra" : "Kvorumo nėra"}
-            </span>
+            {quorumOk ? "Kvorumas yra" : "Kvorumo nėra"}
           </div>
           <p className="text-xs mt-1 opacity-80">
-            {attendance.length} iš {quorumRequired > 0 ? `${quorumRequired} reikalingų` : "∞ (pakartotinis)"}
+            {quorumRequired > 0
+              ? `Užregistruota ${attendingCount} iš ${quorumRequired} reikalingų (bendras narių skaičius: ${totalMembersAtTime}).`
+              : `Kvorumas neribojamas (pakartotinis susirinkimas, įstatų 4.6 p.). Užregistruota: ${attendingCount}.`}
           </p>
+          <p className="text-xs mt-0.5 opacity-70">Bazė: {quorumBasisLabel(meetingType)}.</p>
         </div>
 
-        {/* Pridėjimo forma */}
-        {showAdd && canEdit && (
-          <div className="border border-gray-200 rounded-lg p-3 mb-4 space-y-3">
-            <div>
-              <select
-                value={attendanceType}
-                onChange={(e) => setAttendanceType(e.target.value)}
-                className="w-full text-sm rounded-lg border border-gray-300 px-3 py-2"
-              >
-                <option value="fizinis">Gyvai</option>
-                <option value="nuotolinis">Nuotoliniu būdu</option>
-                <option value="rastu">Balsavo raštu</option>
-              </select>
-            </div>
+        {showQuorumEditor && (
+          <QuorumEditor
+            meetingId={meetingId}
+            totalMembersAtTime={totalMembersAtTime}
+            quorumRequired={quorumRequired}
+            suggestion={suggestion}
+            onSaved={() => {
+              setShowQuorumEditor(false);
+              startTransition(() => router.refresh());
+            }}
+          />
+        )}
+
+        {isFinished && canEdit && (
+          <p className="text-xs text-gray-500">
+            Susirinkimas jau baigtas – dalyvius vis tiek galima suvesti ar
+            pataisyti (protokolas ir dalyvių sąrašas persiskaičiuoja iš karto).
+          </p>
+        )}
+
+        {/* Paieška – visuotiniame susirinkime sąrašas ilgas */}
+        {eligible.length > 12 && (
+          <div className="relative">
+            <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Ieškoti nario..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full text-sm rounded-lg border border-gray-300 px-3 py-2"
+              placeholder="Ieškoti nario..."
+              className="w-full text-sm rounded-lg border border-gray-300 pl-9 pr-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
-            <div className="max-h-48 overflow-y-auto space-y-1">
-              {available.map((m) => (
-                <label key={m.id} className="flex items-center gap-2 text-sm py-1 px-2 hover:bg-gray-50 rounded cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.includes(m.id)}
-                    onChange={(e) =>
-                      setSelectedIds(
-                        e.target.checked
-                          ? [...selectedIds, m.id]
-                          : selectedIds.filter((id) => id !== m.id)
-                      )
-                    }
-                    className="rounded border-gray-300"
-                  />
-                  {m.first_name} {m.last_name}
-                </label>
-              ))}
-              {available.length === 0 && (
-                <p className="text-xs text-gray-400 py-2">
-                  {search ? "Nerasta" : "Visi nariai jau pridėti"}
-                </p>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                onClick={handleAdd}
-                loading={loading}
-                disabled={selectedIds.length === 0}
-              >
-                Pridėti ({selectedIds.length})
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => { setShowAdd(false); setSelectedIds([]); }}>
-                Atšaukti
-              </Button>
-            </div>
           </div>
         )}
 
-        {/* Dalyvių sąrašas */}
-        {attendance.length === 0 ? (
-          <p className="text-xs text-gray-400 text-center py-4">
-            Dar nėra registruotų dalyvių
-          </p>
+        {eligible.length === 0 ? (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-900">
+            <p className="font-semibold">Registruoti nėra ko</p>
+            <p className="text-xs mt-1">
+              {isCouncilMeeting(meetingType)
+                ? "Nerasta nė vieno dabartinio Tarybos nario. Patikrinkite valdymo organų sąrašą (community_management, is_current = true)."
+                : "Nerasta nė vieno balso teisę turinčio nario."}
+            </p>
+          </div>
         ) : (
-          <div className="space-y-3">
-            {Object.entries(byType).map(([type, members]) =>
-              members.length > 0 ? (
-                <div key={type}>
-                  <p className="text-xs font-medium text-gray-500 mb-1">
-                    {ATTENDANCE_TYPE_LABELS[type]} ({members.length})
-                  </p>
-                  <div className="space-y-0.5">
-                    {members.map((a) => (
-                      <div
-                        key={a.id}
-                        className="flex items-center justify-between text-sm py-1 px-2 rounded hover:bg-gray-50"
-                      >
-                        <span className="text-gray-700">
-                          {a.member?.first_name} {a.member?.last_name}
-                        </span>
-                        {canEdit && (
-                          <button
-                            onClick={() => handleRemove(a.member_id)}
-                            className="text-gray-400 hover:text-red-500"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
+          <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-[32rem] overflow-y-auto">
+            {filtered.map((m) => {
+              const record = byMemberId.get(m.id);
+              const isAttending = !!record;
+              const busy = pendingId === m.id;
+              return (
+                <div
+                  key={m.id}
+                  className={`flex flex-wrap items-center gap-3 px-3 py-2 ${
+                    isAttending ? "bg-green-50/50" : ""
+                  } ${busy ? "opacity-50" : ""}`}
+                >
+                  <label className="flex items-center gap-2 flex-1 min-w-[12rem] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isAttending}
+                      disabled={!canEdit || busy}
+                      onChange={(e) =>
+                        e.target.checked ? mark(m.id, "fizinis") : unmark(m.id)
+                      }
+                      className="rounded border-gray-300 h-4 w-4"
+                    />
+                    <span className="text-sm text-gray-900">
+                      {m.first_name} {m.last_name}
+                    </span>
+                    {m.role && (
+                      <span className="text-xs text-gray-400">
+                        {COUNCIL_ROLE_LABELS[m.role] || m.role}
+                      </span>
+                    )}
+                  </label>
+
+                  <div className="flex items-center gap-1">
+                    {TYPE_OPTIONS.map((opt) => {
+                      const active = record?.attendance_type === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          disabled={!canEdit || busy}
+                          onClick={() => mark(m.id, opt.value)}
+                          title={ATTENDANCE_TYPE_LABELS[opt.value]}
+                          className={`text-xs px-2 py-1 rounded border transition-colors ${
+                            active
+                              ? "bg-green-600 border-green-600 text-white"
+                              : "bg-white border-gray-200 text-gray-500 hover:border-green-300 hover:text-green-700"
+                          } disabled:cursor-not-allowed`}
+                        >
+                          {opt.short}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
-              ) : null
+              );
+            })}
+            {filtered.length === 0 && (
+              <p className="text-xs text-gray-400 px-3 py-4 text-center">
+                Pagal paiešką narių nerasta
+              </p>
             )}
+          </div>
+        )}
+
+        {extraAttendees.length > 0 && (
+          <div className="border border-gray-200 rounded-lg p-3">
+            <p className="text-xs font-medium text-gray-600 flex items-center gap-1.5 mb-2">
+              <UserMinus className="h-3.5 w-3.5" />
+              Užregistruoti, bet šiandien į sąrašą nebepatenkantys ({extraAttendees.length})
+            </p>
+            <p className="text-xs text-gray-400 mb-2">
+              Pvz. asmuo, kurio kadencija ar narystė pasibaigė po posėdžio. Įrašas
+              lieka – protokolas turi atspindėti posėdžio momentą.
+            </p>
+            <div className="space-y-1">
+              {extraAttendees.map((a) => (
+                <div key={a.id} className="flex items-center justify-between text-sm">
+                  <span className="text-gray-700">
+                    {a.member?.first_name} {a.member?.last_name}{" "}
+                    <span className="text-xs text-gray-400">
+                      ({ATTENDANCE_TYPE_LABELS[a.attendance_type] || a.attendance_type})
+                    </span>
+                  </span>
+                  {canEdit && (
+                    <button
+                      onClick={() => unmark(a.member_id)}
+                      className="text-xs text-gray-400 hover:text-red-600"
+                    >
+                      Pašalinti
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function QuorumEditor({
+  meetingId,
+  totalMembersAtTime,
+  quorumRequired,
+  suggestion,
+  onSaved,
+}: {
+  meetingId: string;
+  totalMembersAtTime: number;
+  quorumRequired: number;
+  suggestion: { eligibleCount: number; suggestedQuorum: number };
+  onSaved: () => void;
+}) {
+  const [total, setTotal] = useState(String(totalMembersAtTime));
+  const [quorum, setQuorum] = useState(String(quorumRequired));
+  const [saving, setSaving] = useState(false);
+
+  const differsFromSuggestion =
+    Number(total) !== suggestion.eligibleCount || Number(quorum) !== suggestion.suggestedQuorum;
+
+  async function handleSave() {
+    setSaving(true);
+    const result = await updateMeetingQuorum(meetingId, {
+      total_members_at_time: Number(total) || 0,
+      quorum_required: Number(quorum) || 0,
+    });
+    setSaving(false);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success("Kvorumo duomenys atnaujinti");
+    onSaved();
+  }
+
+  return (
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+      <p className="text-sm font-semibold text-blue-900">Kvorumo duomenys</p>
+      <p className="text-xs text-blue-800">
+        Skaičiai įšaldomi protokolui, todėl juos galima taisyti rankomis – automatinis
+        siūlymas remiasi ŠIANDIENOS sąrašu ir po posėdžio gali nebesutapti.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">
+            Bendras narių skaičius posėdžio metu
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={total}
+            onChange={(e) => setTotal(e.target.value)}
+            className="w-full text-sm rounded-lg border border-gray-300 px-3 py-2"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">
+            Kvorumui reikia
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={quorum}
+            onChange={(e) => setQuorum(e.target.value)}
+            className="w-full text-sm rounded-lg border border-gray-300 px-3 py-2"
+          />
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" onClick={handleSave} loading={saving}>
+          Išsaugoti
+        </Button>
+        {differsFromSuggestion && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setTotal(String(suggestion.eligibleCount));
+              setQuorum(String(suggestion.suggestedQuorum));
+            }}
+          >
+            Siūlyti pagal šiandienos sąrašą ({suggestion.eligibleCount} →{" "}
+            {suggestion.suggestedQuorum})
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }

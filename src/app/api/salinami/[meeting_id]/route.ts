@@ -404,7 +404,7 @@ export async function GET(
     pateikiama skolos informacija, šių metų bendravimo istorija (priminimai, deklaracijos
     SMS, ar buvo atsakyta) ir pagrindimas dėl įtraukimo. Visuotinio susirinkimo balsavimas
     yra patariamojo pobūdžio; galutinį sprendimą dėl narystės nutraukimo priima
-    <strong>Taryba</strong> pagal įstatų 5.3.1 punktą.
+    <strong>Taryba</strong> pagal įstatų 5.4.2 punktą.
   </p>
 
   <div class="totals">

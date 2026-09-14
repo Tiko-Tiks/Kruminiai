@@ -31,6 +31,72 @@ export function formatTime(date: string | Date): string {
   });
 }
 
+/**
+ * „YYYY-MM-DDTHH:mm" (Europe/Vilnius sieninis laikas) → ISO instantas (UTC).
+ *
+ * KODĖL REIKIA: admin formose laikas įvedamas Vilniaus laiku, o DB stulpeliai
+ * yra `timestamptz`. Naivų „2026-09-13T18:00:00" Postgres parsina serverio
+ * zona (Supabase – UTC), todėl įvestos 18:00 virsdavo 18:00 UTC ir visur
+ * (protokole, portale, viešame puslapyje) atsispindėdavo kaip 21:00 Vilniaus
+ * laiku. Konvertuojam eksplicitiškai.
+ *
+ * Offsetas skaičiuojamas per Intl – be papildomų priklausomybių ir su vasaros
+ * laiko (EET/EEST) perjungimu. Antras praėjimas patikslina DST ribos atvejį.
+ */
+export function vilniusLocalToIso(local: string): string {
+  const asIfUtc = new Date(`${local}:00Z`).getTime();
+  if (Number.isNaN(asIfUtc)) return local;
+  let offset = vilniusOffsetMs(asIfUtc);
+  let instant = asIfUtc - offset;
+  offset = vilniusOffsetMs(instant);
+  instant = asIfUtc - offset;
+  return new Date(instant).toISOString();
+}
+
+/** ISO instantas → „YYYY-MM-DDTHH:mm" Europe/Vilnius laiku (formų reikšmėms). */
+export function isoToVilniusLocal(iso: string | Date): string {
+  const d = typeof iso === "string" ? new Date(iso) : iso;
+  if (Number.isNaN(d.getTime())) return "";
+  const p = vilniusParts(d.getTime());
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+}
+
+function vilniusParts(timestamp: number) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Vilnius",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(timestamp));
+  const get = (type: string) => parts.find((x) => x.type === type)?.value || "00";
+  return {
+    year: get("year"),
+    month: get("month"),
+    day: get("day"),
+    // en-GB su hour12:false vidurnaktį pateikia kaip „24" – normalizuojam
+    hour: get("hour") === "24" ? "00" : get("hour"),
+    minute: get("minute"),
+    second: get("second"),
+  };
+}
+
+function vilniusOffsetMs(timestamp: number): number {
+  const p = vilniusParts(timestamp);
+  const asUtc = Date.UTC(
+    Number(p.year),
+    Number(p.month) - 1,
+    Number(p.day),
+    Number(p.hour),
+    Number(p.minute),
+    Number(p.second)
+  );
+  return asUtc - timestamp;
+}
+
 export function formatCurrency(cents: number): string {
   return `${(cents / 100).toFixed(2)} €`;
 }
@@ -44,6 +110,9 @@ export function formatFileSize(bytes: number | null | undefined): string {
 
 // Sukonstruoti viešą URL dokumentui pagal file_path.
 // Palaiko kelis formatus:
+//   - __api__/dokumentai/X → /api/dokumentai/X (statinis failas iš repo
+//     `private/documents/`, atiduodamas per route'ą; prieigą lemia
+//     `documents.is_public`)
 //   - __api__/X/Y    → /api/X/Y (server-rendered HTML, pvz. salinami sąrašas)
 //   - __public__/X   → /X (statinis viešas failas)
 //   - X.pdf (default) → Supabase Storage public URL
@@ -78,8 +147,14 @@ export function escapeHtml(s: string): string {
 
 // Ar dokumentas yra server-generuojamas HTML (ne PDF failas)?
 // Naudojama nuspręsti, ar peržiūrai naudoti iframe ar PdfViewer.
+//
+// SVARBU: `__api__/` prefiksą naudoja DU skirtingi dalykai – generuojami HTML
+// dokumentai (veiklos planas, šalinami, rinkimai) IR statiniai repo failai
+// (`__api__/dokumentai/istatai-kkb.pdf`). Skiriam pagal plėtinį: .pdf visada
+// rodomas per PdfViewer, ne iframe (žr. „Ko neperdaryti" – iframe PDF Android'e
+// atveria OS dialogą).
 export function isServerGeneratedDoc(filePath: string): boolean {
-  return filePath.startsWith("__api__/");
+  return filePath.startsWith("__api__/") && !/\.pdf$/i.test(filePath);
 }
 
 // Lietuviškas šauksmininkas (vocative case) – kreipiniams.

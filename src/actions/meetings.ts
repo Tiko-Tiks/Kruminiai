@@ -1,11 +1,14 @@
 "use server";
 
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { requireAdmin } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { revalidateMeetingPaths } from "@/lib/revalidate";
 import { z } from "zod";
 import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
+import { isCouncilMeeting, suggestedQuorum } from "@/lib/quorum";
+import { vilniusLocalToIso } from "@/lib/utils";
 
 const meetingSchema = z.object({
   title: z.string().min(1, "Pavadinimas privalomas"),
@@ -50,20 +53,19 @@ export async function createMeeting(formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
-  const meetingDateTime = `${parsed.data.meeting_date}T${parsed.data.meeting_time}:00`;
+  // Formose laikas įvedamas VILNIAUS laiku – konvertuojam į UTC instantą.
+  // Be to naivus „…T18:00:00" Postgres'e (UTC zona) virsdavo 18:00 UTC ir
+  // visur rodydavosi kaip 21:00 Vilniaus laiku.
+  const meetingDateTime = vilniusLocalToIso(
+    `${parsed.data.meeting_date}T${parsed.data.meeting_time}`
+  );
   const isRepeat = parsed.data.meeting_type === "pakartotinis";
 
-  // Bendrą narių skaičių kvorumui sudaro VISI balso teisę turintys nariai:
-  // aktyvūs, pasyvūs (jie balso teisę turi, kol Taryba (5.3.1 p.) nepriima
-  // sprendimo dėl pašalinimo) ir garbės nariai.
-  const { count } = await supabase
-    .from("members")
-    .select("*", { count: "exact", head: true })
-    .in("status", ACTIVE_MEMBER_STATUSES);
-
-  const totalMembers = count ?? 0;
-  // Kvorumas: >50% narių (4.5), pakartotinis – 0 (4.6)
-  const quorumRequired = isRepeat ? 0 : Math.floor(totalMembers / 2) + 1;
+  // Kvorumo bazė priklauso nuo organo (žr. `src/lib/quorum.ts`):
+  //   • Tarybos posėdis  – dabartiniai Tarybos nariai (5.5 p.)
+  //   • kiti susirinkimai – visi balso teisę turintys nariai (4.5 p.)
+  const totalMembers = await countEligibleAttendees(parsed.data.meeting_type);
+  const quorumRequired = suggestedQuorum(parsed.data.meeting_type, totalMembers);
 
   const values = {
     title: parsed.data.title,
@@ -75,8 +77,12 @@ export async function createMeeting(formData: FormData) {
     total_members_at_time: totalMembers,
     quorum_required: quorumRequired,
     is_repeat: isRepeat,
-    early_voting_start: parsed.data.early_voting_start || null,
-    early_voting_end: parsed.data.early_voting_end || null,
+    early_voting_start: parsed.data.early_voting_start
+      ? vilniusLocalToIso(parsed.data.early_voting_start)
+      : null,
+    early_voting_end: parsed.data.early_voting_end
+      ? vilniusLocalToIso(parsed.data.early_voting_end)
+      : null,
     created_by: user?.id ?? null,
   };
 
@@ -146,7 +152,9 @@ export async function updateMeeting(id: string, formData: FormData) {
   }
 
   const { data: oldData } = await supabase.from("meetings").select("*").eq("id", id).single();
-  const meetingDateTime = `${parsed.data.meeting_date}T${parsed.data.meeting_time}:00`;
+  const meetingDateTime = vilniusLocalToIso(
+    `${parsed.data.meeting_date}T${parsed.data.meeting_time}`
+  );
 
   const values = {
     title: parsed.data.title,
@@ -155,8 +163,12 @@ export async function updateMeeting(id: string, formData: FormData) {
     location: parsed.data.location,
     meeting_type: parsed.data.meeting_type,
     protocol_number: parsed.data.protocol_number || null,
-    early_voting_start: parsed.data.early_voting_start || null,
-    early_voting_end: parsed.data.early_voting_end || null,
+    early_voting_start: parsed.data.early_voting_start
+      ? vilniusLocalToIso(parsed.data.early_voting_start)
+      : null,
+    early_voting_end: parsed.data.early_voting_end
+      ? vilniusLocalToIso(parsed.data.early_voting_end)
+      : null,
   };
 
   const { error } = await supabase.from("meetings").update(values).eq("id", id);
@@ -244,7 +256,111 @@ export async function deleteMeeting(id: string) {
   return { success: true };
 }
 
+// ---------------------------------------------------------------------------
 // Dalyvių registracija
+// ---------------------------------------------------------------------------
+
+export type AttendanceTypeValue = "fizinis" | "nuotolinis" | "rastu";
+
+// Atitinka `meeting_attendance_attendance_type_check` DB constraint'ą.
+const ATTENDANCE_TYPES: AttendanceTypeValue[] = ["fizinis", "nuotolinis", "rastu"];
+
+export interface EligibleAttendee {
+  id: string;
+  first_name: string;
+  last_name: string;
+  status: string;
+  /** Tik Tarybos posėdžiams – `community_management.role`. */
+  role: string | null;
+}
+
+/**
+ * Kas gali būti registruojamas į posėdžio dalyvius – priklauso NUO POSĖDŽIO TIPO:
+ *
+ *   • `valdybos` (Tarybos posėdis) → tik DABARTINIAI Tarybos nariai
+ *     (`community_management.is_current = true`), įskaitant Pirmininką –
+ *     pagal įstatų 5.3 p. jis renkamas iš Tarybos narių tarpo.
+ *   • `visuotinis` / `neeilinis` / `pakartotinis` → visi balso teisę turintys
+ *     nariai (`ACTIVE_MEMBER_STATUSES`: aktyvus, pasyvus, garbes_narys).
+ *
+ * Tarybos nariai papildomai filtruojami pagal narystės statusą – netekęs
+ * narystės asmuo Taryboje likti negali (įstatų 5.2 p. – Tarybą renka
+ * Visuotinis narių susirinkimas iš Bendruomenės narių).
+ */
+async function fetchEligibleAttendees(meetingType: string): Promise<EligibleAttendee[]> {
+  const supabase = createServerSupabaseClient();
+
+  if (isCouncilMeeting(meetingType)) {
+    const { data, error } = await supabase
+      .from("community_management")
+      .select("role, sort_order, member:members(id, first_name, last_name, status)")
+      .eq("is_current", true)
+      .order("sort_order", { ascending: true });
+    if (error) throw error;
+
+    const rows = (data || []) as Array<{
+      role: string;
+      member:
+        | { id: string; first_name: string; last_name: string; status: string }
+        | { id: string; first_name: string; last_name: string; status: string }[]
+        | null;
+    }>;
+
+    const seen = new Set<string>();
+    const result: EligibleAttendee[] = [];
+    for (const row of rows) {
+      const m = Array.isArray(row.member) ? row.member[0] : row.member;
+      if (!m) continue;
+      if (!ACTIVE_MEMBER_STATUSES.includes(m.status)) continue;
+      if (seen.has(m.id)) continue; // tas pats asmuo dviem rolėm – vienas balsas
+      seen.add(m.id);
+      result.push({
+        id: m.id,
+        first_name: m.first_name,
+        last_name: m.last_name,
+        status: m.status,
+        role: row.role,
+      });
+    }
+    return result;
+  }
+
+  const { data, error } = await supabase
+    .from("members")
+    .select("id, first_name, last_name, status")
+    .in("status", ACTIVE_MEMBER_STATUSES)
+    .order("last_name", { ascending: true })
+    .order("first_name", { ascending: true });
+  if (error) throw error;
+
+  return (data || []).map((m) => ({
+    id: m.id as string,
+    first_name: m.first_name as string,
+    last_name: m.last_name as string,
+    status: m.status as string,
+    role: null,
+  }));
+}
+
+async function countEligibleAttendees(meetingType: string): Promise<number> {
+  const list = await fetchEligibleAttendees(meetingType);
+  return list.length;
+}
+
+/** Registracijos sąrašas posėdžio admin ekranui. */
+export async function getEligibleAttendees(meetingType: string): Promise<EligibleAttendee[]> {
+  return fetchEligibleAttendees(meetingType);
+}
+
+/**
+ * Siūlomas kvorumas „dabar": kiek yra tinkamų dalyvauti ir kiek jų reikia.
+ * Admin'as gali pritaikyti siūlymą arba įrašyti savo skaičių – susirinkimo
+ * metu galiojantis narių skaičius yra faktas, o ne formulė.
+ */
+export async function getQuorumSuggestion(meetingType: string) {
+  const eligibleCount = await countEligibleAttendees(meetingType);
+  return { eligibleCount, suggestedQuorum: suggestedQuorum(meetingType, eligibleCount) };
+}
 
 export async function getMeetingAttendance(meetingId: string) {
   const supabase = createServerSupabaseClient();
@@ -257,9 +373,51 @@ export async function getMeetingAttendance(meetingId: string) {
   return data;
 }
 
+/**
+ * Vieno nario dalyvavimo įrašymas / dalyvavimo būdo keitimas.
+ * `meeting_attendance` turi UNIQUE (meeting_id, member_id) – naudojam upsert.
+ */
+export async function setAttendance(
+  meetingId: string,
+  memberId: string,
+  type: string
+) {
+  const supabase = createServerSupabaseClient();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+
+  if (!ATTENDANCE_TYPES.includes(type as AttendanceTypeValue)) {
+    return { error: "Neteisingas dalyvavimo būdas" };
+  }
+
+  const { error } = await supabase.from("meeting_attendance").upsert(
+    { meeting_id: meetingId, member_id: memberId, attendance_type: type },
+    { onConflict: "meeting_id,member_id" }
+  );
+  if (error) return { error: error.message };
+
+  await logAudit(supabase, {
+    userId: auth.user?.id ?? null,
+    action: "UPDATE",
+    tableName: "meeting_attendance",
+    recordId: meetingId,
+    newData: { member_id: memberId, attendance_type: type } as Record<string, unknown>,
+  });
+
+  revalidateMeetingPaths(meetingId);
+  return { success: true };
+}
+
+/** Kelių narių registracija vienu veiksmu (masinis pažymėjimas). */
 export async function addAttendance(meetingId: string, memberIds: string[], type: string) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+
+  if (!ATTENDANCE_TYPES.includes(type as AttendanceTypeValue)) {
+    return { error: "Neteisingas dalyvavimo būdas" };
+  }
+  if (memberIds.length === 0) return { success: true };
 
   const rows = memberIds.map((memberId) => ({
     meeting_id: meetingId,
@@ -273,7 +431,7 @@ export async function addAttendance(meetingId: string, memberIds: string[], type
   if (error) return { error: error.message };
 
   await logAudit(supabase, {
-    userId: user?.id ?? null,
+    userId: auth.user?.id ?? null,
     action: "CREATE",
     tableName: "meeting_attendance",
     recordId: meetingId,
@@ -286,6 +444,8 @@ export async function addAttendance(meetingId: string, memberIds: string[], type
 
 export async function removeAttendance(meetingId: string, memberId: string) {
   const supabase = createServerSupabaseClient();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
 
   const { error } = await supabase
     .from("meeting_attendance")
@@ -293,6 +453,111 @@ export async function removeAttendance(meetingId: string, memberId: string) {
     .eq("meeting_id", meetingId)
     .eq("member_id", memberId);
   if (error) return { error: error.message };
+
+  await logAudit(supabase, {
+    userId: auth.user?.id ?? null,
+    action: "DELETE",
+    tableName: "meeting_attendance",
+    recordId: meetingId,
+    oldData: { member_id: memberId } as Record<string, unknown>,
+  });
+
+  revalidateMeetingPaths(meetingId);
+  return { success: true };
+}
+
+/**
+ * Kvorumo duomenų įrašymas. `total_members_at_time` yra FAKTAS apie posėdžio
+ * momentą (jis įšaldomas protokolui), todėl jį leidžiam redaguoti rankomis –
+ * automatinis siūlymas remiasi ŠIANDIENOS nariais ir po pusmečio nebesutaptų.
+ */
+export async function updateMeetingQuorum(
+  meetingId: string,
+  values: { total_members_at_time: number; quorum_required: number }
+) {
+  const supabase = createServerSupabaseClient();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+
+  const parsed = z
+    .object({
+      total_members_at_time: z.number().int().min(0).max(100000),
+      quorum_required: z.number().int().min(0).max(100000),
+    })
+    .safeParse(values);
+  if (!parsed.success) return { error: "Neteisingi kvorumo skaičiai" };
+  if (parsed.data.quorum_required > parsed.data.total_members_at_time) {
+    return { error: "Kvorumas negali būti didesnis už bendrą narių skaičių" };
+  }
+
+  const { data: oldData } = await supabase
+    .from("meetings")
+    .select("total_members_at_time, quorum_required")
+    .eq("id", meetingId)
+    .single();
+
+  const { error } = await supabase.from("meetings").update(parsed.data).eq("id", meetingId);
+  if (error) return { error: error.message };
+
+  await logAudit(supabase, {
+    userId: auth.user?.id ?? null,
+    action: "UPDATE",
+    tableName: "meetings",
+    recordId: meetingId,
+    oldData: oldData as Record<string, unknown>,
+    newData: parsed.data as Record<string, unknown>,
+  });
+
+  revalidateMeetingPaths(meetingId);
+  return { success: true };
+}
+
+/**
+ * Posėdžio pabaigos laikas. Iki šiol `ended_at` buvo nustatomas TIK
+ * automatiškai, keičiant statusą į „baigtas", todėl suklydus (arba protokolą
+ * rašant kitą dieną) jį tekdavo taisyti per SQL.
+ *
+ * `value` – „YYYY-MM-DDTHH:mm" Europe/Vilnius laiku arba tuščias (išvalyti).
+ */
+export async function updateMeetingEndedAt(meetingId: string, value: string) {
+  const supabase = createServerSupabaseClient();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+
+  let endedAt: string | null = null;
+  if (value && value.trim()) {
+    if (!/^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/.test(value.trim())) {
+      return { error: "Neteisingas formato pavyzdys: 2026-09-13 12:00" };
+    }
+    const parsedDate = new Date(vilniusLocalToIso(value.trim()));
+    if (Number.isNaN(parsedDate.getTime())) return { error: "Neteisinga data" };
+    endedAt = parsedDate.toISOString();
+  }
+
+  const { data: meeting } = await supabase
+    .from("meetings")
+    .select("meeting_date, ended_at")
+    .eq("id", meetingId)
+    .single();
+
+  if (endedAt && meeting?.meeting_date && new Date(endedAt) < new Date(meeting.meeting_date)) {
+    return { error: "Pabaigos laikas negali būti ankstesnis už pradžią" };
+  }
+
+  const { error } = await supabase
+    .from("meetings")
+    .update({ ended_at: endedAt })
+    .eq("id", meetingId);
+  if (error) return { error: error.message };
+
+  await logAudit(supabase, {
+    userId: auth.user?.id ?? null,
+    action: "UPDATE",
+    tableName: "meetings",
+    recordId: meetingId,
+    oldData: { ended_at: meeting?.ended_at ?? null } as Record<string, unknown>,
+    newData: { ended_at: endedAt } as Record<string, unknown>,
+  });
 
   revalidateMeetingPaths(meetingId);
   return { success: true };

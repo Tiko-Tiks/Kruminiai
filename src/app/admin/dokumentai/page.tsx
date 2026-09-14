@@ -4,11 +4,12 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { DOCUMENT_CATEGORY_LABELS } from "@/lib/constants";
 import { formatDate, formatFileSize, getDocumentPublicUrl } from "@/lib/utils";
-import { Plus, FileText, ExternalLink } from "lucide-react";
+import { Plus, FileText, ExternalLink, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { DeleteDocumentButton } from "./DeleteDocumentButton";
 import { VisibilityToggle } from "./VisibilityToggle";
 import { DocumentFilters } from "./DocumentFilters";
+import { findMissingDocumentFiles } from "@/lib/document-status";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,10 @@ export default async function AdminDocumentsPage({ searchParams }: PageProps) {
     }),
   ]);
 
+  // Failų patikra – `documents` eilutė gali likti be failo (taip buvo su
+  // įstatais). Admin'ui tokį dokumentą pažymim, kad problema nebūtų tyli.
+  const missingFiles = await findMissingDocumentFiles(filtered.map((d) => d.file_path));
+
   // Grupuoti pagal metus (lengvesnis naršymas kai daug dokumentų)
   const grouped = filtered.reduce((acc: Record<string, typeof filtered>, doc) => {
     const year = new Date(doc.created_at).getFullYear().toString();
@@ -47,6 +52,14 @@ export default async function AdminDocumentsPage({ searchParams }: PageProps) {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dokumentai</h1>
           <p className="text-sm text-gray-500 mt-1">{allDocuments.length} dokumentų</p>
+          {missingFiles.size > 0 && (
+            <p className="text-sm text-red-600 mt-1 flex items-center gap-1.5">
+              <AlertTriangle className="h-4 w-4" />
+              {missingFiles.size === 1
+                ? "1 dokumento failo nepavyko rasti – įkelkite jį iš naujo"
+                : `${missingFiles.size} dokumentų failų nepavyko rasti – įkelkite juos iš naujo`}
+            </p>
+          )}
         </div>
         <Link href="/admin/dokumentai/naujas">
           <Button>
@@ -90,13 +103,23 @@ export default async function AdminDocumentsPage({ searchParams }: PageProps) {
                         <tr key={doc.id} className="border-b border-gray-50 hover:bg-gray-50/50">
                           <td className="px-6 py-3">
                             <div className="flex items-center gap-2">
-                              <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                              <FileText
+                                className={`h-4 w-4 flex-shrink-0 ${
+                                  missingFiles.has(doc.file_path) ? "text-red-400" : "text-gray-400"
+                                }`}
+                              />
                               <div className="min-w-0">
                                 <p className="font-medium text-gray-900">{doc.title}</p>
                                 <p className="text-xs text-gray-400">
                                   {doc.file_name}
                                   {doc.file_size && ` · ${formatFileSize(doc.file_size)}`}
                                 </p>
+                                {missingFiles.has(doc.file_path) && (
+                                  <p className="text-xs text-red-600 font-medium mt-0.5 flex items-center gap-1">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    Failas nerastas – dokumentas neatsidarys
+                                  </p>
+                                )}
                               </div>
                             </div>
                           </td>

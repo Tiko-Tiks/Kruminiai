@@ -1,6 +1,14 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 import { COMMUNITY_LEGAL } from "@/lib/constants";
+import {
+  getNutartaText,
+  protocolHeading,
+  protocolLabels,
+  signatureLabel,
+  summarizeAnnouncements,
+} from "@/lib/protocol-text";
+import { hasQuorum as computeHasQuorum } from "@/lib/quorum";
 
 // Protokolas turi visada atspindėti naujausius nutarimų rezultatus ir
 // pirmininko/sekretoriaus pavardes – jokio cache'avimo.
@@ -83,47 +91,15 @@ export async function GET(
   const endDate = meeting.ended_at ? new Date(meeting.ended_at) : null;
 
   // Skelbimo atitikimo apskaičiavimas + protokolo pastraipos formavimas
-  const CHANNEL_LT: Record<string, string> = {
-    web: "bendruomenės svetainėje kruminiai.lt",
-    facebook: "Facebook puslapyje",
-    email: "el. paštu nariams",
-    sms: "SMS žinute nariams",
-    paper: "skelbimų lentoje",
-    other: "kitame kanale",
-  };
-  const announcementsList = (announcements || []) as Array<{
-    channel: string;
-    url: string | null;
-    published_at: string;
-  }>;
-  const earliestAnnounceMs = announcementsList
-    .map((a) => new Date(a.published_at).getTime())
-    .sort((a, b) => a - b)[0];
-  const daysAdvance = earliestAnnounceMs
-    ? Math.floor((meetingDate.getTime() - earliestAnnounceMs) / (1000 * 60 * 60 * 24))
-    : null;
-  const compliantAnnouncement = daysAdvance !== null && daysAdvance >= 14;
+  // (bendras helper'is – tą patį tekstą naudoja ir procedūrinis #2 NUTARTA)
+  const announcementSummary = summarizeAnnouncements(
+    announcements as Array<{ channel: string; url: string | null; published_at: string }> | null,
+    meetingDate
+  );
+  const announcementParagraph = announcementSummary.paragraph;
 
-  // Surenkam skelbimo pastraipą protokolui
-  let announcementParagraph = "";
-  if (announcementsList.length > 0) {
-    const parts = announcementsList.map((a) => {
-      const dt = new Date(a.published_at).toLocaleDateString("lt-LT", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        timeZone: "Europe/Vilnius",
-      });
-      return `${CHANNEL_LT[a.channel] || a.channel} (${dt})`;
-    });
-    const channels = parts.join("; ");
-    const compliance = compliantAnnouncement
-      ? `Pranešimas paskelbtas ${daysAdvance} d. prieš susirinkimą ir atitinka įstatuose nurodytą min. 14 d. terminą.`
-      : daysAdvance !== null
-        ? `Pranešimas paskelbtas ${daysAdvance} d. prieš susirinkimą.`
-        : "";
-    announcementParagraph = `Apie susirinkimą iš anksto pranešta: ${channels}. ${compliance}`.trim();
-  }
+  // Etiketės pagal organą: Tarybos posėdis vs visuotinis susirinkimas
+  const labels = protocolLabels(meeting.meeting_type);
 
   // Suskirstyti dalyvius
   const attendByType = {
@@ -134,8 +110,22 @@ export async function GET(
 
   const totalAttending = (attendance || []).length;
   // quorum_required jau apima „+1" (Math.floor(N/2)+1), todėl tikrinam >=
-  // (Atitinka AttendanceManager logiką ir įstatų 4.5 p.)
-  const hasQuorum = meeting.is_repeat || totalAttending >= meeting.quorum_required;
+  // (bendra logika su AttendanceManager – žr. `src/lib/quorum.ts`;
+  // įstatų 4.5 p. visuotiniam, 5.5 p. Tarybos posėdžiui, 4.6 p. pakartotiniam)
+  const hasQuorum = meeting.is_repeat || computeHasQuorum(totalAttending, meeting.quorum_required);
+
+  // Dalyvių vardai protokolo tekste – TIK Tarybos posėdžiams: kolegialaus
+  // organo protokole dalyviai vardijami (jų keli), o visuotinio susirinkimo
+  // dalyvių sąrašas yra atskiras pasirašomas priedas
+  // (/api/dalyviu-sarasas) – 80 pavardžių protokolo tekste netelpa.
+  const attendeeNames = labels.isCouncil
+    ? (attendance || [])
+        .map((a: { member: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null }) => {
+          const m = Array.isArray(a.member) ? a.member[0] : a.member;
+          return m ? `${m.first_name} ${m.last_name}` : null;
+        })
+        .filter((n): n is string => !!n)
+    : [];
 
   // Dalyvių sąrašas pagal tipą
   const attendanceSummaryParts: string[] = [];
@@ -343,141 +333,24 @@ export async function GET(
     };
     const resList = (resolutions || []) as Resolution[];
 
-    /**
-     * Lietuviškos asmens giminės nustatymas pagal vardą. Naudojam paprastą
-     * heuristiką: jei vardas baigiasi -a arba -ė → moteriška, kitu atveju –
-     * vyriška. Veikia visiems standartiniams LT vardams (Aušra, Indrė,
-     * Mindaugas, Saulius, Tomas, Jurgis ir t.t.).
-     */
-    const isFemaleName = (fullName: string): boolean => {
-      const firstName = (fullName || "").trim().split(/\s+/)[0] || "";
-      return /[aė]$/i.test(firstName);
-    };
-
-    /**
-     * Sugeneruoja NUTARTA teksto eilutę pagal LR raštvedybos standartą.
-     * Naudoja decision_text iš DB, jei pateiktas. Kitu atveju auto-generuoja
-     * pagal nutarimo tipą ir balsavimo statusą.
-     *
-     * SVARBU – formulavimo principas:
-     *   • Naudojam „X-ui pritarta" formą (naudininko linksnis + „pritarta")
-     *     vietoj „X patvirtinta", nes ji natūralesnė lietuvių kalbai ir
-     *     skamba profesionaliau formaliuose dokumentuose.
-     *   • Metai iš pavadinimo įtraukiami į NUTARTA – „2025 m. veiklos
-     *     ataskaitai pritarta".
-     *   • „Pritarta" yra beasmenė forma – tinka visoms giminėms ir
-     *     skaičiams (be derinimo).
-     *   • Naudininko linksnio pavyzdžiai:
-     *       - ataskaita → ataskaitai (vns. dat. mot.)
-     *       - rinkinys  → rinkiniui  (vns. dat. vyr.)
-     *       - planai    → planams   (dgs. dat. vyr.)
-     *       - darbotvarkė → darbotvarkei (vns. dat. mot.)
-     */
-    const getNutartaText = (r: Resolution): string => {
-      if (r.decision_text && r.decision_text.trim()) return r.decision_text;
-
-      // Procedūrinis #1: pirmininko ir sekretoriaus rinkimai
-      if (r.procedural_type === "pirmininkas_sekretorius") {
-        if (r.status !== "patvirtintas") return "Pirmininko ir sekretoriaus rinkimams nepritarta.";
-        const ch = meeting.chairperson_name || "—";
-        const sec = meeting.secretary_name || "—";
-        // Giminės derinimas – „pirmininku išrinktas" (vyr.) / „pirmininke
-        // išrinkta" (mot.); „sekretoriumi" (vyr.) / „sekretore" (mot.).
-        const chFemale = isFemaleName(ch);
-        const secFemale = isFemaleName(sec);
-        const chRole = chFemale ? "pirmininke" : "pirmininku";
-        const chVerb = chFemale ? "išrinkta" : "išrinktas";
-        const secRole = secFemale ? "sekretore" : "sekretoriumi";
-        return `Susirinkimo ${chRole} ${chVerb} ${ch}, ${secRole} – ${sec}.`;
-      }
-
-      // Procedūrinis #2: susirinkimo pranešimo tinkamumas
-      // Auto-generuoja NUTARTA iš meeting_announcements duomenų. Jei
-      // pranešimas atitinka įstatuose nurodytą terminą (>=14 d.), patvirtinta.
-      if (r.procedural_type === "pranesimas") {
-        if (r.status !== "patvirtintas") {
-          return "Susirinkimo pranešimo tinkamumas nepatvirtintas.";
-        }
-        if (announcementsList.length === 0) {
-          return "Patvirtinta, kad susirinkimas paskelbtas tinkamai.";
-        }
-        const compliancePart = compliantAnnouncement
-          ? `Pranešimas paskelbtas ${daysAdvance} d. prieš susirinkimą ir atitinka įstatuose nurodytą min. 14 d. terminą.`
-          : daysAdvance !== null
-            ? `Pranešimas paskelbtas ${daysAdvance} d. prieš susirinkimą.`
-            : "";
-        const channels = announcementsList
-          .map((a) => {
-            const dt = new Date(a.published_at).toLocaleDateString("lt-LT", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-              timeZone: "Europe/Vilnius",
-            });
-            return `${CHANNEL_LT[a.channel] || a.channel} (${dt})`;
-          })
-          .join("; ");
-        return `Patvirtinta, kad apie susirinkimą iš anksto pranešta: ${channels}. ${compliancePart}`.trim();
-      }
-
-      // Procedūrinis #3: darbotvarkės tvirtinimas
-      if (r.procedural_type === "darbotvarke") {
-        return r.status === "patvirtintas"
-          ? "Susirinkimo darbotvarkei pritarta."
-          : "Susirinkimo darbotvarkei nepritarta.";
-      }
-
-      // Iš pavadinimo išgaunam metus (jei yra) – „2025 m. veiklos ataskaita..."
-      // arba „Pasiruošimas 2027 m. ... rinkimams". Metai gali būti bet kurioje
-      // pavadinimo vietoje; mes juos pakeliam į NUTARTA tekstą.
-      const yearMatch = r.title.match(/(\d{4})\s*m\./);
-      const yearPrefix = yearMatch ? `${yearMatch[1]} m. ` : "";
-
-      // Pirmosios raidės didžioji – sakinio pradžia. Jei sakinys prasideda
-      // metais („2025 m. veiklos..."), capitalize neturės įtakos.
-      const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-      const title = r.title.toLowerCase();
-      if (r.status === "patvirtintas") {
-        // Veiklos ataskaita → ataskaitai (vns. dat. mot.) + pritarta
-        if (title.includes("veiklos ataskait")) {
-          return cap(`${yearPrefix}veiklos ataskaitai pritarta.`);
-        }
-        // Finansinių ataskaitų rinkinys → rinkiniui (vns. dat. vyr.) + pritarta
-        if (title.includes("finansin") && title.includes("ataskait")) {
-          return cap(`${yearPrefix}finansinių ataskaitų rinkiniui pritarta.`);
-        }
-        // Pavedimas pirmininkui (Registrų centrui) – „pavesta" yra pats
-        // tinkamas veiksmažodis šiam veiksmui, neverčiam į „pritarta".
-        if (title.includes("pavedim") && title.includes("registr")) {
-          return "Pirmininkui pavesta pateikti finansinių ataskaitų rinkinį valstybės įmonei Registrų centrui.";
-        }
-        // Veiklos planai → planams (dgs. dat. vyr.) + pritarta
-        if (title.includes("veiklos plan")) {
-          return cap(`${yearPrefix}veiklos planams pritarta.`);
-        }
-        // Nemokių narių šalinimas (Tarybos kompetencija pagal įstatų 5.3.1 p.)
-        if (title.includes("šalinim") || (title.includes("nemoki") && title.includes("nari"))) {
-          return "Tarybos siūlymui dėl nemokių narių šalinimo pagal pateiktą sąrašą pritarta.";
-        }
-        // Pirmininko ir Tarybos rinkimai
-        if (title.includes("rinkim") && (title.includes("pirminink") || title.includes("taryb"))) {
-          return cap(`pasirengimui ${yearPrefix}Pirmininko ir Tarybos rinkimams pritarta.`);
-        }
-        // Bendras rinkimai atvejis
-        if (title.includes("rinkim")) {
-          return cap(`pasirengimui ${yearPrefix}rinkimams pritarta.`);
-        }
-        // Bendras atvejis
-        return `Klausimui „${r.title}" pritarta.`;
-      }
-      if (r.status === "atmestas") return `Klausimui „${r.title}" nepritarta.`;
-      return "—";
-    };
+    // NUTARTA tekstas ir giminės derinimas – bendras šaltinis su server
+    // action'ais (`src/lib/protocol-text.ts`), kad DB įrašytas ir protokole
+    // rodomas tekstas negalėtų išsiskirti.
+    const nutartaFor = (r: Resolution): string =>
+      getNutartaText(
+        {
+          title: r.title,
+          status: r.status,
+          procedural_type: r.procedural_type,
+          decision_text: r.decision_text,
+        },
+        meeting,
+        announcementSummary
+      );
 
     const renderDecision = (r: Resolution) => {
       const totalVotes = r.result_for + r.result_against + r.result_abstain;
-      const nutarta = getNutartaText(r);
+      const nutarta = nutartaFor(r);
       // BALSUOTA – beasmenė forma pagal LR raštvedybos taisykles
       // (LR CK 2.90–2.92 str.). Eilės tvarka: SVARSTYTA → BALSUOTA → NUTARTA.
       const balsuotaLine = totalVotes > 0
@@ -519,44 +392,41 @@ export async function GET(
         <div class="subtitle">Buveinė: ${COMMUNITY_LEGAL.address}</div>
       </div>
       <div class="protocol-title">
-        <h2>VISUOTINIO NARIŲ SUSIRINKIMO PROTOKOLAS</h2>
+        <h2>${protocolHeading(meeting.meeting_type)}</h2>
         ${meeting.protocol_number ? `<div class="nr">${meeting.protocol_number}</div>` : ""}
         <div class="date">${meetingDate.toLocaleDateString("lt-LT", { year: "numeric", month: "long", day: "numeric", timeZone: "Europe/Vilnius" })}</div>
         <div class="location">${meeting.location}</div>
       </div>
       <div class="info-block">
-        <p><span class="label">Susirinkimo pradžia:</span> ${meetingDate.toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vilnius" })} val.</p>
-        ${endDate ? `<p><span class="label">Susirinkimo pabaiga:</span> ${endDate.toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vilnius" })} val.</p>` : ""}
+        <p><span class="label">${labels.startLabel}:</span> ${meetingDate.toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vilnius" })} val.</p>
+        ${endDate ? `<p><span class="label">${labels.endLabel}:</span> ${endDate.toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vilnius" })} val.</p>` : ""}
         <p></p>
-        <p><span class="label">Bendras bendruomenės narių skaičius:</span> ${meeting.total_members_at_time}</p>
-        <p><span class="label">Susirinkime dalyvauja narių:</span> ${totalAttending}${attendanceSummaryParts.length > 0 ? ` (iš jų ${attendanceSummaryParts.join(", ")})` : ""}.</p>
+        <p><span class="label">${labels.totalLabel}:</span> ${meeting.total_members_at_time}</p>
+        <p><span class="label">${labels.attendingLabel}:</span> ${totalAttending}${attendanceSummaryParts.length > 0 ? ` (iš jų ${attendanceSummaryParts.join(", ")})` : ""}.</p>
+        ${attendeeNames.length > 0 ? `<p><span class="label">DALYVAVO:</span> ${attendeeNames.join(", ")}.</p>` : ""}
         <p><span class="label">Kvorumas:</span> ${hasQuorum ? "YRA" : "NĖRA"}${meeting.is_repeat ? " (pakartotinis susirinkimas)" : ""}.</p>
         ${announcementParagraph ? `<p style="margin-top:8pt;"><span class="label">Skelbimas apie susirinkimą:</span> ${announcementParagraph}</p>` : ""}
       </div>
       <div class="agenda">
-        <h3>SUSIRINKIMO DARBOTVARKĖ:</h3>
+        <h3>${labels.agendaHeading}</h3>
         <ol>
           ${resList.map((r) => `<li>${r.title}.</li>`).join("\n        ")}
         </ol>
       </div>
     `;
 
-    // Parašų skilties etiketės derinamos pagal giminę:
-    //   vyr. → „Susirinkimo pirmininkas / sekretorius"
-    //   mot. → „Susirinkimo pirmininkė / sekretorė"
-    const chairLabel = meeting.chairperson_name && isFemaleName(meeting.chairperson_name)
-      ? "Susirinkimo pirmininkė:"
-      : "Susirinkimo pirmininkas:";
-    const secretaryLabel = meeting.secretary_name && isFemaleName(meeting.secretary_name)
-      ? "Susirinkimo sekretorė:"
-      : "Susirinkimo sekretorius:";
+    // Parašų skilties etiketės derinamos pagal giminę ir organą:
+    //   vyr. → „Susirinkimo / Posėdžio pirmininkas / sekretorius"
+    //   mot. → „Susirinkimo / Posėdžio pirmininkė / sekretorė"
+    const chairLabel = signatureLabel("chair", meeting.chairperson_name, meeting.meeting_type);
+    const secretaryLabel = signatureLabel("secretary", meeting.secretary_name, meeting.meeting_type);
 
     const closingContent = `
-      <p class="closing">Daugiau klausimų darbotvarkėje nebuvo, susirinkimas baigtas.</p>
+      <p class="closing">${labels.closingSentence}</p>
       <div class="attachments">
         <h4>PRIDEDAMA:</h4>
         <ol>
-          <li>Susirinkimo dalyvių registracijos sąrašas.</li>
+          <li>${labels.attachmentLine}</li>
         </ol>
       </div>
       <div class="signatures">

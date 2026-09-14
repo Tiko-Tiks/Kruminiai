@@ -253,10 +253,11 @@ export async function GET(
   </table>
 
   <div class="callout amber">
-    <strong>2027 m. rinkimuose</strong> bus renkami: Pirmininkas, Tarybos
-    nariai (${councilRows.length > 0 ? councilRows.length : "3–7"}
-    asmenys)${auditorRow ? "" : " bei Revizorius (kuris šiuo metu nėra išrinktas)"}.
-    Kiekvieno organo kadencija – 4 metai (įstatų 5.1, 5.5 ir 6.2 p.).
+    <strong>2027 m. rinkimuose</strong> Visuotinis narių susirinkimas rinks
+    <strong>Tarybos narius</strong> (6 asmenys) bei
+    <strong>Revizorių</strong>${auditorRow ? "" : " (kuris šiuo metu nėra išrinktas)"}.
+    Pirmininką iš savo narių išsirenka pati Taryba.
+    Kiekvieno organo kadencija – 4 metai (įstatų 5.2, 5.3 ir 6.2 p.).
   </div>
 
   <h3>2. Teisinis pagrindas</h3>
@@ -264,8 +265,8 @@ export async function GET(
     Pagal Krūminių kaimo bendruomenės įstatų <span class="law-ref">5.1–5.5</span> punktus:
   </p>
   <ul>
-    <li><strong>Pirmininko</strong> kadencija – <strong>4 metai</strong>. Renkamas visuotinio susirinkimo metu.</li>
-    <li><strong>Tarybą</strong> sudaro <strong>3–7 nariai</strong>, kadencija – <strong>4 metai</strong>. Renkama visuotinio susirinkimo metu.</li>
+    <li><strong>Tarybą</strong> sudaro <strong>6 (šeši) nariai</strong>, kadencija – <strong>4 metai</strong> (<span class="law-ref">5.2 p.</span>). Renkami Visuotinio narių susirinkimo.</li>
+    <li><strong>Pirmininką</strong> 4 metų kadencijai <strong>iš savo narių renka ir atšaukia Taryba</strong> (<span class="law-ref">5.3 p.</span>) – t. y. Pirmininkas yra vienas iš Tarybos narių.</li>
     <li><strong>Revizorius</strong> renkamas <strong>4 metams</strong> (<span class="law-ref">6.2 p.</span>); jis negali būti valdymo organo nariu.</li>
   </ul>
 
@@ -306,7 +307,7 @@ export async function GET(
 
   <h3>5. Tarybos pareigos</h3>
   <ul>
-    <li>Priima sprendimus dėl narių priėmimo ir narystės nutraukimo (<span class="law-ref">5.3.1 p.</span>);</li>
+    <li>Priima sprendimus dėl narių priėmimo ir narystės nutraukimo (<span class="law-ref">5.4.2 p.</span>);</li>
     <li>Tvirtina bendruomenės veiklos kryptis tarp visuotinių susirinkimų;</li>
     <li>Kontroliuoja Pirmininko veiklą;</li>
     <li>Inicijuoja ir organizuoja bendruomenės projektus;</li>

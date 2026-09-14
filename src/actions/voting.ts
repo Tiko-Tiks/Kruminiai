@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { revalidateMeetingPaths } from "@/lib/revalidate";
 import { z } from "zod";
+import { getNutartaText, summarizeAnnouncements } from "@/lib/protocol-text";
 
 const resolutionSchema = z.object({
   title: z.string().min(1, "Pavadinimas privalomas"),
@@ -23,6 +24,102 @@ const VALID_STATUSES = [
   "patvirtintas",
   "atmestas",
 ] as const;
+
+/**
+ * Perrašo `resolution_number` į ištisinę seką 1..N pagal dabartinę tvarką.
+ *
+ * Kodėl reikia: ištrynus klausimą likdavo spragos (1,2,3,4,7,9,10,11) – toks
+ * numeravimas patenka į protokolą ir atrodo kaip pamesti sprendimai.
+ * `resolution_number` neturi UNIQUE apribojimo, todėl užtenka nuoseklių
+ * UPDATE'ų be laikino poslinkio.
+ */
+async function renumberResolutions(
+  supabase: ReturnType<typeof createServerSupabaseClient>,
+  meetingId: string
+) {
+  const { data } = await supabase
+    .from("resolutions")
+    .select("id, resolution_number, created_at")
+    .eq("meeting_id", meetingId)
+    .order("resolution_number", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  const rows = (data || []) as { id: string; resolution_number: number }[];
+  for (let i = 0; i < rows.length; i++) {
+    const nextNumber = i + 1;
+    if (rows[i].resolution_number === nextNumber) continue;
+    await supabase
+      .from("resolutions")
+      .update({ resolution_number: nextNumber })
+      .eq("id", rows[i].id);
+  }
+}
+
+/**
+ * NUTARTA tekstas nutarimą uždarant.
+ *
+ * TAISYKLĖ: `patvirtintas` / `atmestas` be sprendimo teksto neleidžiamas –
+ * anksčiau taip atsirasdavo „patvirtintų" nutarimų be jokio turinio.
+ *   • procedūriniams klausimams tekstas generuojamas automatiškai iš
+ *     susirinkimo duomenų (pirmininkas/sekretorius, skelbimai, darbotvarkė)
+ *     ir ĮRAŠOMAS į `decision_text` – DB tampa vieninteliu šaltiniu;
+ *   • paprastiems klausimams grąžinam klaidą – sprendimo formuluotė yra
+ *     susirinkimo valia, jos generuoti negalima.
+ */
+async function resolveDecisionText(
+  supabase: ReturnType<typeof createServerSupabaseClient>,
+  resolutionId: string,
+  status: "patvirtintas" | "atmestas"
+): Promise<{ decisionText?: string; error?: string }> {
+  const { data: resolution } = await supabase
+    .from("resolutions")
+    .select("id, meeting_id, title, is_procedural, procedural_type, decision_text")
+    .eq("id", resolutionId)
+    .single();
+
+  if (!resolution) return { error: "Nutarimas nerastas" };
+  if (resolution.decision_text && resolution.decision_text.trim()) {
+    return { decisionText: resolution.decision_text };
+  }
+
+  if (!resolution.is_procedural) {
+    return {
+      error:
+        'Prieš pažymint „Priimta" / „Atmesta" reikia užpildyti NUTARTA tekstą (laukas „NUTARTA (protokolui)").',
+    };
+  }
+
+  const { data: meeting } = await supabase
+    .from("meetings")
+    .select("meeting_type, meeting_date, chairperson_name, secretary_name")
+    .eq("id", resolution.meeting_id)
+    .single();
+  if (!meeting) return { error: "Susirinkimas nerastas" };
+
+  const { data: announcements } = await supabase
+    .from("meeting_announcements")
+    .select("channel, url, published_at")
+    .eq("meeting_id", resolution.meeting_id)
+    .order("published_at", { ascending: true });
+
+  const summary = summarizeAnnouncements(
+    announcements as Array<{ channel: string; url: string | null; published_at: string }> | null,
+    new Date(meeting.meeting_date)
+  );
+
+  const generated = getNutartaText(
+    {
+      title: resolution.title,
+      status,
+      procedural_type: resolution.procedural_type,
+      decision_text: null,
+    },
+    meeting,
+    summary
+  );
+
+  return { decisionText: generated };
+}
 
 // Nutarimai
 
@@ -195,8 +292,12 @@ export async function updateResolutionStatus(id: string, status: string, meeting
     updateData.early_voting_open = true;
   }
 
-  // Kai patvirtinamas/atmetamas – suskaičiuoti balsus ir uždaryti
+  // Kai patvirtinamas/atmetamas – suskaičiuoti balsus, užtikrinti NUTARTA
+  // tekstą (be jo statuso keisti neleidžiam) ir uždaryti balsavimą
   if (status === "patvirtintas" || status === "atmestas") {
+    const decision = await resolveDecisionText(supabase, id, status);
+    if (decision.error) return { error: decision.error };
+    updateData.decision_text = decision.decisionText;
     updateData.early_voting_open = false;
     const totals = await countVotes(id);
     updateData.result_for = totals.uz;
@@ -228,11 +329,63 @@ export async function deleteResolution(id: string, meetingId: string) {
   const { error } = await supabase.from("resolutions").delete().eq("id", id);
   if (error) return { error: error.message };
 
+  // Užpildom numeracijos spragą – protokole klausimai turi eiti 1..N
+  await renumberResolutions(supabase, meetingId);
+
   await logAudit(supabase, {
     userId: user?.id ?? null,
     action: "DELETE",
     tableName: "resolutions",
     recordId: id,
+  });
+
+  revalidateMeetingPaths(meetingId);
+  return { success: true };
+}
+
+/**
+ * Klausimo perkėlimas darbotvarkėje aukštyn / žemyn.
+ * Sukeičia vietomis su kaimynu ir perrašo visą numeraciją į 1..N.
+ */
+export async function reorderResolution(
+  id: string,
+  meetingId: string,
+  direction: "up" | "down"
+) {
+  const supabase = createServerSupabaseClient();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
+
+  const { data } = await supabase
+    .from("resolutions")
+    .select("id, resolution_number, created_at")
+    .eq("meeting_id", meetingId)
+    .order("resolution_number", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  const rows = (data || []) as { id: string }[];
+  const index = rows.findIndex((r) => r.id === id);
+  if (index === -1) return { error: "Nutarimas nerastas" };
+
+  const target = direction === "up" ? index - 1 : index + 1;
+  if (target < 0 || target >= rows.length) return { success: true };
+
+  [rows[index], rows[target]] = [rows[target], rows[index]];
+
+  for (let i = 0; i < rows.length; i++) {
+    await supabase
+      .from("resolutions")
+      .update({ resolution_number: i + 1 })
+      .eq("id", rows[i].id);
+  }
+
+  await logAudit(supabase, {
+    userId: user?.id ?? null,
+    action: "UPDATE",
+    tableName: "resolutions",
+    recordId: id,
+    newData: { reordered: direction, new_number: target + 1 } as Record<string, unknown>,
   });
 
   revalidateMeetingPaths(meetingId);
@@ -335,6 +488,11 @@ export async function setResolutionResults(
   if (auth.error) return { error: auth.error };
   const user = auth.user;
 
+  // NUTARTA tekstas privalomas – „patvirtintas"/„atmestas" be sprendimo
+  // teksto palikdavo tuščius nutarimus protokole
+  const decision = await resolveDecisionText(supabase, id, status);
+  if (decision.error) return { error: decision.error };
+
   // Suskaičiuojam nuotoliu balsus iš vote_ballots
   const remote = await countVotes(id);
 
@@ -347,6 +505,7 @@ export async function setResolutionResults(
   const { error } = await supabase.from("resolutions").update({
     ...totals,
     status,
+    decision_text: decision.decisionText,
     early_voting_open: false,
   }).eq("id", id);
 

@@ -43,7 +43,7 @@ export async function generateAndSendVotingTokens(meetingId: string) {
   if (meetingErr || !meeting) return { success: false as const, error: "Susirinkimas nerastas" };
 
   // Visi balso teisę turintys nariai – aktyvūs, pasyvūs (balso teisę turi,
-  // kol Taryba nepriima sprendimo dėl pašalinimo, įstatų 5.3.1 p.) ir garbės.
+  // kol Taryba nepriima sprendimo dėl pašalinimo, įstatų 5.4.2 p.) ir garbės.
   const { data: members, error: membersErr } = await supabase
     .from("members")
     .select("id, first_name, last_name, phone, email, status, language")
