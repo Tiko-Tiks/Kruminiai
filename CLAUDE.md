@@ -730,8 +730,8 @@ dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
 | 039 | `039_member_status_change_purge_future_votes.sql` | Tas pats trigger'is netekus balso teisės ištrina BŪSIMŲ susirinkimų `vote_ballots`/`meeting_attendance`, perskaičiuoja suvestines, tokeną grąžina į nebalsuotą-anuliuotą, rašo `audit_log` |
 | 040 | `040_ballot_status_race_and_vyksta_purge.sql` | Nario eilutės `FOR UPDATE` abiejuose balsavimo RPC (lenktynių sąlyga su statuso keitimu; vienoda užraktų tvarka members → tokens); valymas ir kvorumo perskaičiavimas apima VISUS būsimus susirinkimus (`status NOT IN ('baigtas','atšauktas') AND meeting_date > NOW()`), įsk. `vyksta` |
 | 042 | `042_honorary_full_voting_rights.sql` | **Garbės narys – pilna balso teisė** (pakeista 036–041 prielaida): `public.is_voting_status()` helper'is (`aktyvus`/`pasyvus`/`garbes_narys`), naudojamas abiejuose balsavimo RPC, statuso trigger'yje ir kvorumo skaičiavime; `get_meeting_plan_data` narių skaičius su garbės nariais (skolos – ne); esamų būsimų susirinkimų kvorumas perskaičiuotas |
-| 043 | `043_fix_istatai_document_path.sql` | Įstatų `documents.file_path` pataisymas į `__api__/dokumentai/istatai-kkb.pdf` (anksčiau `__api__/istatai-kkb.pdf` vedė į neegzistuojantį route'ą) |
 | 041 | `041_token_voting_window_and_member_locale.sql` | `cast_votes_with_token` tikrina balsavimo langą (`voting_closed`); `get_voting_token_data` grąžina nario `language` (taip pat prie `already_voted`/`expired`) ir `voting_open`; `on_member_status_change` ima `pg_advisory_xact_lock` – lygiagretūs balso teisės keitimai nebeperrašo kvorumo pasenusia reikšme |
+| 043 | `043_fix_istatai_document_path.sql` | Įstatų `documents.file_path` pataisymas į `__api__/dokumentai/istatai-kkb.pdf` (anksčiau `__api__/istatai-kkb.pdf` vedė į neegzistuojantį route'ą) |
 
 DB pakeitimai daromi **per Supabase MCP** (`apply_migration`) IR sinchronizuojami į `supabase/migrations/` lokaliam repo įrašymui.
 
