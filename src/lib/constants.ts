@@ -63,11 +63,13 @@ export const FEE_TYPE_LABELS: Record<string, string> = {
 
 // Voting module constants
 
+// `valdybos` reikšmė DB istorinė – įstatuose (V skyrius) kolegialus valdymo
+// organas yra TARYBA, todėl naudotojui rodom „Tarybos posėdis".
 export const MEETING_TYPE_LABELS: Record<string, string> = {
   visuotinis: "Visuotinis narių susirinkimas",
   neeilinis: "Neeilinis susirinkimas",
   pakartotinis: "Pakartotinis susirinkimas",
-  valdybos: "Valdybos posėdis",
+  valdybos: "Tarybos posėdis",
 };
 
 export const MEETING_STATUS_LABELS: Record<string, string> = {

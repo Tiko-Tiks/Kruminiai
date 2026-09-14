@@ -60,7 +60,7 @@ export default async function CommunityFundsPage() {
 
   // Visos aukos (įsk. neviešus projektus) – tik per SECURITY DEFINER RPC.
   // Tiesioginė užklausa į `donations` matytų tik viešų projektų aukas (RLS),
-  // o RLS praplėtimas „iššautų" neviešą fondą į viešus puslapius. Žr. migr. 043.
+  // o RLS praplėtimas „iššautų" neviešą fondą į viešus puslapius. Žr. migr. 044.
   const { data } = await supabase.rpc("get_member_donations_overview");
   const overview = data as Overview | null;
 

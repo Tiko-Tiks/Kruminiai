@@ -309,7 +309,7 @@ async function syncResolutionDescription(meetingId: string) {
     description =
       `Pridedamas **kandidatų į galimai šalinamų narių sąrašas** dėl sistematinio nario mokesčio nemokėjimo.\n\n` +
       `Iš viso kandidatų – **${list.length} narių**, bendra skola **${totalEur.toFixed(0)} EUR**. Pridedamame dokumente išvardinta kiekvieno nario skola, neapmokėti metai bei šių metų bendravimo istorija (kada ir kiek kartų buvo siųsti priminimai, ar buvo atsakyta).\n\n` +
-      `Visuotinio susirinkimo balsavimas yra **patariamojo pobūdžio – nariai išreiškia nuomonę / pritarimą** dėl šių kandidatų šalinimo. Pagal įstatų **5.3.1 punktą** galutinį sprendimą dėl narystės nutraukimo priima Taryba.\n\n` +
+      `Visuotinio susirinkimo balsavimas yra **patariamojo pobūdžio – nariai išreiškia nuomonę / pritarimą** dėl šių kandidatų šalinimo. Pagal įstatų **5.4.2 punktą** galutinį sprendimą dėl narystės nutraukimo priima Taryba.\n\n` +
       `**Pasekmės šalinamiems nariams:** narystė bendruomenėje pasibaigia, prarandama teisė dalyvauti susirinkimuose ir balsuoti. Pagal įstatų **3.6 punktą** asmuo gali vėliau vėl tapti nariu sumokėjęs stojamąjį mokestį (20 EUR) ir einamųjų metų nario mokestį (12 EUR), padengus susikaupusią skolą.`;
   }
 

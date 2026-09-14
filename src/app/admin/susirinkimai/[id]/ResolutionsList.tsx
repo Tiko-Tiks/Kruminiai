@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { updateResolutionStatus, updateResolution, deleteResolution, setResolutionResults } from "@/actions/voting";
+import {
+  updateResolutionStatus,
+  updateResolution,
+  deleteResolution,
+  setResolutionResults,
+  reorderResolution,
+} from "@/actions/voting";
 import { updateMeetingProtocolInfo } from "@/actions/meetings";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -17,6 +23,8 @@ import {
   Trash2,
   ChevronDown,
   ChevronUp,
+  ArrowUp,
+  ArrowDown,
   Scale,
   Gavel,
   FileText,
@@ -99,6 +107,14 @@ export function ResolutionsList({
     setLoading(null);
   };
 
+  const handleReorder = async (id: string, direction: "up" | "down") => {
+    setLoading(id);
+    const result = await reorderResolution(id, meetingId, direction);
+    if (result.error) toast.error(typeof result.error === "string" ? result.error : "Klaida");
+    else router.refresh();
+    setLoading(null);
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm("Ištrinti šį klausimą?")) return;
     setLoading(id);
@@ -121,8 +137,12 @@ export function ResolutionsList({
 
   return (
     <div className="space-y-3">
-      {resolutions.map((res) => {
+      {resolutions.map((res, index) => {
         const isExpanded = expandedId === res.id;
+        // NUTARTA tekstas privalomas prieš uždarant klausimą (procedūriniams
+        // jį sugeneruoja serveris iš susirinkimo duomenų)
+        const needsDecisionText =
+          !res.is_procedural && !(res.decision_text && res.decision_text.trim());
         const totalVotes = res.result_for + res.result_against + res.result_abstain;
         const isPassed = res.requires_qualified_majority
           ? res.result_for >= Math.ceil((totalVotes * 2) / 3)
@@ -141,6 +161,34 @@ export function ResolutionsList({
               <span className="text-sm font-bold text-gray-400 w-8">
                 {res.resolution_number}.
               </span>
+              {canModify && resolutions.length > 1 && (
+                <div className="flex flex-col -my-1">
+                  <button
+                    type="button"
+                    title="Perkelti aukštyn"
+                    disabled={index === 0 || loading === res.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleReorder(res.id, "up");
+                    }}
+                    className="text-gray-300 hover:text-gray-600 disabled:opacity-30 disabled:hover:text-gray-300"
+                  >
+                    <ArrowUp className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    title="Perkelti žemyn"
+                    disabled={index === resolutions.length - 1 || loading === res.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleReorder(res.id, "down");
+                    }}
+                    className="text-gray-300 hover:text-gray-600 disabled:opacity-30 disabled:hover:text-gray-300"
+                  >
+                    <ArrowDown className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-900 truncate">
@@ -308,14 +356,11 @@ export function ResolutionsList({
                     )}
 
                     {res.status === "balsuojamas" && (
-                      <>
-                        <QuickVoteForm
-                          resolutionId={res.id}
-                          meetingId={meetingId}
-                          loading={loading === res.id}
-                          onStatusChange={handleStatusChange}
-                        />
-                      </>
+                      <QuickVoteForm
+                        resolutionId={res.id}
+                        meetingId={meetingId}
+                        needsDecisionText={needsDecisionText}
+                      />
                     )}
 
                     {!res.is_procedural && res.status === "projektas" && (
@@ -342,11 +387,12 @@ export function ResolutionsList({
 function QuickVoteForm({
   resolutionId,
   meetingId,
+  needsDecisionText,
 }: {
   resolutionId: string;
   meetingId: string;
-  loading: boolean;
-  onStatusChange: (id: string, status: string) => void;
+  /** NUTARTA tekstas dar neišsaugotas – uždaryti klausimo negalima */
+  needsDecisionText: boolean;
 }) {
   const router = useRouter();
   const [uz, setUz] = useState("");
@@ -373,6 +419,15 @@ function QuickVoteForm({
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
+      {needsDecisionText && (
+        <div className="w-full bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-900 flex items-start gap-2">
+          <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+          <span>
+            Užpildykite ir išsaugokite <strong>NUTARTA (protokolui)</strong> tekstą –
+            be jo klausimo negalima pažymėti kaip priimto ar atmesto.
+          </span>
+        </div>
+      )}
       <div className="flex items-center gap-1">
         <label className="text-xs text-green-600 font-medium">Už:</label>
         <input
@@ -408,7 +463,7 @@ function QuickVoteForm({
         size="sm"
         onClick={() => handleSave("patvirtintas")}
         loading={saving}
-        disabled={!uz}
+        disabled={!uz || needsDecisionText}
       >
         <CheckCircle className="h-3.5 w-3.5" />
         Priimta
@@ -418,7 +473,7 @@ function QuickVoteForm({
         variant="danger"
         onClick={() => handleSave("atmestas")}
         loading={saving}
-        disabled={!uz}
+        disabled={!uz || needsDecisionText}
       >
         <XCircle className="h-3.5 w-3.5" />
         Atmesta
@@ -521,8 +576,8 @@ function ChairmanSecretaryPicker({
         <div>
           <p className="font-semibold">Pirmiausia užregistruokite gyvai dalyvaujančius narius</p>
           <p className="text-xs mt-1">
-            Sekretorius turi būti pasirinktas iš gyvai dalyvavusių narių. Atidarykite
-            &bdquo;Dalyviai&ldquo; panelį dešinėje ir pridėkite atvykusius narius.
+            Sekretorius turi būti pasirinktas iš gyvai dalyvavusių narių. Pažymėkite
+            atvykusius &bdquo;Dalyvių registracijos&ldquo; bloke šio puslapio viršuje.
           </p>
         </div>
       </div>

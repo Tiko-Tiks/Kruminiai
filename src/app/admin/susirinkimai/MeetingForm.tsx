@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { COMMUNITY_LEGAL } from "@/lib/constants";
+import { isoToVilniusLocal } from "@/lib/utils";
 import { Meeting } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -22,10 +23,11 @@ export function MeetingForm({ meeting }: Props) {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
 
-  const dateValue = meeting ? new Date(meeting.meeting_date).toISOString().split("T")[0] : "";
-  const timeValue = meeting
-    ? new Date(meeting.meeting_date).toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vilnius" })
-    : "18:00";
+  // Datos/laiko laukai – VISADA Europe/Vilnius (ne UTC), kad redaguojant
+  // susirinkimą nepasislinktų laikas (žr. `vilniusLocalToIso` utils.ts).
+  const meetingLocal = meeting ? isoToVilniusLocal(meeting.meeting_date) : "";
+  const dateValue = meetingLocal ? meetingLocal.split("T")[0] : "";
+  const timeValue = meetingLocal ? meetingLocal.split("T")[1] : "18:00";
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -79,7 +81,7 @@ export function MeetingForm({ meeting }: Props) {
                 { value: "visuotinis", label: "Visuotinis narių susirinkimas" },
                 { value: "neeilinis", label: "Neeilinis susirinkimas" },
                 { value: "pakartotinis", label: "Pakartotinis (be kvorumo)" },
-                { value: "valdybos", label: "Valdybos posėdis" },
+                { value: "valdybos", label: "Tarybos posėdis" },
               ]}
             />
             <Input
@@ -99,7 +101,7 @@ export function MeetingForm({ meeting }: Props) {
               required
             />
             <Input
-              label="Laikas (24h)"
+              label="Laikas (24h, Vilniaus)"
               name="meeting_time"
               type="text"
               inputMode="numeric"
@@ -131,10 +133,14 @@ export function MeetingForm({ meeting }: Props) {
             <p className="font-medium mb-1">Automatiškai sukuriami procedūriniai klausimai:</p>
             <ol className="list-decimal list-inside space-y-0.5 text-blue-700">
               <li>Dėl susirinkimo pirmininko ir sekretoriaus rinkimų</li>
+              <li>Susirinkimo pranešimo tinkamumo patvirtinimas</li>
               <li>Susirinkimo darbotvarkės tvirtinimas</li>
             </ol>
             <p className="mt-2 text-xs text-blue-600">
-              Kvorumas apskaičiuojamas automatiškai pagal aktyvių narių skaičių (&gt;50%, įstatai 4.5 str.)
+              Kvorumas siūlomas automatiškai – &bdquo;daugiau kaip pusė&ldquo;: visuotiniam
+              susirinkimui nuo balso teisę turinčių narių (įstatų 4.5 p.), Tarybos
+              posėdžiui nuo dabartinių Tarybos narių (5.5 p.), pakartotiniam –
+              neribojamas (4.6 p.). Posėdžio ekrane skaičių galima pakoreguoti.
             </p>
           </div>
 
@@ -154,7 +160,7 @@ export function MeetingForm({ meeting }: Props) {
                 placeholder="2026-05-03T18:00"
                 defaultValue={
                   meeting?.early_voting_start
-                    ? new Date(meeting.early_voting_start).toISOString().slice(0, 16)
+                    ? isoToVilniusLocal(meeting.early_voting_start)
                     : ""
                 }
               />
@@ -166,7 +172,7 @@ export function MeetingForm({ meeting }: Props) {
                 placeholder="2026-05-23T17:00"
                 defaultValue={
                   meeting?.early_voting_end
-                    ? new Date(meeting.early_voting_end).toISOString().slice(0, 16)
+                    ? isoToVilniusLocal(meeting.early_voting_end)
                     : ""
                 }
               />

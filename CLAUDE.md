@@ -260,6 +260,91 @@ formos „Sprendimas (NUTARTA)" textarea – auto-gen tekstas pakeičiamas
 į rankinį (gali būti perrašomas bet kuriuo metu prieš susirinkimo
 pabaigą).
 
+## ARCHITEKTŪRA: Posėdžio dalyvių registracija ir kvorumas
+
+**Dalyvių sąrašas priklauso NUO POSĖDŽIO TIPO** (`meetings.meeting_type`):
+
+| `meeting_type` | Kas registruojamas | Kvorumo bazė |
+|---|---|---|
+| `valdybos` (rodoma „Tarybos posėdis") | tik dabartiniai Tarybos nariai – `community_management.is_current = true`, join į `members`, papildomai filtruojant pagal `ACTIVE_MEMBER_STATUSES` | Tarybos nariai (įstatų **5.5** p.) |
+| `visuotinis`, `neeilinis` | visi balso teisę turintys nariai (`ACTIVE_MEMBER_STATUSES`) | bendruomenės nariai (**4.5** p.) |
+| `pakartotinis` | visi balso teisę turintys nariai | kvorumas **neribojamas** = 0 (**4.6** p.) |
+
+Įstatų 5.3 p. – Pirmininką Taryba renka iš savo narių, todėl `pirmininkas`
+rolė į Tarybos sąrašą įeina (be dublikatų, jei tas pats asmuo turi dvi roles).
+
+**Kvorumo formulė vienoda visiems organams** – „daugiau kaip pusė" =
+`floor(N/2)+1`; skiriasi tik bazė. Viena vieta: `src/lib/quorum.ts`
+(`suggestedQuorum`, `hasQuorum`, `isCouncilMeeting`, `quorumBasisLabel`).
+
+**Server action'ai** (`src/actions/meetings.ts`):
+`getEligibleAttendees(meetingType)`, `getQuorumSuggestion(meetingType)`,
+`setAttendance(meetingId, memberId, type)` (upsert pagal
+`UNIQUE(meeting_id, member_id)`), `removeAttendance`, `addAttendance` (masinis),
+`updateMeetingQuorum`, `updateMeetingEndedAt`. Visi su `requireAdmin()` +
+`logAudit()` + `revalidateMeetingPaths()`.
+
+**UI** – `AttendanceManager` (`/admin/susirinkimai/[id]`) yra **pilno pločio**
+blokas viršuje: visas tinkamų dalyvauti sąrašas su žymėjimu ir dalyvavimo būdu
+(`fizinis` / `nuotolinis` / `rastu`), gyvas skaitiklis „Dalyvauja X iš Y",
+kvorumo būsena, redaguojamas kvorumo blokas su siūlymu pagal šiandienos sąrašą.
+`total_members_at_time` ir `quorum_required` yra **posėdžio momento faktas**,
+todėl redaguojami rankomis – automatinis siūlymas remiasi šiandienos nariais.
+
+Dalyvius galima suvesti ir **po** susirinkimo (`status='baigtas'`) – protokolas
+rašomas vėliau. Užregistruoti, bet į dabartinį tinkamų sąrašą nebepatenkantys
+asmenys (pvz. pasibaigusi kadencija) rodomi atskirai, o ne slepiami.
+
+**Tarybos posėdyje NErodomas** `RemoteVotingPanel` – SMS balsavimo tokenai
+generuojami VISIEMS balso teisę turintiems nariams, o Taryboje sprendžia tik
+Tarybos nariai.
+
+## ARCHITEKTŪRA: Protokolo tekstai – vienas šaltinis
+
+`src/lib/protocol-text.ts` – NUTARTA generavimas, giminės derinimas
+(`isFemaleName`), skelbimų suvestinė (`summarizeAnnouncements`), antraštės ir
+etiketės pagal organą (`protocolHeading`, `protocolLabels`, `signatureLabel`).
+
+Naudoja **ir** protokolo eksportas (`/api/protokolas/[id]`), **ir** dalyvių
+sąrašas (`/api/dalyviu-sarasas/[meeting_id]`), **ir** server action'ai. Anksčiau
+logika gyveno tik route'e – DB likdavo tuščias `decision_text`, o tekstas
+atsirasdavo tik spausdinant.
+
+**Taisyklė:** `resolutions.status` keisti į `patvirtintas`/`atmestas` be
+`decision_text` NEGALIMA (`resolveDecisionText` `src/actions/voting.ts`):
+- procedūriniams klausimams tekstas **sugeneruojamas ir įrašomas** į DB;
+- paprastiems – grąžinama klaida, UI mygtukai „Priimta"/„Atmesta" neaktyvūs.
+
+**Numeracija:** `deleteResolution` po trynimo perrašo `resolution_number` į
+ištisinę seką 1..N (`renumberResolutions`); `reorderResolution(id, meetingId,
+"up"|"down")` leidžia keisti eiliškumą (rodyklės sąrašo antraštėje).
+`resolution_number` neturi UNIQUE apribojimo – užtenka nuoseklių UPDATE'ų.
+
+**Tarybos posėdžio protokolas** skiriasi: antraštė „TARYBOS POSĖDŽIO
+PROTOKOLAS", etiketės „Posėdžio pradžia/pabaiga", „Bendras Tarybos narių
+skaičius", parašai „Posėdžio pirmininkas/sekretorė", ir **dalyvių vardai
+įrašomi į protokolo tekstą** („DALYVAVO: …"). Visuotiniame susirinkime vardai
+lieka tik atskirame pasirašomame priede (80 pavardžių protokolo tekste
+netelpa) – žr. „Dalyvių pavardžių privatumas".
+
+## ARCHITEKTŪRA: Datos ir laikai formose (Europe/Vilnius)
+
+DB stulpeliai yra `timestamptz`, o Supabase Postgres zona – **UTC**. Naivus
+`"2026-05-23T18:00:00"` parsinamas kaip 18:00 **UTC**, todėl per formą įvestas
+laikas visur rodydavosi 2–3 val. vėlesnis (Vilniaus laiku).
+
+**Taisyklė:** admin formų datos/laikai visada konvertuojami:
+- įrašant – `vilniusLocalToIso("YYYY-MM-DDTHH:mm")` (`src/lib/utils.ts`);
+- rodant formoje – `isoToVilniusLocal(iso)`.
+
+Taikoma `meetings.meeting_date`, `early_voting_start/end`, `ended_at`.
+Offsetas skaičiuojamas per `Intl` – be papildomų priklausomybių, su EET/EEST
+perjungimu. Jau įrašyti seni duomenys nekeičiami (jie buvo suvesti su ta pačia
+paklaida arba per SQL teisingai).
+
+`meetings.ended_at` redaguojamas per `MeetingEndTimeEditor` posėdžio ekrane –
+anksčiau jis buvo nustatomas TIK automatiškai, keičiant statusą į „baigtas".
+
 ## ARCHITEKTŪRA: Narių sąrašo filtravimas
 
 `/admin/nariai` puslapis pagal **nutylėjimą rodo TIK aktyvius narius**
@@ -348,7 +433,7 @@ Aukos matomos trimis lygiais, ir riba eina per `fundraising_projects.is_public`:
 neviešą fondą nuo jų skiria vienintelis `is_public = true` filtras užklausoje.
 Praplėtus `donations`/`fundraising_projects` RLS politiką nariams, neviešas
 fondas iškart atsirastų ir tuose puslapiuose. Todėl pilnas vaizdas duodamas per
-`get_member_donations_overview()` (SECURITY DEFINER, migr. 043) su vidiniu
+`get_member_donations_overview()` (SECURITY DEFINER, migr. 044) su vidiniu
 `is_approved_member() OR is_admin()` patikrinimu – **esamos RLS politikos ir
 viešų puslapių užklausos lieka nepaliestos**.
 
@@ -463,7 +548,7 @@ pilnaverčiu nariu tik kai admin'as patvirtina (po apmokėjimo).
 - siunčia **laišką #2** (`renderMemberWelcomeEmail`) – pasveikinimas + supažindinimas
   su portalu. Tik pirmą kartą patvirtinant (`!wasApproved`)
 - `revokeUser()` atima tik portalo prieigą (`is_approved=false`), **nario neliečia** –
-  narystės pabaiga yra Tarybos kompetencija (įstatai 5.3.1)
+  narystės pabaiga yra Tarybos kompetencija (įstatai 5.4.2)
 
 **Vartai:** tikrasis barjeras – `is_approved`, enforce'inamas ir `/prisijungimas`
 puslapyje, ir `middleware.ts` (visiems 6 apsaugotiems prefiksams). `/prisijungimas`
@@ -539,7 +624,20 @@ dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
 - **Slug'ai**: lt simboliai transliteruojami (`ą→a`, `š→s`...) per `generateSlug()` `src/lib/utils.ts`
 - **Šauksmininkas**: `vocative(name)` `src/lib/utils.ts` (Mindaugas → Mindaugai)
 - **Failo dydis**: `formatFileSize(bytes)` (KB / MB)
-- **Doc public URL**: `getDocumentPublicUrl(filePath)` – konstruoja Supabase Storage public URL
+- **Doc public URL**: `getDocumentPublicUrl(filePath)` – konstruoja URL pagal `file_path` formatą:
+  - `__api__/dokumentai/X` → `/api/dokumentai/X` – **statinis failas iš repo**
+    `private/documents/` (įstatai). Route'as (`src/app/api/dokumentai/[...path]/route.ts`)
+    prieigą sprendžia pagal `documents.is_public`: viešą dokumentą mato ir
+    neprisijungę, nevieša – tik patvirtintas narys/adminas. Trūkstamas failas
+    grąžina **suprantamą HTML klaidos puslapį** (LT/EN), ne JSON.
+    `next.config.mjs` → `experimental.outputFileTracingIncludes` būtinas, kad
+    failas patektų į Vercel lambda'ą.
+  - `__api__/X/Y` → `/api/X/Y` – server-generuojami HTML dokumentai
+  - `__public__/X` → `/X` – statinis failas iš `public/`
+  - kita → Supabase Storage `documents` bucket public URL
+- **Trūkstamų failų indikacija**: `/admin/dokumentai` pažymi dokumentus, kurių
+  failo nepavyko rasti (`src/lib/document-status.ts`) – `documents` eilutė ir
+  failas yra du atskiri dalykai
 
 ### Nuotraukos (images bucket)
 - **Viešas `images` bucket'as**, RLS: skaito visi, rašo/trina tik admin (`is_admin()`)
@@ -663,7 +761,8 @@ dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
 | 040 | `040_ballot_status_race_and_vyksta_purge.sql` | Nario eilutės `FOR UPDATE` abiejuose balsavimo RPC (lenktynių sąlyga su statuso keitimu; vienoda užraktų tvarka members → tokens); valymas ir kvorumo perskaičiavimas apima VISUS būsimus susirinkimus (`status NOT IN ('baigtas','atšauktas') AND meeting_date > NOW()`), įsk. `vyksta` |
 | 042 | `042_honorary_full_voting_rights.sql` | **Garbės narys – pilna balso teisė** (pakeista 036–041 prielaida): `public.is_voting_status()` helper'is (`aktyvus`/`pasyvus`/`garbes_narys`), naudojamas abiejuose balsavimo RPC, statuso trigger'yje ir kvorumo skaičiavime; `get_meeting_plan_data` narių skaičius su garbės nariais (skolos – ne); esamų būsimų susirinkimų kvorumas perskaičiuotas |
 | 041 | `041_token_voting_window_and_member_locale.sql` | `cast_votes_with_token` tikrina balsavimo langą (`voting_closed`); `get_voting_token_data` grąžina nario `language` (taip pat prie `already_voted`/`expired`) ir `voting_open`; `on_member_status_change` ima `pg_advisory_xact_lock` – lygiagretūs balso teisės keitimai nebeperrašo kvorumo pasenusia reikšme |
-| 043 | `043_member_donations_overview.sql` | **Nariams matomos visos aukos** – `get_member_donations_overview()` (SECURITY DEFINER, tik patvirtintam nariui/adminui): visų projektų aukos + surinkta/išleista/likutis suvestinė, įsk. neviešą „Bendruomenės fondą“. Anoniminės aukos vardo negrąžina; anon neturi EXECUTE. RLS nepraplėsta – vieši puslapiai nepaliesti |
+| 043 | `043_fix_istatai_document_path.sql` | Įstatų `documents.file_path` pataisymas į `__api__/dokumentai/istatai-kkb.pdf` (anksčiau `__api__/istatai-kkb.pdf` vedė į neegzistuojantį route'ą) |
+| 044 | `044_member_donations_overview.sql` | **Nariams matomos visos aukos** – `get_member_donations_overview()` (SECURITY DEFINER, tik patvirtintam nariui/adminui): visų projektų aukos + surinkta/išleista/likutis suvestinė, įsk. neviešą „Bendruomenės fondą“. Anoniminės aukos vardo negrąžina; anon neturi EXECUTE. RLS nepraplėsta – vieši puslapiai nepaliesti |
 
 DB pakeitimai daromi **per Supabase MCP** (`apply_migration`) IR sinchronizuojami į `supabase/migrations/` lokaliam repo įrašymui.
 
@@ -785,20 +884,47 @@ Naudoja `node scripts/X.mjs` su .env.local skaitymu.
 
 ## Įstatai (2025 m. nauja redakcija)
 
-**Failo vieta:** `C:\Users\Administrator\Desktop\Bendruomene\DOK\Visuotinis susirinkimas\Įstatai_nauja redakcija2025.pdf` – patvirtinti 2025-12-07 (Protokolo Nr. 2)
+**Failo vieta repo:** `private/documents/istatai-kkb.pdf` (tas pats failas, kurį
+rodo `/dokumentai` → „Krūminių kaimo bendruomenės įstatai") – patvirtinti
+2025-12-07 (Protokolo Nr. 2). PDF yra **skenuotas** (be teksto sluoksnio).
 
-Esminiai punktai, į kuriuos verta atsižvelgti rašant naują logiką:
+Esminiai punktai, į kuriuos verta atsižvelgti rašant naują logiką
+(punktų numeracija sutikrinta su PDF 2026-09):
 
-- **3.1** – nariais gali būti tiek **fiziniai**, tiek **juridiniai** asmenys
-- **3.3.5** – narys bet kada gali išstoti pateikęs prašymą
-- **3.4.4** – nario mokestį nustato visuotinis susirinkimas
-- **3.5** – narystė pasibaigia: išstojimu **arba Tarybos sprendimu** (jei nemoka mokesčio, sistemingai nevykdo pareigų ar kenkia reputacijai)
-- **4.5** – kvorumas: daugiau kaip **1/2 narių**
-- **4.6** – pakartotinis susirinkimas be kvorumo apribojimų
-- **4.7** – paprasta dauguma; **2/3** dėl įstatų keitimo, pertvarkymo ar likvidavimo
-- **5.1–5.5** – valdymo organai: **Taryba** (3–7 narių, 4 m. kadencija) + **Pirmininkas** (4 m. kadencija)
-- **5.3.1** – **Taryba** priima į narius IR sprendžia dėl jų šalinimo (ne visuotinis susirinkimas!)
 - **2.4** – pelnas (100%) reinvestuojamas, nariams nedalinamas
+- **3.1** – nariais gali būti tiek **fiziniai**, tiek **juridiniai** asmenys (18+)
+- **3.2** – naujus narius priima **Taryba** (prašymas raštu Tarybai)
+- **3.3** – narys bet kada gali išstoti pateikęs raštišką prašymą Tarybai
+- **3.4** – **Tarybos sprendimu** narys gali būti pašalintas: nesilaiko įstatų;
+  ilgiau nei **12 mėn.** nemoka nario mokesčio; diskredituoja Bendruomenės vardą
+- **3.5** – pašalintas narys turi teisę skųsti Tarybos sprendimą artimiausiam
+  Visuotiniam narių susirinkimui
+- **3.7 / 4.8.5** – nario mokesčio dydį ir tvarką nustato Visuotinis susirinkimas
+- **4.2** – eilinis susirinkimas kasmet per 4 mėn. nuo finansinių metų pabaigos;
+  neeilinį šaukia Taryba arba ne mažiau kaip **1/5** narių
+- **4.3** – apie susirinkimą pranešama ne vėliau kaip prieš **14 d.**
+  (neeilinį – prieš 7 d.)
+- **4.4** – susirinkimas gali vykti ir balsavimas būti vykdomas
+  **elektroninėmis ryšio priemonėmis**
+- **4.5** – kvorumas: dalyvauja daugiau kaip **pusė** Bendruomenės narių
+- **4.6** – pakartotinis susirinkimas sprendžia be kvorumo apribojimų
+- **4.7** – paprasta dauguma; **2/3 dalyvaujančių** dėl įstatų keitimo,
+  pertvarkymo ar likvidavimo
+- **4.8** – susirinkimo kompetencija: keisti įstatus; rinkti/atšaukti Tarybos
+  narius; rinkti Revizorių; tvirtinti metinį finansinių ataskaitų rinkinį ir
+  veiklos ataskaitą; nustatyti stojamojo ir nario mokesčio dydį
+- **5.2** – **Tarybą sudaro 6 (šeši) nariai**, renkami 4 m. kadencijai
+  (kadencijų skaičius neribojamas)
+- **5.3** – **Pirmininką Taryba renka iš savo narių** 4 m. kadencijai (t. y.
+  Pirmininkas YRA vienas iš 6 Tarybos narių)
+- **5.4** – Tarybos kompetencija: tvirtinti veiklos programas ir projektus;
+  **spręsti dėl narių priėmimo ir šalinimo (5.4.2)**; šaukti susirinkimus;
+  spręsti dėl ilgalaikio turto įsigijimo
+- **5.5** – **Tarybos posėdis teisėtas, kai dalyvauja daugiau kaip pusė Tarybos
+  narių**; sprendimai – paprasta balsų dauguma; balsams pasiskirsčius po lygiai
+  lemia posėdžio Pirmininko balsas
+- **5.7** – pasibaigus kadencijai pareigos vykdomos iki naujai išrinktų organų
+  narių pradžios
 - **6.2** – **Revizorius** renkamas 4 metams, negali būti valdymo organo nariu
 
 **Svarbu programos tekstams:** narystės šalinimas yra **Tarybos kompetencija** (ne susirinkimo). Visuotinis susirinkimas tik renka/atšaukia Pirmininką ir Tarybą, tvirtina ataskaitas. Visi tekstai apie „pašalinimą per susirinkimą" turi būti atnaujinti į „Tarybos sprendimu".
