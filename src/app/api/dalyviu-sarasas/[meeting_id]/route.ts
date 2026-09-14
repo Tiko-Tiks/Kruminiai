@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 import { COMMUNITY_LEGAL } from "@/lib/constants";
 import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
+import { protocolLabels, signatureLabel } from "@/lib/protocol-text";
 
 // Dalyvių sąrašas turi visada atspindėti naujausius dalyvavimo įrašus
 // ir pirmininko/sekretoriaus pavardes – jokio cache'avimo.
@@ -51,26 +52,22 @@ export async function GET(
 
   const { data: meeting } = await supabase
     .from("meetings")
-    .select("id, title, meeting_date, location, total_members_at_time, quorum_required, is_repeat, status, protocol_number, chairperson_name, secretary_name")
+    .select("id, title, meeting_date, location, meeting_type, total_members_at_time, quorum_required, is_repeat, status, protocol_number, chairperson_name, secretary_name")
     .eq("id", params.meeting_id)
     .single();
   if (!meeting) {
     return NextResponse.json({ error: "Susirinkimas nerastas" }, { status: 404 });
   }
 
-  // Lietuviškos giminės nustatymas pagal vardą (vardai -a/-ė → moteriški).
-  // Naudojam parašų skiltyje: „Susirinkimo pirmininkas/pirmininkė",
-  // „sekretorius/sekretorė".
-  const isFemaleName = (fullName: string | null): boolean => {
-    const firstName = (fullName || "").trim().split(/\s+/)[0] || "";
-    return /[aė]$/i.test(firstName);
-  };
-  const chairLabel = isFemaleName(meeting.chairperson_name)
-    ? "Susirinkimo pirmininkė:"
-    : "Susirinkimo pirmininkas:";
-  const secretaryLabel = isFemaleName(meeting.secretary_name)
-    ? "Susirinkimo sekretorė:"
-    : "Susirinkimo sekretorius:";
+  // Parašų skilties etiketės – giminė pagal vardą, organas pagal posėdžio tipą
+  // (bendras šaltinis su protokolu: `src/lib/protocol-text.ts`).
+  const labels = protocolLabels(meeting.meeting_type);
+  const chairLabel = signatureLabel("chair", meeting.chairperson_name, meeting.meeting_type);
+  const secretaryLabel = signatureLabel(
+    "secretary",
+    meeting.secretary_name,
+    meeting.meeting_type
+  );
 
   // ===== Surenkam visus dalyvavimo įrašus =====
   const { data: attendance } = await supabase
@@ -139,16 +136,41 @@ export async function GET(
     mode === "signed" ? "signed" :
     hasAnyAttendance ? "signed" : "blank";
 
-  // Jei blank režimas – ištraukiam visus aktyvius+pasyvius narius
+  // Jei blank režimas – ištraukiam tuos, kas gali dalyvauti. Sąrašas
+  // priklauso nuo organo: Tarybos posėdyje pasirašo tik Tarybos nariai,
+  // visuotiniame – visi balso teisę turintys nariai.
   let blankList: AttendeeRow[] = [];
   if (effectiveMode === "blank") {
-    const { data: members } = await supabase
-      .from("members")
-      .select("id, first_name, last_name, status")
-      .in("status", ACTIVE_MEMBER_STATUSES)
-      .order("last_name")
-      .order("first_name");
-    blankList = (members || []) as AttendeeRow[];
+    if (labels.isCouncil) {
+      const { data: council } = await supabase
+        .from("community_management")
+        .select("sort_order, member:members(id, first_name, last_name, status)")
+        .eq("is_current", true)
+        .order("sort_order");
+      const seen = new Set<string>();
+      blankList = ((council || []) as Array<{
+        member:
+          | { id: string; first_name: string; last_name: string; status: string }
+          | { id: string; first_name: string; last_name: string; status: string }[]
+          | null;
+      }>)
+        .map((row) => (Array.isArray(row.member) ? row.member[0] : row.member))
+        .filter((m): m is { id: string; first_name: string; last_name: string; status: string } => {
+          if (!m) return false;
+          if (!ACTIVE_MEMBER_STATUSES.includes(m.status)) return false;
+          if (seen.has(m.id)) return false;
+          seen.add(m.id);
+          return true;
+        }) as AttendeeRow[];
+    } else {
+      const { data: members } = await supabase
+        .from("members")
+        .select("id, first_name, last_name, status")
+        .in("status", ACTIVE_MEMBER_STATUSES)
+        .order("last_name")
+        .order("first_name");
+      blankList = (members || []) as AttendeeRow[];
+    }
   }
 
   const meetingDate = new Date(meeting.meeting_date);
@@ -249,7 +271,7 @@ export async function GET(
   // Doc header + meta (rodomas tik pirmame puslapyje)
   const docHeader = `
     <div class="doc-label">
-      ${meeting.protocol_number ? `Priedas prie protokolo ${meeting.protocol_number}` : "Priedas prie susirinkimo protokolo"}
+      ${meeting.protocol_number ? `Priedas prie protokolo ${meeting.protocol_number}` : (labels.isCouncil ? "Priedas prie posėdžio protokolo" : "Priedas prie susirinkimo protokolo")}
     </div>
     <div class="header">
       <h1>${COMMUNITY_LEGAL.name.toUpperCase()}</h1>
@@ -257,14 +279,14 @@ export async function GET(
       <div class="subtitle">Buveinė: ${COMMUNITY_LEGAL.address}</div>
     </div>
 
-    <h2>Susirinkimo dalyvių sąrašas</h2>
+    <h2>${labels.isCouncil ? "Posėdžio dalyvių sąrašas" : "Susirinkimo dalyvių sąrašas"}</h2>
     <div class="meta">
       <div class="line"><strong>${meeting.title}</strong></div>
       <div class="line">${dateStr}, ${timeStr} val.</div>
       <div class="line">${meeting.location}</div>
       ${effectiveMode === "signed" ? `
       <div class="quorum-info ${hasQuorum ? "has" : "no"}">
-        Bendras narių skaičius: <strong>${meeting.total_members_at_time}</strong> ·
+        ${labels.totalLabel}: <strong>${meeting.total_members_at_time}</strong> ·
         Dalyvavo iš viso: <strong>${totalActual}</strong>
         (${liveAttendees.length} gyvai${remoteVoters.length > 0 ? `, ${remoteVoters.length} nuotoliu` : ""}${writtenVoters.length > 0 ? `, ${writtenVoters.length} raštu` : ""}) ·
         Kvorumui reikia: <strong>${meeting.quorum_required}</strong> ·
@@ -272,7 +294,7 @@ export async function GET(
       </div>
       ` : `
       <div class="quorum-info">
-        Bendras narių skaičius: <strong>${meeting.total_members_at_time}</strong> ·
+        ${labels.totalLabel}: <strong>${meeting.total_members_at_time}</strong> ·
         Kvorumui reikia: <strong>${meeting.quorum_required}</strong>${meeting.is_repeat ? " (pakartotinis – kvorumas neribojamas)" : ""}
       </div>
       `}

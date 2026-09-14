@@ -1,6 +1,10 @@
-import { getMeeting, getMeetingAttendance } from "@/actions/meetings";
+import {
+  getMeeting,
+  getMeetingAttendance,
+  getEligibleAttendees,
+  getQuorumSuggestion,
+} from "@/actions/meetings";
 import { getResolutions } from "@/actions/voting";
-import { getMembers } from "@/actions/members";
 import { getDocuments } from "@/actions/documents";
 import { getVotingTokensStats } from "@/actions/tokens";
 import { getMeetingAnnouncements } from "@/actions/announcements";
@@ -8,7 +12,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import { MEETING_STATUS_LABELS, MEETING_TYPE_LABELS } from "@/lib/constants";
-import { formatDateLong } from "@/lib/utils";
+import { formatDateLong, formatTime } from "@/lib/utils";
 import { Calendar, MapPin, Users, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { MeetingControls } from "./MeetingControls";
@@ -18,7 +22,8 @@ import { AddResolutionForm } from "./AddResolutionForm";
 import { RemoteVotingPanel } from "./RemoteVotingPanel";
 import { MeetingDocumentsPanel } from "./MeetingDocumentsPanel";
 import { AnnouncementsPanel } from "./AnnouncementsPanel";
-import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
+import { MeetingEndTimeEditor } from "./MeetingEndTimeEditor";
+import { isCouncilMeeting } from "@/lib/quorum";
 
 async function getCommunityChairpersonName(): Promise<string | null> {
   const supabase = createServerSupabaseClient();
@@ -52,9 +57,11 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
   const meeting = await getMeeting(params.id);
   const resolutions = await getResolutions(params.id);
   const attendance = await getMeetingAttendance(params.id);
-  // Visi balso teisę turintys nariai – įsk. garbės narius, kad admin galėtų
-  // registruoti jų dalyvavimą gyvai ir įskaityti į kvorumą (migr. 042)
-  const allMembers = await getMembers(undefined, ACTIVE_MEMBER_STATUSES);
+  // Kas gali būti registruojamas – PRIKLAUSO NUO POSĖDŽIO TIPO:
+  // Tarybos posėdyje tik dabartiniai Tarybos nariai, kituose – visi balso
+  // teisę turintys nariai (įsk. garbės narius, migr. 042).
+  const eligibleAttendees = await getEligibleAttendees(meeting.meeting_type);
+  const quorumSuggestion = await getQuorumSuggestion(meeting.meeting_type);
   const allDocuments = await getDocuments();
   const tokenStats = await getVotingTokensStats(params.id);
   const communityChairpersonName = await getCommunityChairpersonName();
@@ -82,9 +89,8 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
           <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
             <span className="flex items-center gap-1.5">
               <Calendar className="h-4 w-4" />
-              {formatDateLong(meeting.meeting_date)}
-              {" "}
-              {new Date(meeting.meeting_date).toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vilnius" })}
+              {formatDateLong(meeting.meeting_date)} {formatTime(meeting.meeting_date)}
+              {meeting.ended_at ? `–${formatTime(meeting.ended_at)}` : ""}
             </span>
             {meeting.location && (
               <span className="flex items-center gap-1.5">
@@ -122,6 +128,31 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
         />
       </div>
 
+      {/* Posėdžio pabaigos laikas – iki šiol buvo tik automatinis (statusas
+          → „baigtas"), todėl klaidą tekdavo taisyti per SQL. */}
+      <div className="mb-6">
+        <MeetingEndTimeEditor
+          meetingId={meeting.id}
+          meetingDate={meeting.meeting_date}
+          endedAt={meeting.ended_at}
+        />
+      </div>
+
+      {/* Dalyvių registracija – pilno pločio blokas, nes tai pirmas
+          susirinkimo veiksmas (be dalyvių nėra nei kvorumo, nei protokolo) */}
+      <div className="mb-6">
+        <AttendanceManager
+          meetingId={meeting.id}
+          meetingType={meeting.meeting_type}
+          meetingStatus={meeting.status}
+          attendance={attendance}
+          eligible={eligibleAttendees}
+          totalMembersAtTime={meeting.total_members_at_time}
+          quorumRequired={meeting.quorum_required}
+          suggestion={quorumSuggestion}
+        />
+      </div>
+
       {/* Greitas dokumentų panelis – susirinkimo metu pirmininkui patogu */}
       <MeetingDocumentsPanel resolutions={resolutions} />
 
@@ -150,16 +181,15 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
           />
         </div>
 
-        {/* Attendance sidebar */}
+        {/* Nuotolinio balsavimo sidebar.
+            Tarybos posėdyje nerodom: SMS balsavimo tokenai generuojami VISIEMS
+            balso teisę turintiems nariams, o Tarybos posėdyje sprendžia tik
+            Tarybos nariai (įstatų 5.5 p.) – išsiuntimas būtų ir klaidingas,
+            ir apmokamas 79 SMS. */}
         <div className="space-y-6">
-          <RemoteVotingPanel meetingId={meeting.id} stats={tokenStats} />
-          <AttendanceManager
-            meetingId={meeting.id}
-            attendance={attendance}
-            allMembers={allMembers}
-            quorumRequired={meeting.quorum_required}
-            meetingStatus={meeting.status}
-          />
+          {!isCouncilMeeting(meeting.meeting_type) && (
+            <RemoteVotingPanel meetingId={meeting.id} stats={tokenStats} />
+          )}
         </div>
       </div>
     </div>
