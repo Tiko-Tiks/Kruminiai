@@ -9,6 +9,7 @@ export const PUBLIC_NAV = [
   { key: "meetings", label: "Susirinkimai", href: "/susirinkimai", requiresAuth: true },
   { key: "documents", label: "Dokumentai", href: "/dokumentai", requiresAuth: true },
   { key: "finance", label: "Finansai", href: "/skaidrumas", requiresAuth: true },
+  { key: "donations", label: "Aukos", href: "/aukos", requiresAuth: true },
   { key: "about", label: "Apie mus", href: "/kontaktai", requiresAuth: false },
 ];
 

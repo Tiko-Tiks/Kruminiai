@@ -23,6 +23,7 @@ export interface Dictionary {
     meetings: string;
     documents: string;
     finance: string;
+    donations: string;
     about: string;
   };
   header: {
@@ -140,6 +141,36 @@ export interface Dictionary {
     expColAmount: string;
     expensesEmpty: string;
     expensesTotalLabel: string;
+  };
+  communityFunds: {
+    pageHeading: string;
+    intro: string;
+    membersOnlyNote: string;
+    summaryCollected: string;
+    summaryCollectedMeta: string;
+    summarySpent: string;
+    summarySpentMeta: string;
+    summaryBalance: string;
+    summaryBalanceMeta: string;
+    projectsTitle: string;
+    internalBadge: string;
+    internalHint: string;
+    projectCollected: string;
+    projectSpent: string;
+    projectBalance: string;
+    ofGoal: string;
+    donationSingular: string;
+    donationPlural: string;
+    viewProject: string;
+    donationsTitle: string;
+    colDate: string;
+    colDonor: string;
+    colProject: string;
+    colAmount: string;
+    anonymousDonor: string;
+    emptyState: string;
+    feesLinkPrefix: string;
+    feesLinkWord: string;
   };
   transparency: {
     pageHeading: string;
@@ -461,6 +492,7 @@ const lt: Dictionary = {
     meetings: "Susirinkimai",
     documents: "Dokumentai",
     finance: "Finansai",
+    donations: "Aukos",
     about: "Apie mus",
   },
   header: {
@@ -594,6 +626,37 @@ const lt: Dictionary = {
     expColAmount: "Suma",
     expensesEmpty: "Išlaidų dar nėra – visos bus skelbiamos čia.",
     expensesTotalLabel: "Iš viso išleista",
+  },
+  communityFunds: {
+    pageHeading: "Bendruomenės lėšos",
+    intro:
+      "Visos bendruomenei skirtos aukos ir jų panaudojimas – viename lape, įskaitant viešuose puslapiuose nerodomą Bendruomenės fondą.",
+    membersOnlyNote: "Šį puslapį mato tik prisijungę bendruomenės nariai.",
+    summaryCollected: "Surinkta iš viso",
+    summaryCollectedMeta: "visos aukos, visi projektai",
+    summarySpent: "Išleista",
+    summarySpentMeta: "užregistruotos projektų išlaidos",
+    summaryBalance: "Likutis",
+    summaryBalanceMeta: "surinkta atėmus išlaidas",
+    projectsTitle: "Lėšos pagal projektą",
+    internalBadge: "Neviešas",
+    internalHint: "Viešuose puslapiuose nerodomas",
+    projectCollected: "Surinkta",
+    projectSpent: "Išleista",
+    projectBalance: "Likutis",
+    ofGoal: "iš {goal} €",
+    donationSingular: "auka",
+    donationPlural: "aukos",
+    viewProject: "Projekto puslapis",
+    donationsTitle: "Visos aukos",
+    colDate: "Data",
+    colDonor: "Aukotojas",
+    colProject: "Projektas",
+    colAmount: "Suma",
+    anonymousDonor: "Anonimas",
+    emptyState: "Aukų dar neužregistruota.",
+    feesLinkPrefix: "Nario mokesčių surinkimas ir finansinės ataskaitos –",
+    feesLinkWord: "Finansai",
   },
   transparency: {
     pageHeading: "Finansai",
@@ -946,6 +1009,7 @@ const en: Dictionary = {
     meetings: "Meetings",
     documents: "Documents",
     finance: "Finances",
+    donations: "Donations",
     about: "About us",
   },
   header: {
@@ -1079,6 +1143,37 @@ const en: Dictionary = {
     expColAmount: "Amount",
     expensesEmpty: "No expenses yet – all of them will be published here.",
     expensesTotalLabel: "Total spent",
+  },
+  communityFunds: {
+    pageHeading: "Community funds",
+    intro:
+      "Every donation to the community and how it has been spent – on one page, including the Community Fund that is not shown publicly.",
+    membersOnlyNote: "This page is visible to signed-in community members only.",
+    summaryCollected: "Total collected",
+    summaryCollectedMeta: "all donations, all projects",
+    summarySpent: "Spent",
+    summarySpentMeta: "recorded project expenses",
+    summaryBalance: "Balance",
+    summaryBalanceMeta: "collected minus expenses",
+    projectsTitle: "Funds by project",
+    internalBadge: "Internal",
+    internalHint: "Not shown on public pages",
+    projectCollected: "Collected",
+    projectSpent: "Spent",
+    projectBalance: "Balance",
+    ofGoal: "of {goal} €",
+    donationSingular: "donation",
+    donationPlural: "donations",
+    viewProject: "Project page",
+    donationsTitle: "All donations",
+    colDate: "Date",
+    colDonor: "Donor",
+    colProject: "Project",
+    colAmount: "Amount",
+    anonymousDonor: "Anonymous",
+    emptyState: "No donations recorded yet.",
+    feesLinkPrefix: "Membership fee collection and financial reports –",
+    feesLinkWord: "Finances",
   },
   transparency: {
     pageHeading: "Finances",
