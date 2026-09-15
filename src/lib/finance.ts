@@ -132,6 +132,20 @@ export interface FeeMonthSummary {
 }
 
 /**
+ * Nario mokesčiai, susumuoti PER VISĄ banko išrašo laikotarpį. Leidžia nariams
+ * rodomą sutikrinimą skaičiuoti tiksliai, neatskleidžiant atskirų datų:
+ * mėnesio tikslumo pjūvis mokėjimą, atėjusį po išrašo pabaigos tą patį mėnesį,
+ * įskaičiuotų ir parodytų netikrą skirtumą.
+ */
+export interface FeeStatementSummary {
+  statement_id: string;
+  payment_count: number;
+  total_cents: number;
+  cash_cents: number;
+  transfer_cents: number;
+}
+
+/**
  * Nario mokesčiai dienos tikslumu. Nariams tokio pjūvio NEDUODAM – kartu su
  * suma ir data jis leistų atsekti konkretų žmogų. Admin'ui jis prieinamas
  * (RLS jam atveria `payments`) ir būtinas sutikrinimui: skirtumas be datos
@@ -574,8 +588,10 @@ export interface Reconciliation {
 
 export interface ReconciliationInput extends BalanceInput {
   statement: BankStatement | null;
-  /** Admin'o pjūvis dienos tikslumu; jei yra, naudojamas vietoj `feeMonths`. */
+  /** Admin'o pjūvis dienos tikslumu; jei yra, naudojamas pirmiausia. */
   feeDays?: FeeDaySummary[];
+  /** Nario pjūvis pagal išrašą – tikslus, bet be datų. */
+  feeStatements?: FeeStatementSummary[];
 }
 
 /**
@@ -601,15 +617,22 @@ export function reconcile(input: ReconciliationInput): Reconciliation {
   );
   const transfers = input.transfers.filter((t) => inPeriod(t.transfer_date));
 
-  // Turint dienos pjūvį (admin) laikotarpio ribos tikslios; kitu atveju
-  // krentam į mėnesio tikslumą – nariams datos neatskleidžiamos.
+  // Tikslumo eiliškumas: dienos pjūvis (admin) → išrašo pjūvis (nariams,
+  // irgi tikslus) → mėnesio pjūvis (paskutinė išeitis, jei išrašo dar nėra).
+  const statementFees =
+    statement && input.feeStatements
+      ? input.feeStatements.find((f) => f.statement_id === statement.id)
+      : undefined;
+
   const feeRows: { transfer_cents: number }[] = input.feeDays
     ? input.feeDays.filter((d) => inPeriod(d.date))
-    : input.feeMonths.filter((m) => {
-        const startMonth = periodStart ? periodStart.slice(0, 7) : null;
-        const endMonth = periodEnd ? periodEnd.slice(0, 7) : null;
-        return (!startMonth || m.month >= startMonth) && (!endMonth || m.month <= endMonth);
-      });
+    : statementFees
+      ? [statementFees]
+      : input.feeMonths.filter((m) => {
+          const startMonth = periodStart ? periodStart.slice(0, 7) : null;
+          const endMonth = periodEnd ? periodEnd.slice(0, 7) : null;
+          return (!startMonth || m.month >= startMonth) && (!endMonth || m.month <= endMonth);
+        });
 
   const systemIncomeCents =
     sum(donations, (d) => d.amount_cents) +

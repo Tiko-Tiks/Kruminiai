@@ -65,7 +65,14 @@ export default async function FinansaiPage() {
 
   const balances = computeBalances(balanceInput);
   const buckets = buildBuckets({ ...balanceInput, projects: data.projects, locale });
-  const recon = reconcile({ ...balanceInput, statement: data.statements[0] ?? null });
+  // `feeStatements` – tikslios mokesčių sumos išrašo laikotarpiui. Be jų
+  // sutikrinimas skaičiuotų mėnesio tikslumu ir mokėjimas, atėjęs po išrašo
+  // pabaigos, nariui parodytų netikrą neatitikimą.
+  const recon = reconcile({
+    ...balanceInput,
+    statement: data.statements[0] ?? null,
+    feeStatements: data.feeStatements,
+  });
 
   const projectsById = new Map(data.projects.map((p) => [p.id, p]));
 

@@ -326,9 +326,13 @@ CREATE POLICY payments_select_own ON public.payments
 -- grynieji ir pavedimai. Konkrečių narių mokėjimai – asmens duomenys, todėl
 -- RPC jų negrąžina jokia forma.
 --
---   by_period – pagal mokesčio periodą (metai + tipas): „už 2026 m. sumokėjo N"
---   by_month  – pagal FAKTINĘ apmokėjimo datą: reikalinga likučiui skaičiuoti
---               (2023 m. mokestis, sumokėtas 2026-05, yra 2026 m. įplauka)
+--   by_period    – pagal mokesčio periodą (metai + tipas): „už 2026 m. sumokėjo N"
+--   by_month     – pagal FAKTINĘ apmokėjimo datą: reikalinga likučiui skaičiuoti
+--                  (2023 m. mokestis, sumokėtas 2026-05, yra 2026 m. įplauka)
+--   by_statement – tikslios sumos kiekvieno banko išrašo laikotarpiui. Be jo
+--                  nariams rodomas sutikrinimas skaičiuotų mėnesio tikslumu ir
+--                  mokėjimas, atėjęs po išrašo pabaigos tą patį mėnesį, duotų
+--                  netikrą „sistema nesutampa su banku" skirtumą.
 
 CREATE OR REPLACE FUNCTION public.get_community_fee_summary()
 RETURNS JSONB
@@ -377,6 +381,22 @@ BEGIN
         FROM public.payments p
         GROUP BY to_char(p.paid_date, 'YYYY-MM')
       ) s2
+    ), '[]'::jsonb),
+    'by_statement', COALESCE((
+      SELECT jsonb_agg(z)
+      FROM (
+        SELECT jsonb_build_object(
+          'statement_id', bs.id,
+          'payment_count', COUNT(p.id),
+          'total_cents', COALESCE(SUM(p.amount_cents), 0),
+          'cash_cents', COALESCE(SUM(p.amount_cents) FILTER (WHERE p.payment_method = 'grynieji'), 0),
+          'transfer_cents', COALESCE(SUM(p.amount_cents) FILTER (WHERE p.payment_method <> 'grynieji'), 0)
+        ) AS z
+        FROM public.bank_statements bs
+        LEFT JOIN public.payments p
+          ON p.paid_date >= bs.period_start AND p.paid_date <= bs.period_end
+        GROUP BY bs.id
+      ) s3
     ), '[]'::jsonb)
   ) INTO v_result;
 

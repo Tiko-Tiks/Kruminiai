@@ -4,6 +4,7 @@ import type {
   FeeDaySummary,
   FeeMonthSummary,
   FeePeriodSummary,
+  FeeStatementSummary,
   FinanceDonation,
   FinanceExpense,
   FinanceProject,
@@ -40,6 +41,7 @@ export interface CommunityFinanceData {
   statements: BankStatement[];
   feePeriods: FeePeriodSummary[];
   feeMonths: FeeMonthSummary[];
+  feeStatements: FeeStatementSummary[];
 }
 
 export async function loadCommunityFinance(): Promise<CommunityFinanceData> {
@@ -90,6 +92,7 @@ export async function loadCommunityFinance(): Promise<CommunityFinanceData> {
   const fee = (feeRes.data ?? {}) as {
     by_period?: FeePeriodSummary[];
     by_month?: FeeMonthSummary[];
+    by_statement?: FeeStatementSummary[];
     error?: string;
   };
 
@@ -103,6 +106,7 @@ export async function loadCommunityFinance(): Promise<CommunityFinanceData> {
     statements: (statementsRes.data ?? []) as BankStatement[],
     feePeriods: fee.by_period ?? [],
     feeMonths: fee.by_month ?? [],
+    feeStatements: fee.by_statement ?? [],
   };
 }
 

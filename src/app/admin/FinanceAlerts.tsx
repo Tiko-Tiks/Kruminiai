@@ -32,7 +32,11 @@ export async function FinanceAlerts() {
   };
 
   const balances = computeBalances(balanceInput);
-  const recon = reconcile({ ...balanceInput, statement: data.statements[0] ?? null });
+  const recon = reconcile({
+    ...balanceInput,
+    statement: data.statements[0] ?? null,
+    feeStatements: data.feeStatements,
+  });
   const buckets = buildBuckets({ ...balanceInput, projects: data.projects, locale: "lt" });
 
   const unpaidMembers = (unpaidRes.data ?? []) as {
