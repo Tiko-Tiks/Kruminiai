@@ -18,6 +18,11 @@ import {
 import { toast } from "sonner";
 import { Plus, Trash2, Hammer, Wallet, ImageIcon, X } from "lucide-react";
 import { formatDate, getImagePublicUrl } from "@/lib/utils";
+import {
+  EXPENSE_CATEGORY_LABELS,
+  EXPENSE_PAYMENT_METHOD_LABELS,
+  FUNDING_SOURCE_LABELS,
+} from "@/lib/constants";
 import { compressImage } from "@/lib/image-compress";
 
 interface Project {
@@ -41,11 +46,15 @@ interface ProjectUpdate {
 
 interface ProjectExpense {
   id: string;
-  project_id: string;
+  /** NULL = bendra bendruomenės išlaida (elektra, ARATC, notaras). */
+  project_id: string | null;
   description: string;
   supplier: string | null;
   amount_cents: number;
   expense_date: string;
+  category: string | null;
+  funding_source: string;
+  payment_method: string;
   receipt_ref: string | null;
   note: string | null;
   project?: { slug: string; title: string } | null;
@@ -404,12 +413,53 @@ export function ProgressPanel({
           <CardContent>
             <form onSubmit={handleExpenseSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Select name="project_id" label="Projektas *" options={projectOptions} required />
+                {/* Projektas NEBE privalomas – bendros išlaidos (elektra, ARATC,
+                    notaras) anksčiau neturėjo kur būti įvestos, todėl likdavo
+                    nesuvestos ir likutis nesueidavo. */}
+                <Select
+                  name="project_id"
+                  label="Projektas"
+                  options={projectOptions}
+                  placeholder="— Bendra išlaida (be projekto) —"
+                />
                 <Input
                   name="expense_date"
                   type="date"
                   label="Data *"
                   defaultValue={new Date().toISOString().split("T")[0]}
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Select
+                  name="category"
+                  label="Kategorija *"
+                  options={Object.entries(EXPENSE_CATEGORY_LABELS).map(([value, label]) => ({
+                    value,
+                    label,
+                  }))}
+                  placeholder="Pasirinkite..."
+                  required
+                />
+                <Select
+                  name="funding_source"
+                  label="Iš kokių lėšų *"
+                  options={Object.entries(FUNDING_SOURCE_LABELS).map(([value, label]) => ({
+                    value,
+                    label,
+                  }))}
+                  placeholder="Pasirinkite..."
+                  required
+                />
+                <Select
+                  name="payment_method"
+                  label="Kaip apmokėta *"
+                  options={Object.entries(EXPENSE_PAYMENT_METHOD_LABELS).map(([value, label]) => ({
+                    value,
+                    label,
+                  }))}
+                  defaultValue="bankas"
                   required
                 />
               </div>
@@ -475,14 +525,28 @@ export function ProgressPanel({
                         {x.supplier}
                       </span>
                     )}
-                    {x.project && (
+                    {x.project ? (
                       <span className="text-xs px-2 py-0.5 bg-green-50 text-green-700 rounded-full">
                         {x.project.title}
+                      </span>
+                    ) : (
+                      <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">
+                        Bendra išlaida
                       </span>
                     )}
                   </div>
                   <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500 mt-1">
                     <span>{formatDate(x.expense_date)}</span>
+                    {/* Iš kurios „kišenės" – būtent to trūko iki sutikrinimo */}
+                    <span className="text-green-800 font-medium">
+                      {FUNDING_SOURCE_LABELS[x.funding_source] || x.funding_source}
+                    </span>
+                    <span>{EXPENSE_PAYMENT_METHOD_LABELS[x.payment_method] || x.payment_method}</span>
+                    {x.category ? (
+                      <span>{EXPENSE_CATEGORY_LABELS[x.category] || x.category}</span>
+                    ) : (
+                      <span className="text-amber-700 font-medium">be kategorijos</span>
+                    )}
                     {x.receipt_ref && <span>Nr: {x.receipt_ref}</span>}
                     {x.note && <span className="italic">&bdquo;{x.note}&ldquo;</span>}
                   </div>

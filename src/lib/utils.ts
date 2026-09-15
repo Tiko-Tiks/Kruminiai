@@ -101,6 +101,19 @@ export function formatCurrency(cents: number): string {
   return `${(cents / 100).toFixed(2)} €`;
 }
 
+/**
+ * Pinigai su tūkstančių skirtukais – didelėms sumoms (finansų suvestinėms).
+ * „1386850" → „13 868,50 €" (lt) arba „€13,868.50" (en).
+ *
+ * `formatCurrency` lieka trumpoms sumoms lentelėse, kur grupavimas nereikalingas.
+ */
+export function formatMoney(cents: number, locale: "lt" | "en" = "lt"): string {
+  return new Intl.NumberFormat(locale === "en" ? "en-IE" : "lt-LT", {
+    style: "currency",
+    currency: "EUR",
+  }).format(cents / 100);
+}
+
 export function formatFileSize(bytes: number | null | undefined): string {
   if (!bytes) return "";
   const kb = bytes / 1024;

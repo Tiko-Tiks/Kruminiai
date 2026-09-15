@@ -8,7 +8,7 @@ export const PUBLIC_NAV = [
   { key: "projects", label: "Projektai", href: "/projektai", requiresAuth: false },
   { key: "meetings", label: "Susirinkimai", href: "/susirinkimai", requiresAuth: true },
   { key: "documents", label: "Dokumentai", href: "/dokumentai", requiresAuth: true },
-  { key: "finance", label: "Finansai", href: "/skaidrumas", requiresAuth: true },
+  { key: "finance", label: "Finansai", href: "/finansai", requiresAuth: true },
   { key: "about", label: "Apie mus", href: "/kontaktai", requiresAuth: false },
 ];
 
@@ -120,4 +120,48 @@ export const COMMUNITY_LEGAL = {
   name: "Krūminių kaimo bendruomenė",
   code: "302795244",
   address: "Beržų g. 8, Krūminių k., Varėnos r.",
+};
+
+// Finansų modulis (migr. 044). Admin pusės LT etiketės; nariams rodomos
+// versijos gyvena i18n žodyne (`finance` namespace, LT + EN).
+
+export const EXPENSE_CATEGORY_LABELS: Record<string, string> = {
+  projektas: "Projekto darbai ir medžiagos",
+  komunaliniai: "Komunaliniai mokesčiai",
+  administracija: "Administravimas",
+  renginiai: "Renginiai",
+  kita: "Kita",
+};
+
+// IŠ KOKIŲ lėšų apmokėta. Be šito nesimato, ar elektra apmokėta iš nario
+// mokesčių, ar netyčia iš tikslinių projekto aukų.
+export const FUNDING_SOURCE_LABELS: Record<string, string> = {
+  projekto_lesos: "Projekto lėšos (tikslinės aukos)",
+  bendruomenes_fondas: "Bendruomenės fondas",
+  nario_mokesciai: "Nario mokesčiai",
+  savivaldybes_parama: "Savivaldybės parama",
+  kita: "Kita",
+};
+
+export const EXPENSE_PAYMENT_METHOD_LABELS: Record<string, string> = {
+  bankas: "Iš banko sąskaitos",
+  grynieji: "Grynaisiais (iš kasos)",
+};
+
+export const DONATION_METHOD_LABELS: Record<string, string> = {
+  sepa: "SEPA pavedimas",
+  cash: "Grynaisiais",
+  card: "Kortele",
+  other: "Kita",
+};
+
+export const DONOR_DISPLAY_MODE_LABELS: Record<string, string> = {
+  initials: "Tik inicialai (numatyta)",
+  full: "Pilnas vardas (organizacija arba duotas sutikimas)",
+  anonymous: "Anonimas",
+};
+
+export const CASH_TRANSFER_DIRECTION_LABELS: Record<string, string> = {
+  kasa_i_banka: "Iš kasos į banką",
+  bankas_i_kasa: "Iš banko į kasą",
 };

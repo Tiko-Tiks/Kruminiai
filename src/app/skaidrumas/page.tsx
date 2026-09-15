@@ -1,7 +1,9 @@
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
-import { getDict } from "@/lib/i18n-server";
+import { getDict, getLocale } from "@/lib/i18n-server";
+import { formatDonorName } from "@/lib/donor-name";
+import type { Locale } from "@/lib/i18n";
 import { SkaidrumasTabs } from "./SkaidrumasTabs";
 
 export const dynamic = "force-dynamic";
@@ -17,13 +19,13 @@ interface YearStats {
 
 interface DonationRow {
   id: string;
-  donor_name: string | null;
+  /** Jau užmaskuotas vardas – pilnas `donor_name` į klientą nekeliauja. */
+  donor: string;
   amount_cents: number;
   donated_at: string;
-  is_anonymous: boolean;
 }
 
-async function getFinansaiData() {
+async function getFinansaiData(locale: Locale) {
   const supabase = createServerSupabaseClient();
 
   // Tik finansinių ataskaitų dokumentai – Skaidrumas puslapis sutelktas
@@ -113,7 +115,9 @@ async function getFinansaiData() {
   const { data: donations } = projectRows && projectRows.length > 0
     ? await supabase
         .from("donations")
-        .select("id, project_id, donor_name, amount_cents, donated_at, is_anonymous")
+        .select(
+          "id, project_id, donor_name, donor_first_name, donor_last_name, display_mode, amount_cents, donated_at, is_anonymous"
+        )
         .in("project_id", projectRows.map((p) => p.id))
         .order("donated_at", { ascending: false })
     : { data: [] };
@@ -145,11 +149,20 @@ async function getFinansaiData() {
     0
   );
 
+  // Aukotojų vardai per bendrą kaukę (žr. src/lib/donor-name.ts) – ta pati
+  // taisyklė kaip /projektai/[slug] ir /finansai.
+  const donationRows: DonationRow[] = (donations || []).map((d) => ({
+    id: d.id as string,
+    donor: formatDonorName(d, locale),
+    amount_cents: d.amount_cents as number,
+    donated_at: d.donated_at as string,
+  }));
+
   return {
     ataskaitos: documents || [],
     yearStats,
     totalDebt,
-    donations: (donations || []) as DonationRow[],
+    donations: donationRows,
     totalDonations,
     projects,
   };
@@ -169,7 +182,8 @@ export const metadata = {
 };
 
 export default async function SkaidrumasPage() {
-  const data = await getFinansaiData();
+  const locale = getLocale();
+  const data = await getFinansaiData(locale);
   const t = getDict().transparency;
 
   return (

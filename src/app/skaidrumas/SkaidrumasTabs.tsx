@@ -32,10 +32,10 @@ interface YearStats {
 
 interface DonationRow {
   id: string;
-  donor_name: string | null;
+  /** Vardas jau perleistas per kaukę serveryje (`formatDonorName`). */
+  donor: string;
   amount_cents: number;
   donated_at: string;
-  is_anonymous: boolean;
 }
 
 interface Props {
@@ -312,10 +312,10 @@ export function SkaidrumasTabs({
                       {formatDate(d.donated_at)}
                     </td>
                     <td className="py-3 px-4 text-gray-900">
-                      {d.is_anonymous ? (
-                        <span className="text-gray-500 italic">{t.anonymousDonor}</span>
+                      {d.donor === t.anonymousDonor ? (
+                        <span className="text-gray-500 italic">{d.donor}</span>
                       ) : (
-                        d.donor_name || "—"
+                        d.donor
                       )}
                     </td>
                     <td className="py-3 px-4 text-right font-semibold text-amber-700">

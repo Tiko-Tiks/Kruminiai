@@ -28,6 +28,7 @@
 /susirinkimai/[id]                         Auth + status='aktyvus' – pilna darbotvarkė + dokumentai
 /dokumentai                                Auth required (apsaugotas middleware)
 /skaidrumas                                Auth required
+/finansai                                  Auth required – pilnas bendruomenės finansų vaizdas nariams
 /balsuoti/[token]                          BE auth (SMS magic link, balsavimo flow)
 /deklaracija/[token]                       BE auth (SMS magic link, narystės deklaracija)
 /portalas/*                                Auth required, member rolė
@@ -35,16 +36,17 @@
 /admin/mokesciai/[id]/priminimai           Mokėjimų priminimai (email + SMS)
 /admin/nariai/deklaracija                  Narystės deklaracijos kampanija
 /admin/aukos                               Aukų registravimas pagal banko išrašą
+/admin/finansai/sutikrinimas               Sistemos ir banko išrašo sutikrinimas
 /api/veiklos-planai/[meeting_id]           HTML dokumentas iframe'ui (veiklos planas)
 /api/salinami/[meeting_id]                 HTML dokumentas iframe'ui (kandidatų sąrašas)
 /api/rinkimai/[meeting_id]                 HTML dokumentas iframe'ui (rinkimų pranešimas)
 ```
 
 Middleware: `src/middleware.ts` valdo prieigą. Apsaugoti prefiksai (matcher):
-`/admin`, `/portalas`, `/dokumentai`, `/skaidrumas`, `/susirinkimai`. Logika:
+`/admin`, `/portalas`, `/dokumentai`, `/skaidrumas`, `/finansai`, `/susirinkimai`. Logika:
 neprisijungusį → `/prisijungimas?from=`; prisijungusį, bet **nepatvirtintą**
 (`is_approved=false`) → `signOut()` + `/prisijungimas?error=not_approved`
-(galioja VISIEMS 5 prefiksams); narį, bandantį `/admin` → `/portalas`
+(galioja VISIEMS 6 prefiksams); narį, bandantį `/admin` → `/portalas`
 (vienkryptis – admin'as `/portalas` pasiekia laisvai); `/susirinkimai` – tik
 admin arba `members.status='aktyvus'` narys, kitaip `/portalas?error=members_only`.
 
@@ -71,7 +73,10 @@ admin arba `members.status='aktyvus'` narys, kitaip `/portalas?error=members_onl
 | `fundraising_projects` | Aukų rinkimo projektai (šiuo metu vienas – `lieptas`) |
 | `donations` | Atskiros aukos (anonymous, message, amount_cents, method, donor_name) |
 | `project_updates` | Projekto statybų eigos įrašai (title, body, update_date, photos JSONB – keliai `images` bucket'e) |
-| `project_expenses` | Projekto išlaidos, viešai matomos (description, supplier, amount_cents, expense_date) |
+| `project_expenses` | Išlaidos (projekto ARBA bendros – `project_id` gali būti NULL); `category`, `funding_source`, `payment_method` |
+| `cash_transfers` | Vidiniai pervedimai kasa↔bankas (nei pajamos, nei išlaidos) |
+| `opening_balance` | Pradinis likutis – atskaitos taškas, nuo kurio skaičiuojama |
+| `bank_statements` | Rankiniu būdu suvesti banko išrašai sutikrinimui |
 | `news` | Naujienos (markdown content + slug, is_pinned, is_published, cover_image_path – viršelis `images` bucket'e) |
 | `audit_log` | Visi mutacijos veiksmai |
 
@@ -99,6 +104,8 @@ Naudoti vietoj tiesioginių užklausų į apsaugotas lenteles, ypač viešuose p
 | `get_meeting_plan_data(meeting_id)` | anon | Veiklos plano dokumento iframe'ui (members, payments, debts) |
 | `get_meeting_expulsions_data(meeting_id)` | anon | Šalinamų narių dokumento iframe'ui (kandidatai + bendravimo istorija) |
 | `get_meeting_elections_data(meeting_id)` | anon | Rinkimų pranešimo dokumento iframe'ui (valdymo organai) |
+| `get_community_fee_summary()` | authenticated | Nario mokesčių suvestinė `/finansai` – TIK agregatai, be asmens duomenų |
+| `get_members_without_current_fee(year)` | admin | Admin įspėjimas: aktyvūs nariai be einamųjų metų mokesčio |
 
 ## ARCHITEKTŪRA: Darbotvarkės vienas šaltinis
 
@@ -391,6 +398,80 @@ UI etiketės: `MEMBER_STATUS_LABELS.garbes_narys` (admin), `portalProfile.status
 
 Pirmasis garbės narys: Gintautas Kazimieras Kairys (`language='en'`,
 įrašas sukurtas 2026-09-05).
+## ARCHITEKTŪRA: Bendruomenės finansai (migr. 044)
+
+**Problema, kuri buvo išspręsta:** 2026-09-15 pilnas sutikrinimas su AB Artea
+išrašu (2026-01-01 – 2026-09-15) rado neatitikimų už **529,69 €**. Priežastys
+buvo struktūrinės, ne atsitiktinės:
+
+| Klaida | Kodėl atsirado | Kas pataisyta |
+|---|---|---|
+| Bendros išlaidos (elektra, ARATC, notaras) niekur nerašytos | `project_expenses.project_id` buvo NOT NULL | `project_id` nullable; formoje projektas neprivalomas |
+| Nesimatė, iš kokių lėšų apmokėta | nebuvo tokio lauko | `funding_source` NOT NULL |
+| Kasos likutis „nesueidavo" | nebuvo kur fiksuoti kasa→bankas | `cash_transfers` lentelė |
+| Mokėjimas pažymėtas „grynieji", nors atėjo pavedimu (4 atv.) | formoje `payment_method` turėjo numatytąjį „grynieji" | pasirinkimas privalomas, be numatytojo |
+| Nebuvo su kuo lyginti likučio | išrašas niekur nesaugomas | `bank_statements` + `/admin/finansai/sutikrinimas` |
+
+**Skaičiavimo modelis – kasinis (cash accounting)**, pagal FAKTINĘ operacijos
+datą, viskas viename faile `src/lib/finance.ts`:
+
+```
+likutis = pradinis likutis + aukos + nario mokesčiai − išlaidos
+banke   = pradinis + negrynos pajamos − negrynos išlaidos + kasa→bankas − bankas→kasa
+kasoje  = grynos pajamos − grynos išlaidos − kasa→bankas + bankas→kasa
+```
+
+**SVARBU:** visos operacijos filtruojamos pagal `>= opening_balance.as_of_date`.
+Be šito 2023–2025 m. nario mokesčiai būtų suskaičiuoti du kartus – jie jau
+įskaičiuoti į pradinį likutį. Tikrinta su realiais duomenimis:
+**13 868,50 € = 13 308,50 (banke) + 560,00 (kasoje)**.
+
+**„Kišenės" (buckets)** – iš kurios lėšų grupės apmokėta išlaida, sprendžia
+`funding_source`, NE `project_id`: elektra, apmokėta iš nario mokesčių, neturi
+mažinti liepto aukų likučio. Invariantas: visų kortelių likučių suma == bendra
+suma; jei ne, `/finansai` parodo „Nepaskirstyta" eilutę, o ne tyliai pameta.
+
+**Duomenų srautas:**
+- `src/lib/finance.ts` – domeno logika (likučiai, kišenės, sutikrinimas, CSV)
+- `src/lib/finance-data.ts` – duomenų krovimas (NE server action, kad nevirstų
+  viešu endpoint'u); `loadAdminFeeDays()` – dienos tikslumo pjūvis TIK admin'ui
+- `src/actions/finance.ts` – mutacijos (`requireAdmin` + `logAudit`)
+- `revalidateFinancePaths()` (`src/lib/revalidate.ts`) – **VIENAS ŠALTINIS**;
+  bet kuri aukos / išlaidos / pervedimo / išrašo mutacija turi jį kviesti
+
+**Nario mokesčiai `/finansai` puslapyje – tik suvestinė.** Konkrečių narių
+mokėjimai yra asmens duomenys, todėl `payments` lentelės puslapis neliečia:
+duomenys ateina per `get_community_fee_summary()` (SECURITY DEFINER, grąžina
+tik agregatus pagal metus ir pagal mėnesį). Dienos tikslumo pjūvis
+(`loadAdminFeeDays`) – tik admin sutikrinimo ekrane, nes data + suma kartu
+leistų atsekti konkretų žmogų.
+
+## ARCHITEKTŪRA: Aukotojų vardų kaukė
+
+`src/lib/donor-name.ts` – `formatDonorName(donation, locale)` yra **VIENAS
+ŠALTINIS** visiems puslapiams: `/projektai/[slug]`, `/skaidrumas`, `/finansai`
+ir admin panelė. Niekur kitur `donor_name` į UI tiesiogiai neduodam – kitaip
+vienoje vietoje rodytųsi inicialai, kitoje pilnas vardas.
+
+| `display_mode` | „Vaida Kuncienė" → |
+|---|---|
+| `initials` (**numatytasis**) | `V. K.` |
+| `full` | `Vaida Kuncienė` |
+| `anonymous` | `Anonimas` |
+
+Numatytasis NIEKADA nėra `full` – privatumas pagal nutylėjimą. `full` skirtas
+juridiniams asmenims, institucijoms ir rėmėjams, davusiems aiškų sutikimą
+(`Varėnos rajono savivaldybė`, `Gyventojų parama per VMI`, `Gintautas Kairys`).
+
+**Kaukė uždedama SERVERYJE** – į naršyklę pilnas `donor_name` net nenukeliauja
+(žr. `src/app/finansai/types.ts` – vaizdo modeliuose yra tik `donor: string`).
+
+Istoriškai `donor_name` saugotas nevienodai („Danutė. G", „Vaida Kuncienė",
+„Menčinskų šeima"), todėl migr. 044 pridėjo `donor_first_name`/`donor_last_name`
+ir juos vienkartiniu UPDATE užpildė. Funkcija pirmenybę teikia struktūrizuotam
+vardui, o eilutės parsinimas liko tik kaip fallback'as. Šeimos rodomos kaip
+„M. šeima" (EN – „M. family") – pavardės šaknis irgi yra asmens duomuo.
+
 ## ARCHITEKTŪRA: Dalyvių pavardžių privatumas (GDPR + vote secrecy)
 
 **Vieši susirinkimo archyvai (`/susirinkimai/[id]` ir `/portalas/susirinkimai/[id]`)
@@ -609,6 +690,15 @@ dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
   failo nepavyko rasti (`src/lib/document-status.ts`) – `documents` eilutė ir
   failas yra du atskiri dalykai
 
+### Finansai
+- **Kasinis principas**: operacija skaičiuojama pagal FAKTINĘ datą (`donated_at`,
+  `paid_date`, `expense_date`), ne pagal tai, už kuriuos metus ji yra
+- **`formatMoney(cents, locale)`** didelėms sumoms (13 868,50 €),
+  `formatCurrency(cents)` – lentelėse
+- **Naujai išlaidai** privaloma `category`, `funding_source` ir `payment_method`;
+  projektas – neprivalomas
+- **Naujai aukai** privalomas `display_mode` (numatytasis `initials`)
+
 ### Nuotraukos (images bucket)
 - **Viešas `images` bucket'as**, RLS: skaito visi, rašo/trina tik admin (`is_admin()`)
 - **Keliai pagal paskirtį**: `projektai/...` (Liepto eiga), `news/{slug}-{timestamp}.{ext}` (naujienų viršeliai)
@@ -732,6 +822,7 @@ dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
 | 042 | `042_honorary_full_voting_rights.sql` | **Garbės narys – pilna balso teisė** (pakeista 036–041 prielaida): `public.is_voting_status()` helper'is (`aktyvus`/`pasyvus`/`garbes_narys`), naudojamas abiejuose balsavimo RPC, statuso trigger'yje ir kvorumo skaičiavime; `get_meeting_plan_data` narių skaičius su garbės nariais (skolos – ne); esamų būsimų susirinkimų kvorumas perskaičiuotas |
 | 041 | `041_token_voting_window_and_member_locale.sql` | `cast_votes_with_token` tikrina balsavimo langą (`voting_closed`); `get_voting_token_data` grąžina nario `language` (taip pat prie `already_voted`/`expired`) ir `voting_open`; `on_member_status_change` ima `pg_advisory_xact_lock` – lygiagretūs balso teisės keitimai nebeperrašo kvorumo pasenusia reikšme |
 | 043 | `043_fix_istatai_document_path.sql` | Įstatų `documents.file_path` pataisymas į `__api__/dokumentai/istatai-kkb.pdf` (anksčiau `__api__/istatai-kkb.pdf` vedė į neegzistuojantį route'ą) |
+| 044 | `044_community_finance.sql` | **Bendruomenės finansų modulis** – `project_expenses` (nullable `project_id`, `category`, `funding_source`, `payment_method`), `opening_balance`, `cash_transfers`, `bank_statements`, `donations.display_mode` + `donor_first_name/last_name`; RLS (patvirtinti nariai skaito, admin rašo); `get_community_fee_summary()`, `get_members_without_current_fee(year)` |
 
 DB pakeitimai daromi **per Supabase MCP** (`apply_migration`) IR sinchronizuojami į `supabase/migrations/` lokaliam repo įrašymui.
 
@@ -781,6 +872,10 @@ Naudoja `node scripts/X.mjs` su .env.local skaitymu.
 - **iframe PDF**: Android atveria OS dialogą. Naudoti `PdfViewer` komponentą per react-pdf.
 - **Tiesioginės užklausos į RLS-apsaugotas lenteles iš anon srauto** (`/balsuoti/[token]` ar iframe route'ų) – naudoti SECURITY DEFINER RPC. Žr. „Anonimo RLS apėjimas".
 - **Atskiri `revalidatePath` po meeting/resolution mutacijų** – naudoti `revalidateMeetingPaths(meetingId)`. Žr. „Darbotvarkės vienas šaltinis".
+- **Aukotojo `donor_name` tiesiai į UI** – visada per `formatDonorName()`. Numatytasis režimas – inicialai; `full` tik organizacijoms ir sutikimą davusiems.
+- **Konkrečių narių mokėjimai `/finansai`** – tai asmens duomenys. Puslapis `payments` lentelės neliečia, tik `get_community_fee_summary()` agregatus.
+- **Numatytasis mokėjimo būdas formoje** – būtent dėl jo 4 pavedimai buvo įrašyti kaip grynieji. `payment_method` visur renkamas rankomis.
+- **Išlaidos be `funding_source`** – tada nesimato, iš kurios „kišenės" pinigai, ir projektų likučiai nustoja sueiti.
 
 ## Mokesčių sistema
 

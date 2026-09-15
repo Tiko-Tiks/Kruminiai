@@ -4,6 +4,7 @@ import { Users, Banknote, FileText, Newspaper, AlertTriangle } from "lucide-reac
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
+import { FinanceAlerts } from "./FinanceAlerts";
 
 async function getDashboardData() {
   const supabase = createServerSupabaseClient();
@@ -113,6 +114,10 @@ export default async function AdminDashboard() {
           </Link>
         ))}
       </div>
+
+      {/* Finansų įspėjimai – žr. FinanceAlerts.tsx komentarą, kiekvienas jų
+          atitinka konkrečią 2026-09-15 sutikrinimo metu rastą klaidą. */}
+      <FinanceAlerts />
 
       <Card>
         <div className="px-6 py-4 border-b border-gray-100">

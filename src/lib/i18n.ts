@@ -189,6 +189,100 @@ export interface Dictionary {
     historySectionTitle: string;
     noPayments: string;
   };
+  finance: {
+    pageHeading: string;
+    pageIntro: string;
+    asOfLabel: string;
+    communityHas: string;
+    inBank: string;
+    inCash: string;
+    allocationTitle: string;
+    allocationHint: string;
+    unallocated: string;
+    goalLabel: string;
+    receivedLabel: string;
+    spentLabel: string;
+    remainingLabel: string;
+    stillNeededLabel: string;
+    goalReached: string;
+    overspent: string;
+    showDetails: string;
+    hideDetails: string;
+    feeBudgetTitle: string;
+    feeBudgetDesc: string;
+    openingBalanceLine: string;
+    feesLine: string;
+    memberDonationsLine: string;
+    sponsorDonationsLine: string;
+    internalBadge: string;
+    donationCount: string;
+    expenseCount: string;
+    donationsTitle: string;
+    donationsSubtitle: string;
+    expensesTitle: string;
+    expensesSubtitle: string;
+    colDate: string;
+    colDonor: string;
+    colAmount: string;
+    colProject: string;
+    colMethod: string;
+    colMessage: string;
+    colDescription: string;
+    colSupplier: string;
+    colCategory: string;
+    colFundingSource: string;
+    colReceipt: string;
+    filterProject: string;
+    filterMethod: string;
+    filterCategory: string;
+    filterFundingSource: string;
+    filterFrom: string;
+    filterTo: string;
+    sortLabel: string;
+    sortDateDesc: string;
+    sortDateAsc: string;
+    sortAmountDesc: string;
+    sortAmountAsc: string;
+    optionAll: string;
+    optionGeneral: string;
+    resetFilters: string;
+    noRows: string;
+    rowsShown: string;
+    feesTitle: string;
+    feesSubtitle: string;
+    colYear: string;
+    colFeeType: string;
+    colPayers: string;
+    colCollected: string;
+    colCash: string;
+    colTransfer: string;
+    feesUsedForTitle: string;
+    feesPrivacyNote: string;
+    reconTitle: string;
+    reconSystemBank: string;
+    reconStatementBank: string;
+    reconCash: string;
+    reconDifference: string;
+    reconOk: string;
+    reconWarn: string;
+    reconNoStatement: string;
+    reconPeriod: string;
+    exportTitle: string;
+    exportHint: string;
+    exportDonations: string;
+    exportExpenses: string;
+    exportSummary: string;
+    transfersTitle: string;
+    transfersHint: string;
+    colDirection: string;
+    colNote: string;
+    methods: Record<string, string>;
+    categories: Record<string, string>;
+    fundingSources: Record<string, string>;
+    directions: Record<string, string>;
+    feeTypes: Record<string, string>;
+    expensePaidFrom: Record<string, string>;
+  };
   footer: {
     tagline: string;
     linksHeading: string;
@@ -644,6 +738,133 @@ const lt: Dictionary = {
       "Mokesčius galite sumokėti pavedimu į bendruomenės sąskaitą. Susisiekite su pirmininku dėl rekvizitų.",
     historySectionTitle: "Mokėjimo istorija",
     noPayments: "Mokėjimų dar nėra",
+  },
+  finance: {
+    pageHeading: "Bendruomenės finansai",
+    pageIntro:
+      "Iš kur pinigai atėjo, kam buvo panaudoti ir kiek liko. Ne banko išrašas – suskirstyta pagal projektus ir lėšų šaltinius.",
+    asOfLabel: "Skaičiuojama nuo {date}",
+    communityHas: "Bendruomenė turi",
+    inBank: "banke",
+    inCash: "kasoje",
+    allocationTitle: "Kam lėšos priskirtos",
+    allocationHint:
+      "Kiekvieno projekto tikslinės aukos naudojamos tik tam projektui. Bendros išlaidos dengiamos iš nario mokesčių.",
+    unallocated: "Nepaskirstyta",
+    goalLabel: "Tikslas",
+    receivedLabel: "Gauta",
+    spentLabel: "Išleista",
+    remainingLabel: "Liko projekte",
+    stillNeededLabel: "Dar reikia",
+    goalReached: "Tikslas pasiektas",
+    overspent: "Išlaidos viršija gautas lėšas",
+    showDetails: "Rodyti detaliai",
+    hideDetails: "Suskleisti",
+    feeBudgetTitle: "Nario mokesčių biudžetas",
+    feeBudgetDesc: "Nario ir stojamieji mokesčiai bei bendros bendruomenės išlaidos",
+    openingBalanceLine: "Likutis laikotarpio pradžioje",
+    feesLine: "Nario ir stojamieji mokesčiai",
+    memberDonationsLine: "Bendruomenės narių ir svečių aukos",
+    sponsorDonationsLine: "Rėmėjų ir institucijų parama",
+    internalBadge: "Vidinis",
+    donationCount: "{count} aukų",
+    expenseCount: "{count} išlaidų",
+    donationsTitle: "Aukos",
+    donationsSubtitle: "Aukotojų vardai rodomi inicialais, išskyrus organizacijas ir davusius sutikimą.",
+    expensesTitle: "Išlaidos",
+    expensesSubtitle: "Kiekvienoje eilutėje matyti, iš kokių lėšų išlaida apmokėta.",
+    colDate: "Data",
+    colDonor: "Aukotojas",
+    colAmount: "Suma",
+    colProject: "Projektas",
+    colMethod: "Būdas",
+    colMessage: "Žinutė",
+    colDescription: "Aprašymas",
+    colSupplier: "Tiekėjas",
+    colCategory: "Kategorija",
+    colFundingSource: "Iš kokių lėšų",
+    colReceipt: "Sąskaitos nr.",
+    filterProject: "Projektas",
+    filterMethod: "Būdas",
+    filterCategory: "Kategorija",
+    filterFundingSource: "Lėšų šaltinis",
+    filterFrom: "Nuo",
+    filterTo: "Iki",
+    sortLabel: "Rūšiuoti",
+    sortDateDesc: "Naujausios viršuje",
+    sortDateAsc: "Seniausios viršuje",
+    sortAmountDesc: "Didžiausia suma",
+    sortAmountAsc: "Mažiausia suma",
+    optionAll: "Visi",
+    optionGeneral: "Bendros (be projekto)",
+    resetFilters: "Išvalyti filtrus",
+    noRows: "Pagal pasirinktus filtrus įrašų nėra.",
+    rowsShown: "Rodoma {count} įrašų · {sum}",
+    feesTitle: "Nario mokesčiai",
+    feesSubtitle:
+      "Tik suvestinė pagal metus. Konkrečių narių mokėjimai čia nerodomi – savo mokėjimus matote portalo skiltyje „Finansai“.",
+    colYear: "Metai",
+    colFeeType: "Mokesčio tipas",
+    colPayers: "Sumokėjo narių",
+    colCollected: "Surinkta",
+    colCash: "Grynaisiais",
+    colTransfer: "Pavedimu",
+    feesUsedForTitle: "Kam panaudoti nario mokesčiai",
+    feesPrivacyNote:
+      "Individualūs mokėjimai yra asmens duomenys – juos mato tik administratoriai ir pats narys.",
+    reconTitle: "Sutikrinimas su banku",
+    reconSystemBank: "Sistemos banko likutis",
+    reconStatementBank: "Banko išrašo likutis",
+    reconCash: "Kasos likutis",
+    reconDifference: "Skirtumas",
+    reconOk: "Sistema sutampa su banko išrašu.",
+    reconWarn: "Sistema NEsutampa su banko išrašu – kreipkitės į administratorių.",
+    reconNoStatement: "Banko išrašas dar nesuvestas, todėl palyginti nėra su kuo.",
+    reconPeriod: "Laikotarpis {from} – {to}",
+    exportTitle: "Eksportas",
+    exportHint: "Eksportuojama tai, kas matoma po filtrų (CSV, tinka Excel'iui).",
+    exportDonations: "Aukos (CSV)",
+    exportExpenses: "Išlaidos (CSV)",
+    exportSummary: "Suvestinė pagal projektus (CSV)",
+    transfersTitle: "Pervedimai tarp kasos ir banko",
+    transfersHint:
+      "Nei pajamos, nei išlaidos – tik pinigų judėjimas. Be šių įrašų kasos likutis būtų neteisingas.",
+    colDirection: "Kryptis",
+    colNote: "Pastaba",
+    methods: {
+      sepa: "Pavedimas",
+      cash: "Grynaisiais",
+      card: "Kortele",
+      other: "Kita",
+    },
+    categories: {
+      projektas: "Projekto darbai ir medžiagos",
+      komunaliniai: "Komunaliniai mokesčiai",
+      administracija: "Administravimas",
+      renginiai: "Renginiai",
+      kita: "Kita",
+    },
+    fundingSources: {
+      projekto_lesos: "Projekto lėšos",
+      bendruomenes_fondas: "Bendruomenės fondas",
+      nario_mokesciai: "Nario mokesčiai",
+      savivaldybes_parama: "Savivaldybės parama",
+      kita: "Kita",
+    },
+    directions: {
+      kasa_i_banka: "Iš kasos į banką",
+      bankas_i_kasa: "Iš banko į kasą",
+    },
+    feeTypes: {
+      metinis: "Metinis mokestis",
+      tikslinis: "Tikslinis įnašas",
+      vienkartinis: "Stojamasis / vienkartinis",
+      kita: "Kita",
+    },
+    expensePaidFrom: {
+      bankas: "Iš sąskaitos",
+      grynieji: "Grynaisiais",
+    },
   },
   footer: {
     tagline: "Kartu kuriame savo kaimą. Geresnę ateitį mūsų bendruomenei ir žmonėms.",
@@ -1129,6 +1350,133 @@ const en: Dictionary = {
       "You can pay your fees by bank transfer to the community account. Contact the chairperson for the payment details.",
     historySectionTitle: "Payment history",
     noPayments: "No payments yet",
+  },
+  finance: {
+    pageHeading: "Community finances",
+    pageIntro:
+      "Where the money came from, what it was spent on and what is left. Not a bank statement – grouped by project and funding source.",
+    asOfLabel: "Calculated from {date}",
+    communityHas: "The community holds",
+    inBank: "in the bank",
+    inCash: "in cash",
+    allocationTitle: "How the funds are allocated",
+    allocationHint:
+      "Donations earmarked for a project are only used for that project. Shared costs are covered from membership fees.",
+    unallocated: "Unallocated",
+    goalLabel: "Goal",
+    receivedLabel: "Received",
+    spentLabel: "Spent",
+    remainingLabel: "Left in the project",
+    stillNeededLabel: "Still needed",
+    goalReached: "Goal reached",
+    overspent: "Spending exceeds the funds received",
+    showDetails: "Show details",
+    hideDetails: "Collapse",
+    feeBudgetTitle: "Membership fee budget",
+    feeBudgetDesc: "Membership and joining fees, and the community's shared costs",
+    openingBalanceLine: "Balance at the start of the period",
+    feesLine: "Membership and joining fees",
+    memberDonationsLine: "Donations from members and guests",
+    sponsorDonationsLine: "Support from sponsors and institutions",
+    internalBadge: "Internal",
+    donationCount: "{count} donations",
+    expenseCount: "{count} expenses",
+    donationsTitle: "Donations",
+    donationsSubtitle: "Donor names are shown as initials, except organisations and donors who consented.",
+    expensesTitle: "Expenses",
+    expensesSubtitle: "Every row shows which pot of money the expense was paid from.",
+    colDate: "Date",
+    colDonor: "Donor",
+    colAmount: "Amount",
+    colProject: "Project",
+    colMethod: "Method",
+    colMessage: "Message",
+    colDescription: "Description",
+    colSupplier: "Supplier",
+    colCategory: "Category",
+    colFundingSource: "Funding source",
+    colReceipt: "Invoice no.",
+    filterProject: "Project",
+    filterMethod: "Method",
+    filterCategory: "Category",
+    filterFundingSource: "Funding source",
+    filterFrom: "From",
+    filterTo: "To",
+    sortLabel: "Sort",
+    sortDateDesc: "Newest first",
+    sortDateAsc: "Oldest first",
+    sortAmountDesc: "Largest amount",
+    sortAmountAsc: "Smallest amount",
+    optionAll: "All",
+    optionGeneral: "Shared (no project)",
+    resetFilters: "Clear filters",
+    noRows: "No records match the selected filters.",
+    rowsShown: "Showing {count} records · {sum}",
+    feesTitle: "Membership fees",
+    feesSubtitle:
+      "Yearly summary only. Individual members' payments are not shown here – you can see your own under Finances in the portal.",
+    colYear: "Year",
+    colFeeType: "Fee type",
+    colPayers: "Members who paid",
+    colCollected: "Collected",
+    colCash: "Cash",
+    colTransfer: "Bank transfer",
+    feesUsedForTitle: "What the membership fees were used for",
+    feesPrivacyNote:
+      "Individual payments are personal data – only administrators and the member themselves can see them.",
+    reconTitle: "Reconciliation with the bank",
+    reconSystemBank: "Bank balance per the system",
+    reconStatementBank: "Bank balance per the statement",
+    reconCash: "Cash balance",
+    reconDifference: "Difference",
+    reconOk: "The system matches the bank statement.",
+    reconWarn: "The system does NOT match the bank statement – please contact an administrator.",
+    reconNoStatement: "No bank statement has been entered yet, so there is nothing to compare against.",
+    reconPeriod: "Period {from} – {to}",
+    exportTitle: "Export",
+    exportHint: "Exports exactly what the filters currently show (CSV, opens in Excel).",
+    exportDonations: "Donations (CSV)",
+    exportExpenses: "Expenses (CSV)",
+    exportSummary: "Summary by project (CSV)",
+    transfersTitle: "Transfers between the cash box and the bank",
+    transfersHint:
+      "Neither income nor expense – just money moving. Without these records the cash balance would be wrong.",
+    colDirection: "Direction",
+    colNote: "Note",
+    methods: {
+      sepa: "Bank transfer",
+      cash: "Cash",
+      card: "Card",
+      other: "Other",
+    },
+    categories: {
+      projektas: "Project work and materials",
+      komunaliniai: "Utilities",
+      administracija: "Administration",
+      renginiai: "Events",
+      kita: "Other",
+    },
+    fundingSources: {
+      projekto_lesos: "Project funds",
+      bendruomenes_fondas: "Community fund",
+      nario_mokesciai: "Membership fees",
+      savivaldybes_parama: "Municipal support",
+      kita: "Other",
+    },
+    directions: {
+      kasa_i_banka: "Cash box to bank",
+      bankas_i_kasa: "Bank to cash box",
+    },
+    feeTypes: {
+      metinis: "Annual fee",
+      tikslinis: "Earmarked contribution",
+      vienkartinis: "Joining / one-off",
+      kita: "Other",
+    },
+    expensePaidFrom: {
+      bankas: "From the account",
+      grynieji: "Cash",
+    },
   },
   footer: {
     tagline: "Together we build our village. A better future for our community and its people.",

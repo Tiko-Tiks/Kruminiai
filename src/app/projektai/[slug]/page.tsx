@@ -3,6 +3,7 @@ import { generateSepaQrSvg } from "@/lib/sepa-qr";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { formatDate, getImagePublicUrl } from "@/lib/utils";
+import { formatDonorName } from "@/lib/donor-name";
 import { getDict, getLocale } from "@/lib/i18n-server";
 import { Heart, Phone, Mail, Copy, Hammer, Wallet } from "lucide-react";
 import { CopyIbanButton } from "./CopyIbanButton";
@@ -85,7 +86,9 @@ export default async function ProjectPage({ params }: { params: { slug: string }
 
   const { data: donations } = await supabase
     .from("donations")
-    .select("id, donor_name, amount_cents, donated_at, is_anonymous, donor_message")
+    .select(
+      "id, donor_name, donor_first_name, donor_last_name, display_mode, amount_cents, donated_at, is_anonymous, donor_message"
+    )
     .eq("project_id", project.id)
     .order("donated_at", { ascending: false });
 
@@ -516,7 +519,7 @@ export default async function ProjectPage({ params }: { params: { slug: string }
                   <div key={d.id} className="py-3 flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-900">
-                        {d.is_anonymous || !d.donor_name ? t.anonymousDonor : (d.donor_name as string)}
+                        {formatDonorName(d, locale)}
                       </p>
                       {d.donor_message && (
                         <p className="text-sm text-gray-600 italic mt-0.5">
