@@ -35,6 +35,7 @@ export async function middleware(request: NextRequest) {
     isPortalPath ||
     path.startsWith("/dokumentai") ||
     path.startsWith("/skaidrumas") ||
+    path.startsWith("/finansai") ||
     path.startsWith("/susirinkimai");
 
   // Neprisijungę į apsaugotus puslapius – į login
@@ -46,9 +47,10 @@ export async function middleware(request: NextRequest) {
   }
 
   // Prisijungę – tikrinti patvirtinimą (VISIEMS apsaugotiems keliams),
-  // rolę ir nario statusą. is_approved patikra turi dengti ir /dokumentai
-  // bei /skaidrumas – kitaip prisijungęs, bet nepatvirtintas vartotojas
-  // juos pasiektų (rolės/statuso nukreipimai žemiau lieka specifiniai keliui).
+  // rolę ir nario statusą. is_approved patikra turi dengti ir /dokumentai,
+  // /skaidrumas bei /finansai – kitaip prisijungęs, bet nepatvirtintas
+  // vartotojas juos pasiektų (rolės/statuso nukreipimai žemiau lieka
+  // specifiniai keliui).
   const isMeetingsPath = path.startsWith("/susirinkimai");
   if (user && requiresAuth) {
     const { data: profile } = await supabase
@@ -98,6 +100,7 @@ export const config = {
     "/portalas/:path*",
     "/dokumentai/:path*",
     "/skaidrumas/:path*",
+    "/finansai/:path*",
     "/susirinkimai/:path*",
   ],
 };

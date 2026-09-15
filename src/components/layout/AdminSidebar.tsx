@@ -15,6 +15,7 @@ import {
   Vote,
   Bell,
   Heart,
+  Scale,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SITE_NAME } from "@/lib/constants";
@@ -31,6 +32,7 @@ const icons = {
   Vote,
   Bell,
   Heart,
+  Scale,
 };
 
 const navItems = [
@@ -41,6 +43,7 @@ const navItems = [
   { label: "Naujienos", href: "/admin/naujienos", icon: "Newspaper" },
   { label: "Susirinkimai", href: "/admin/susirinkimai", icon: "Vote" },
   { label: "Aukos", href: "/admin/aukos", icon: "Heart" },
+  { label: "Sutikrinimas", href: "/admin/finansai/sutikrinimas", icon: "Scale" },
   { label: "Pranešimai", href: "/admin/pranesimai", icon: "Bell" },
   { label: "Vartotojai", href: "/admin/vartotojai", icon: "UserCheck" },
 ] as const;

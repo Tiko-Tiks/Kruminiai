@@ -30,7 +30,10 @@ export default function NewPaymentPage() {
   // Visi kritiniai laukai – controlled state'e, nesvarbu kaip FormData elgsis
   const [memberId, setMemberId] = useState("");
   const [feePeriodId, setFeePeriodId] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("grynieji");
+  // TUŠČIAS tyčia: numatytasis „grynieji" buvo tyli klaida – 2026 m.
+  // sutikrinimo metu 4 pavedimai sistemoje buvo pažymėti grynaisiais vien
+  // todėl, kad laukelio niekas nepalietė. Dabar admin'as turi pasirinkti.
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [amountEur, setAmountEur] = useState("");
 
   // Įkraunam nariams sąrašą vieną kartą
@@ -144,6 +147,12 @@ export default function NewPaymentPage() {
     if (!feePeriodId) clientErrors.fee_period_id = ["Pasirinkite laikotarpį"];
     if (!amountValue || amountValue <= 0) clientErrors.amount_cents = ["Suma privaloma"];
     if (!paidDate) clientErrors.paid_date = ["Data privaloma"];
+    if (!paymentMethod) clientErrors.payment_method = ["Pasirinkite mokėjimo būdą"];
+    // Pavedimo data turi būti įskaitymo diena iš banko išrašo. Ateities data
+    // reikštų, kad įvesta „šiandien" vietoj išrašo datos.
+    if (paymentMethod === "pavedimas" && paidDate > new Date().toISOString().split("T")[0]) {
+      clientErrors.paid_date = ["Pavedimo data negali būti ateityje – imkite ją iš banko išrašo"];
+    }
 
     if (Object.keys(clientErrors).length > 0) {
       setErrors(clientErrors);
@@ -271,9 +280,15 @@ export default function NewPaymentPage() {
                   <Input
                     id="paid_date"
                     name="paid_date"
-                    label="Mokėjimo data *"
+                    label={
+                      paymentMethod === "pavedimas"
+                        ? "Įskaitymo data iš banko išrašo *"
+                        : "Mokėjimo data *"
+                    }
                     type="date"
+                    max={new Date().toISOString().split("T")[0]}
                     defaultValue={new Date().toISOString().split("T")[0]}
+                    error={errors.paid_date?.[0]}
                     required
                   />
                 </div>
@@ -281,7 +296,8 @@ export default function NewPaymentPage() {
                   <Select
                     id="payment_method"
                     name="payment_method"
-                    label="Mokėjimo būdas"
+                    label="Mokėjimo būdas *"
+                    placeholder="Pasirinkite..."
                     options={[
                       { value: "grynieji", label: "Grynieji" },
                       { value: "pavedimas", label: "Pavedimas" },
@@ -289,13 +305,26 @@ export default function NewPaymentPage() {
                     ]}
                     value={paymentMethod}
                     onChange={(e) => setPaymentMethod(e.target.value)}
+                    error={errors.payment_method?.[0]}
+                    required
                   />
                   <Input
                     id="receipt_number"
                     name="receipt_number"
-                    label="Kvito numeris"
+                    label={
+                      paymentMethod === "pavedimas"
+                        ? "Banko pavedimo nr. / išrašo eilutė"
+                        : "Kvito numeris"
+                    }
                   />
                 </div>
+
+                {paymentMethod === "pavedimas" && (
+                  <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    Pavedimui data imama <strong>iš banko išrašo</strong> (įskaitymo diena), ne
+                    šiandienos. Taip sistemos ir banko likučiai sutampa diena į dieną.
+                  </p>
+                )}
                 <Textarea id="notes" name="notes" label="Pastabos" />
 
                 {errors._form && (

@@ -64,7 +64,7 @@ const sections: NavSection[] = [
       { labelKey: "navMeetings", href: "/portalas/susirinkimai", icon: CalendarDays },
       { labelKey: "navProjects", href: "/projektai", icon: Heart },
       { labelKey: "navDocuments", href: "/portalas/dokumentai", icon: FileText },
-      { labelKey: "navFinances", href: "/skaidrumas", icon: TrendingUp },
+      { labelKey: "navFinances", href: "/finansai", icon: TrendingUp },
       { labelKey: "navAboutUs", href: "/kontaktai", icon: Info },
     ],
   },

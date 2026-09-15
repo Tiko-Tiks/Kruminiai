@@ -57,3 +57,19 @@ export function revalidateProjectPaths() {
   revalidatePath("/skaidrumas");
   revalidatePath("/");
 }
+
+/**
+ * Bendruomenės finansų vaizdai. Bet kuri auka / išlaida / pervedimas / banko
+ * išrašas / pradinio likučio mutacija keičia likutį, todėl turi bust'inti
+ * VISUS puslapius, kurie tą likutį rodo.
+ *
+ * SINGLE SOURCE OF TRUTH – kaip ir `revalidateMeetingPaths`. Aukos ir išlaidos
+ * matomos ir viešuose projektų puslapiuose, todėl čia įtraukiam ir juos.
+ */
+export function revalidateFinancePaths() {
+  revalidatePath("/finansai");
+  revalidatePath("/admin/finansai");
+  revalidatePath("/admin/finansai/sutikrinimas");
+  revalidatePath("/admin");
+  revalidateProjectPaths();
+}

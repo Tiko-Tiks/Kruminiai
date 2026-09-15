@@ -3,7 +3,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { requireAdmin } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
-import { revalidateProjectPaths } from "@/lib/revalidate";
+import { revalidateFinancePaths, revalidateProjectPaths } from "@/lib/revalidate";
 import { z } from "zod";
 
 // UUID nestriktas regex'as (žr. payments.ts paaiškinimą)
@@ -260,14 +260,35 @@ export async function deleteProjectUpdate(id: string) {
 // Projekto išlaidos (project_expenses)
 // ============================================================================
 
+// Migr. 044 pamokos iš 2026-09-15 sutikrinimo:
+//   * projektas NEBE privalomas – elektra, ARATC ir notaras yra bendruomenės,
+//     o ne projekto išlaidos, ir dėl NOT NULL anksčiau likdavo neįvestos;
+//   * kategorija ir lėšų šaltinis PRIVALOMI – be jų nesimato, iš kurios
+//     „kišenės" pinigai paimti;
+//   * apmokėjimo būdas PRIVALOMAS – nuo jo priklauso banko/kasos likučiai.
 const expenseSchema = z.object({
-  project_id: z.string().regex(LOOSE_UUID, "Pasirinkite projektą"),
+  project_id: z
+    .string()
+    .regex(LOOSE_UUID, "Neteisingas projekto ID")
+    .optional()
+    .or(z.literal("")),
   description: z.string().min(1, "Paskirtis privaloma"),
+  description_en: z.string().optional().or(z.literal("")),
   supplier: z.string().optional().or(z.literal("")),
   amount_cents: z.coerce.number().int().min(1, "Suma privalo būti didesnė už 0"),
   expense_date: z.string().min(1, "Data privaloma"),
+  category: z.enum(["projektas", "komunaliniai", "administracija", "renginiai", "kita"]),
+  funding_source: z.enum([
+    "projekto_lesos",
+    "bendruomenes_fondas",
+    "nario_mokesciai",
+    "savivaldybes_parama",
+    "kita",
+  ]),
+  payment_method: z.enum(["bankas", "grynieji"]),
   receipt_ref: z.string().optional().or(z.literal("")),
   note: z.string().optional().or(z.literal("")),
+  note_en: z.string().optional().or(z.literal("")),
 });
 
 export async function addProjectExpense(formData: FormData) {
@@ -280,14 +301,29 @@ export async function addProjectExpense(formData: FormData) {
   const parsed = expenseSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
 
+  // „Projekto lėšos" be projekto neturi prasmės – tai būtų išlaida, nurodanti
+  // į neegzistuojančią kišenę, ir likutis nustotų sueiti.
+  if (!parsed.data.project_id && parsed.data.funding_source === "projekto_lesos") {
+    return {
+      error: {
+        funding_source: ["Be projekto lėšų šaltinis negali būti „Projekto lėšos“"],
+      },
+    };
+  }
+
   const values = {
-    project_id: parsed.data.project_id,
+    project_id: parsed.data.project_id || null,
     description: parsed.data.description,
+    description_en: parsed.data.description_en || null,
     supplier: parsed.data.supplier || null,
     amount_cents: parsed.data.amount_cents,
     expense_date: parsed.data.expense_date,
+    category: parsed.data.category,
+    funding_source: parsed.data.funding_source,
+    payment_method: parsed.data.payment_method,
     receipt_ref: parsed.data.receipt_ref || null,
     note: parsed.data.note || null,
+    note_en: parsed.data.note_en || null,
     created_by: user?.id ?? null,
   };
 
@@ -307,7 +343,7 @@ export async function addProjectExpense(formData: FormData) {
     newData: values as Record<string, unknown>,
   });
 
-  revalidateProjectPaths();
+  revalidateFinancePaths();
   return { success: true as const, id: data.id };
 }
 
@@ -334,6 +370,6 @@ export async function deleteProjectExpense(id: string) {
     oldData: oldData as Record<string, unknown>,
   });
 
-  revalidateProjectPaths();
+  revalidateFinancePaths();
   return { success: true as const };
 }

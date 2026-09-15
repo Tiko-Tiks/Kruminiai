@@ -12,6 +12,8 @@ import { addDonation, deleteDonation } from "@/actions/donations";
 import { toast } from "sonner";
 import { Plus, Trash2, ExternalLink, Heart } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { formatDonorName, looksLikeOrganisation } from "@/lib/donor-name";
+import { DONATION_METHOD_LABELS, DONOR_DISPLAY_MODE_LABELS } from "@/lib/constants";
 
 interface Project {
   id: string;
@@ -25,6 +27,9 @@ interface Donation {
   id: string;
   project_id: string;
   donor_name: string | null;
+  donor_first_name: string | null;
+  donor_last_name: string | null;
+  display_mode: string | null;
   amount_cents: number;
   method: string;
   donated_at: string;
@@ -35,12 +40,7 @@ interface Donation {
   project?: { slug: string; title: string } | null;
 }
 
-const METHOD_LABELS: Record<string, string> = {
-  sepa: "SEPA pavedimas",
-  cash: "Grynaisiais",
-  card: "Kortele",
-  other: "Kita",
-};
+const METHOD_LABELS = DONATION_METHOD_LABELS;
 
 export function DonationsPanel({
   projects,
@@ -52,6 +52,30 @@ export function DonationsPanel({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [showForm, setShowForm] = useState(false);
+
+  // Gyva peržiūra: admin'as iškart mato, ką pamatys nariai ir lankytojai.
+  // Be jos „inicialai pagal nutylėjimą" liktų nematoma taisyklė.
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [orgName, setOrgName] = useState("");
+  const [displayMode, setDisplayMode] = useState("initials");
+
+  const previewName = formatDonorName({
+    donor_name: orgName || [firstName, lastName].filter(Boolean).join(" "),
+    donor_first_name: orgName ? null : firstName,
+    donor_last_name: orgName ? null : lastName,
+    display_mode: displayMode,
+  });
+
+  // Organizacijoms inicialai beprasmiai – pasiūlom perjungti į pilną vardą
+  const suggestFullMode = displayMode === "initials" && looksLikeOrganisation(orgName);
+
+  function resetNameFields() {
+    setFirstName("");
+    setLastName("");
+    setOrgName("");
+    setDisplayMode("initials");
+  }
 
   const totals = new Map<string, { count: number; sum: number }>();
   for (const d of donations) {
@@ -84,6 +108,7 @@ export function DonationsPanel({
       }
       toast.success("Auka pridėta");
       form.reset();
+      resetNameFields();
       setShowForm(false);
       router.refresh();
     });
@@ -188,11 +213,22 @@ export function DonationsPanel({
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Input
-                  name="donor_name"
-                  label="Aukotojo vardas"
-                  placeholder="Vardas Pavardė arba palikit tuščią"
+                  name="donor_first_name"
+                  label="Vardas"
+                  placeholder="pvz. Vaida"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  disabled={Boolean(orgName)}
+                />
+                <Input
+                  name="donor_last_name"
+                  label="Pavardė"
+                  placeholder="pvz. Kuncienė"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  disabled={Boolean(orgName)}
                 />
                 <Input
                   name="amount_eur"
@@ -202,6 +238,37 @@ export function DonationsPanel({
                   placeholder="pvz. 20.00"
                   required
                 />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  name="donor_name"
+                  label="Arba pavadinimas (organizacija, šeima)"
+                  placeholder='pvz. „Varėnos rajono savivaldybė" arba „Norkūnų šeima"'
+                  value={orgName}
+                  onChange={(e) => setOrgName(e.target.value)}
+                />
+                <Select
+                  name="display_mode"
+                  label="Kaip rodyti viešai *"
+                  options={Object.entries(DONOR_DISPLAY_MODE_LABELS).map(([value, label]) => ({
+                    value,
+                    label,
+                  }))}
+                  value={displayMode}
+                  onChange={(e) => setDisplayMode(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="rounded-lg bg-gray-50 border border-gray-200 px-3 py-2 text-sm">
+                <span className="text-gray-500">Viešai bus rodoma: </span>
+                <span className="font-semibold text-gray-900">{previewName}</span>
+                {suggestFullMode && (
+                  <p className="text-xs text-amber-700 mt-1">
+                    Panašu į organizaciją – jai tinkamesnis „Pilnas vardas“.
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -232,11 +299,6 @@ export function DonationsPanel({
                 placeholder='pvz. „Liepto QR parduotuvėje" arba „Bank išrašas 2026-05-06"'
               />
 
-              <label className="flex items-center gap-2 text-sm text-gray-700">
-                <input type="checkbox" name="is_anonymous" className="rounded border-gray-300" />
-                Aukotojas norėjo likti anoniminis (vardas viešai nebus rodomas)
-              </label>
-
               <div className="pt-2">
                 <Button type="submit" loading={pending}>
                   Pridėti auką
@@ -265,8 +327,12 @@ export function DonationsPanel({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-medium text-gray-900 text-sm">
-                      {d.is_anonymous || !d.donor_name ? "Anonimas" : d.donor_name}
+                      {d.donor_name || "Anonimas"}
                     </p>
+                    {/* Ką iš tikrųjų mato nariai ir lankytojai */}
+                    <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full">
+                      viešai: {formatDonorName(d)}
+                    </span>
                     <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full">
                       {METHOD_LABELS[d.method] || d.method}
                     </span>
