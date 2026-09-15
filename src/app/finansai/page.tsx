@@ -79,12 +79,16 @@ export default async function FinansaiPage() {
   // ---------------------------------------------------------------------------
   // Vaizdo modeliai. Aukotojų vardai per kaukę uždedami ČIA, serveryje – į
   // naršyklę pilnas `donor_name` net nenukeliauja (žr. src/lib/donor-name.ts).
+  //
+  // Auditorija – `members`: šis puslapis yra už middleware, jį mato tik
+  // prisijungę PATVIRTINTI nariai, todėl rodom vardą ir pavardės raidę
+  // („Vaida K."). Viešuose projektų puslapiuose lieka tik inicialai.
   // ---------------------------------------------------------------------------
 
   const donationRows: DonationRow[] = data.donations.map((d) => ({
     id: d.id,
     date: d.donated_at,
-    donor: formatDonorName(d, locale),
+    donor: formatDonorName(d, locale, "members"),
     amountCents: d.amount_cents,
     projectId: d.project_id,
     projectTitle: projectTitle(projectsById.get(d.project_id ?? ""), locale),
@@ -227,7 +231,7 @@ function toBucketView(bucket: FinanceBucket, t: FinanceDict, locale: "lt" | "en"
     incomeLines: bucket.incomeLines.map((line) => {
       const donation = donationById.get(line.key);
       const label = donation
-        ? formatDonorName(donation, locale)
+        ? formatDonorName(donation, locale, "members")
         : line.kind === "opening"
           ? t.openingBalanceLine
           : line.kind === "fee"

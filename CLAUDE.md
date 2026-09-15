@@ -467,15 +467,30 @@ leistų atsekti konkretų žmogų.
 ir admin panelė. Niekur kitur `donor_name` į UI tiesiogiai neduodam – kitaip
 vienoje vietoje rodytųsi inicialai, kitoje pilnas vardas.
 
-| `display_mode` | „Vaida Kuncienė" → |
-|---|---|
-| `initials` (**numatytasis**) | `V. K.` |
-| `full` | `Vaida Kuncienė` |
-| `anonymous` | `Anonimas` |
+Kaukė turi DU parametrus: `display_mode` (kas įrašyta DB) ir **auditoriją**
+(`DonorAudience`) – kam rodoma:
 
-Numatytasis NIEKADA nėra `full` – privatumas pagal nutylėjimą. `full` skirtas
-juridiniams asmenims, institucijoms ir rėmėjams, davusiems aiškų sutikimą
-(`Varėnos rajono savivaldybė`, `Gyventojų parama per VMI`, `Gintautas Kairys`).
+| `display_mode` | viešai (`public`) | nariams (`members`) |
+|---|---|---|
+| `initials` (**numatytasis**) | `V. K.` | `Vaida K.` |
+| `full` | `Vaida Kuncienė` | `Vaida Kuncienė` |
+| `anonymous` | `Anonimas` | `Anonimas` |
+
+**Pavardė slepiama VISADA** (išskyrus `full`); skiriasi tik tai, ar rodomas
+pilnas vardas. Šeimos abiem atvejais lieka `M. šeima` – ten vienintelis vardo
+dėmuo yra pavardė.
+
+**Auditorija pagal puslapį:**
+- `public` (**numatytoji**) – `/projektai/[slug]`, `/lieptas`: atvira visam
+  internetui, todėl vardas neatidengiamas
+- `members` – `/finansai`, `/skaidrumas`: už middleware, mato tik prisijungę
+  **patvirtinti** nariai, t. y. tie patys žmonės, kurie vieni kitus pažįsta
+
+Numatytoji auditorija yra griežtesnioji: pamiršus parametrą gaunami inicialai,
+ne atvirkščiai. Numatytasis režimas NIEKADA nėra `full` – privatumas pagal
+nutylėjimą. `full` skirtas juridiniams asmenims, institucijoms ir rėmėjams,
+davusiems aiškų sutikimą (`Varėnos rajono savivaldybė`,
+`Gyventojų parama per VMI`, `Gintautas Kairys`).
 
 **Kaukė uždedama SERVERYJE** – į naršyklę pilnas `donor_name` net nenukeliauja
 (žr. `src/app/finansai/types.ts` – vaizdo modeliuose yra tik `donor: string`).
@@ -886,7 +901,7 @@ Naudoja `node scripts/X.mjs` su .env.local skaitymu.
 - **iframe PDF**: Android atveria OS dialogą. Naudoti `PdfViewer` komponentą per react-pdf.
 - **Tiesioginės užklausos į RLS-apsaugotas lenteles iš anon srauto** (`/balsuoti/[token]` ar iframe route'ų) – naudoti SECURITY DEFINER RPC. Žr. „Anonimo RLS apėjimas".
 - **Atskiri `revalidatePath` po meeting/resolution mutacijų** – naudoti `revalidateMeetingPaths(meetingId)`. Žr. „Darbotvarkės vienas šaltinis".
-- **Aukotojo `donor_name` tiesiai į UI** – visada per `formatDonorName()`. Numatytasis režimas – inicialai; `full` tik organizacijoms ir sutikimą davusiems.
+- **Aukotojo `donor_name` tiesiai į UI** – visada per `formatDonorName()`. Numatytasis režimas – inicialai; `full` tik organizacijoms ir sutikimą davusiems. Auditorijos parametras (`public`/`members`) – pagal puslapį; viešuose NIEKADA `members`.
 - **Konkrečių narių mokėjimai `/finansai`** – tai asmens duomenys. Puslapis `payments` lentelės neliečia, tik `get_community_fee_summary()` agregatus.
 - **Numatytasis mokėjimo būdas formoje** – būtent dėl jo 4 pavedimai buvo įrašyti kaip grynieji. `payment_method` visur renkamas rankomis.
 - **Išlaidos be `funding_source`** – tada nesimato, iš kurios „kišenės" pinigai, ir projektų likučiai nustoja sueiti.

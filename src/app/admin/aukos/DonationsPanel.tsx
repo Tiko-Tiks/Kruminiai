@@ -61,12 +61,16 @@ export function DonationsPanel({
   const [orgName, setOrgName] = useState("");
   const [displayMode, setDisplayMode] = useState("initials");
 
-  const previewName = formatDonorName({
+  const previewInput = {
     donor_name: orgName || [firstName, lastName].filter(Boolean).join(" "),
     donor_first_name: orgName ? null : firstName,
     donor_last_name: orgName ? null : lastName,
     display_mode: displayMode,
-  });
+  };
+  // Dvi auditorijos – vieši projektų puslapiai ir nariams skirti (/finansai,
+  // /skaidrumas). Admin'as turi matyti abu, kad nekiltų netikėtumų.
+  const previewPublic = formatDonorName(previewInput, "lt", "public");
+  const previewMembers = formatDonorName(previewInput, "lt", "members");
 
   // Organizacijoms inicialai beprasmiai – pasiūlom perjungti į pilną vardą
   const suggestFullMode = displayMode === "initials" && looksLikeOrganisation(orgName);
@@ -278,11 +282,17 @@ export function DonationsPanel({
                 />
               </div>
 
-              <div className="rounded-lg bg-gray-50 border border-gray-200 px-3 py-2 text-sm">
-                <span className="text-gray-500">Viešai bus rodoma: </span>
-                <span className="font-semibold text-gray-900">{previewName}</span>
+              <div className="rounded-lg bg-gray-50 border border-gray-200 px-3 py-2 text-sm space-y-0.5">
+                <p>
+                  <span className="text-gray-500">Viešuose puslapiuose: </span>
+                  <span className="font-semibold text-gray-900">{previewPublic}</span>
+                </p>
+                <p>
+                  <span className="text-gray-500">Nariams (/finansai): </span>
+                  <span className="font-semibold text-gray-900">{previewMembers}</span>
+                </p>
                 {suggestFullMode && (
-                  <p className="text-xs text-amber-700 mt-1">
+                  <p className="text-xs text-amber-700 pt-1">
                     Panašu į organizaciją – jai tinkamesnis „Pilnas vardas“.
                   </p>
                 )}
@@ -346,9 +356,12 @@ export function DonationsPanel({
                     <p className="font-medium text-gray-900 text-sm">
                       {d.donor_name || "Anonimas"}
                     </p>
-                    {/* Ką iš tikrųjų mato nariai ir lankytojai */}
+                    {/* Ką iš tikrųjų mato lankytojai ir ką – nariai */}
                     <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full">
-                      viešai: {formatDonorName(d)}
+                      viešai: {formatDonorName(d, "lt", "public")}
+                    </span>
+                    <span className="text-xs px-2 py-0.5 bg-green-50 text-green-700 rounded-full">
+                      nariams: {formatDonorName(d, "lt", "members")}
                     </span>
                     <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full">
                       {METHOD_LABELS[d.method] || d.method}

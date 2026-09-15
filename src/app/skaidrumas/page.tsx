@@ -149,11 +149,11 @@ async function getFinansaiData(locale: Locale) {
     0
   );
 
-  // Aukotojų vardai per bendrą kaukę (žr. src/lib/donor-name.ts) – ta pati
-  // taisyklė kaip /projektai/[slug] ir /finansai.
+  // Aukotojų vardai per bendrą kaukę (žr. src/lib/donor-name.ts). Auditorija –
+  // `members`: puslapis už middleware, jį mato tik patvirtinti nariai.
   const donationRows: DonationRow[] = (donations || []).map((d) => ({
     id: d.id as string,
-    donor: formatDonorName(d, locale),
+    donor: formatDonorName(d, locale, "members"),
     amount_cents: d.amount_cents as number,
     donated_at: d.donated_at as string,
   }));

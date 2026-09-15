@@ -155,8 +155,10 @@ export const DONATION_METHOD_LABELS: Record<string, string> = {
   other: "Kita",
 };
 
+// `initials` rodomas skirtingai pagal auditoriją (žr. src/lib/donor-name.ts):
+// viešai „V. K.", nariams „Vaida K.".
 export const DONOR_DISPLAY_MODE_LABELS: Record<string, string> = {
-  initials: "Tik inicialai (numatyta)",
+  initials: "Slepiama pavardė (numatyta)",
   full: "Pilnas vardas (organizacija arba duotas sutikimas)",
   anonymous: "Anonimas",
 };
