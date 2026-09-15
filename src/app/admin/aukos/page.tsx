@@ -14,7 +14,7 @@ export default async function AukosPage() {
 
   const { data: projects } = await supabase
     .from("fundraising_projects")
-    .select("id, slug, title, goal_cents, is_active")
+    .select("id, slug, title, goal_cents, is_active, is_public")
     .order("title");
 
   const { data: donations } = await supabase

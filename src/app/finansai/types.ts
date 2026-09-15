@@ -27,6 +27,8 @@ export interface BucketView {
   subtitle: string | null;
   goalCents: number;
   isPublic: boolean;
+  /** Bendra, nepaskirstyta kišenė (nario mokesčiai + parama be projekto). */
+  isGeneralPot: boolean;
   receivedCents: number;
   spentCents: number;
   remainingCents: number;

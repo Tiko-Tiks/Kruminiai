@@ -208,8 +208,8 @@ export interface Dictionary {
     overspent: string;
     showDetails: string;
     hideDetails: string;
-    feeBudgetTitle: string;
-    feeBudgetDesc: string;
+    generalPotDesc: string;
+    internalHint: string;
     openingBalanceLine: string;
     feesLine: string;
     memberDonationsLine: string;
@@ -760,8 +760,9 @@ const lt: Dictionary = {
     overspent: "Išlaidos viršija gautas lėšas",
     showDetails: "Rodyti detaliai",
     hideDetails: "Suskleisti",
-    feeBudgetTitle: "Nario mokesčių biudžetas",
-    feeBudgetDesc: "Nario ir stojamieji mokesčiai bei bendros bendruomenės išlaidos",
+    generalPotDesc:
+      "Nario ir stojamieji mokesčiai, nepaskirstyta parama ir likutis laikotarpio pradžioje. Iš šių lėšų dengiamos bendros bendruomenės išlaidos.",
+    internalHint: "Vidinė lėšų grupė – atskiro viešo puslapio neturi.",
     openingBalanceLine: "Likutis laikotarpio pradžioje",
     feesLine: "Nario ir stojamieji mokesčiai",
     memberDonationsLine: "Bendruomenės narių ir svečių aukos",
@@ -1372,8 +1373,9 @@ const en: Dictionary = {
     overspent: "Spending exceeds the funds received",
     showDetails: "Show details",
     hideDetails: "Collapse",
-    feeBudgetTitle: "Membership fee budget",
-    feeBudgetDesc: "Membership and joining fees, and the community's shared costs",
+    generalPotDesc:
+      "Membership and joining fees, unallocated support and the balance at the start of the period. Shared community costs are covered from these funds.",
+    internalHint: "Internal pot of funds – it has no separate public page.",
     openingBalanceLine: "Balance at the start of the period",
     feesLine: "Membership and joining fees",
     memberDonationsLine: "Donations from members and guests",

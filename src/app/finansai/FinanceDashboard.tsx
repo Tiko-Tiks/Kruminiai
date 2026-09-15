@@ -615,7 +615,10 @@ function BucketCard({
       <div className="px-5 py-4 border-b border-gray-100 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="font-bold text-gray-900 uppercase tracking-wide text-sm">
-            {bucket.slug ? (
+            {/* Nuoroda TIK viešam projektui: /projektai/[slug] filtruoja
+                `is_public = true`, tad nevieši (pvz. Bendruomenės fondas)
+                ten grąžintų 404. Jų sudėtis matoma išskleidus šią kortelę. */}
+            {bucket.slug && bucket.isPublic ? (
               <Link href={`/projektai/${bucket.slug}`} className="hover:text-green-700">
                 {bucket.title}
               </Link>
@@ -625,7 +628,10 @@ function BucketCard({
           </h3>
           {bucket.subtitle && <p className="text-xs text-gray-500 mt-0.5">{bucket.subtitle}</p>}
           {!bucket.isPublic && bucket.slug && (
-            <span className="inline-block mt-1 text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+            <span
+              className="inline-block mt-1 text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"
+              title={t.internalHint}
+            >
               {t.internalBadge}
             </span>
           )}

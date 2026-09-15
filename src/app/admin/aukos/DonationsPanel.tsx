@@ -21,6 +21,7 @@ interface Project {
   title: string;
   goal_cents: number;
   is_active: boolean;
+  is_public: boolean;
 }
 
 interface Donation {
@@ -142,15 +143,31 @@ export function DonationsPanel({
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div>
                     <h3 className="font-semibold text-gray-900">{p.title}</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">/{p.slug}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {p.is_public ? `/projektai/${p.slug}` : "Vidinis – be viešo puslapio"}
+                    </p>
                   </div>
-                  <Link
-                    href={`/${p.slug}`}
-                    target="_blank"
-                    className="text-xs text-green-700 hover:text-green-800 inline-flex items-center gap-1"
-                  >
-                    Žiūrėti <ExternalLink className="h-3 w-3" />
-                  </Link>
+                  {/* Projekto puslapis yra /projektai/[slug]; šakninis /<slug>
+                      egzistuoja tik liepto istorinei nuorodai. Nevieši projektai
+                      (pvz. Bendruomenės fondas) viešo puslapio apskritai neturi –
+                      jų sudėtį rodo /finansai kortelė. */}
+                  {p.is_public ? (
+                    <Link
+                      href={`/projektai/${p.slug}`}
+                      target="_blank"
+                      className="text-xs text-green-700 hover:text-green-800 inline-flex items-center gap-1"
+                    >
+                      Žiūrėti <ExternalLink className="h-3 w-3" />
+                    </Link>
+                  ) : (
+                    <Link
+                      href="/finansai"
+                      target="_blank"
+                      className="text-xs text-gray-500 hover:text-gray-700 inline-flex items-center gap-1"
+                    >
+                      Finansuose <ExternalLink className="h-3 w-3" />
+                    </Link>
+                  )}
                 </div>
                 <div className="text-2xl font-bold text-green-700">
                   {sumEur.toFixed(0)} €{goalEur > 0 && (
