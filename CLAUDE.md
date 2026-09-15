@@ -431,6 +431,20 @@ Be šito 2023–2025 m. nario mokesčiai būtų suskaičiuoti du kartus – jie 
 mažinti liepto aukų likučio. Invariantas: visų kortelių likučių suma == bendra
 suma; jei ne, `/finansai` parodo „Nepaskirstyta" eilutę, o ne tyliai pameta.
 
+**Bendruomenės fondas = bendra, nepaskirstytų lėšų kišenė.** Į jį krenta VISKAS,
+kas nepriskirta konkrečiam projektui: nario ir stojamieji mokesčiai, pradinis
+likutis, parama be projekto (`donations.project_id IS NULL`) ir išlaidos, kurių
+`funding_source` yra `nario_mokesciai` arba `bendruomenes_fondas`. Atskiro
+„nario mokesčių biudžeto" NEDAROM – tai tie patys laisvi pinigai, o dvi kortelės
+tam pačiam dalykui klaidina (`buildBuckets` → `generalKey`). `FEE_BUDGET_BUCKET`
+lieka tik kaip atsarginis raktas, jei `bendruomenes-fondas` projekto įrašo nebūtų.
+
+**Nevieši projektai neturi viešo puslapio.** `/projektai/[slug]` filtruoja
+`is_public = true`, todėl į `bendruomenes-fondas` nuorodos vesti negalima –
+`/finansai` kortelė rodo nuorodą tik kai `isPublic`, o admin `/admin/aukos`
+tokiems projektams rodo „Finansuose". Šakninis `/<slug>` maršrutas egzistuoja
+TIK liepto istorinei nuorodai – naujiems projektams naudoti `/projektai/<slug>`.
+
 **Duomenų srautas:**
 - `src/lib/finance.ts` – domeno logika (likučiai, kišenės, sutikrinimas, CSV)
 - `src/lib/finance-data.ts` – duomenų krovimas (NE server action, kad nevirstų

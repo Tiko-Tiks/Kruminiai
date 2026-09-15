@@ -288,20 +288,21 @@ export function computeBalances(input: BalanceInput): Balances {
  *
  * Sprendžia `funding_source`, NE `project_id` – būtent to trūko iki šiol:
  * elektra, apmokėta iš nario mokesčių, neturi mažinti liepto aukų likučio.
- * `bendruomenes-fondas` projektas pats yra nepaskirstytų lėšų kišenė.
+ *
+ * `nario_mokesciai` ir `bendruomenes_fondas` krenta į TĄ PAČIĄ bendrą kišenę:
+ * nario mokesčiai, stojamieji ir nepaskirstyta parama yra tie patys laisvi
+ * bendruomenės pinigai, todėl dviejų atskirų „bendrų" kišenių nėra.
  */
-export function expenseBucketKey(
-  expense: FinanceExpense,
-  fundProjectId: string | null
-): string {
-  if (expense.funding_source === "nario_mokesciai") return FEE_BUDGET_BUCKET;
-  if (expense.funding_source === "bendruomenes_fondas") {
-    return fundProjectId ?? FEE_BUDGET_BUCKET;
-  }
-  return expense.project_id ?? FEE_BUDGET_BUCKET;
+export function expenseBucketKey(expense: FinanceExpense, generalKey: string): string {
+  if (expense.funding_source === "nario_mokesciai") return generalKey;
+  if (expense.funding_source === "bendruomenes_fondas") return generalKey;
+  return expense.project_id ?? generalKey;
 }
 
-/** Sintetinės kišenės, neturinčios `fundraising_projects` eilutės. */
+/**
+ * Bendros kišenės atsarginis raktas – naudojamas TIK jei `bendruomenes-fondas`
+ * projekto įraše nėra. Įprastai bendra kišenė yra pats fondas.
+ */
 export const FEE_BUDGET_BUCKET = "__nario_mokesciai__";
 
 export type BucketLineKind = "donation" | "sponsor" | "fee" | "opening" | "expense";
@@ -322,8 +323,13 @@ export interface FinanceBucket {
   titleEn: string | null;
   goalCents: number;
   isPublic: boolean;
-  /** Sintetinė kišenė (nario mokesčių biudžetas) neturi projekto puslapio. */
+  /** Sintetinė kišenė (be `fundraising_projects` eilutės) – neturi puslapio. */
   isSynthetic: boolean;
+  /**
+   * Bendra, nepaskirstyta kišenė: nario ir stojamieji mokesčiai, pradinis
+   * likutis ir parama be konkretaus projekto. Iš jos dengiamos bendros išlaidos.
+   */
+  isGeneralPot: boolean;
   receivedCents: number;
   spentCents: number;
   remainingCents: number;
@@ -358,11 +364,16 @@ export function buildBuckets(input: BucketInput): FinanceBucket[] {
   const expenses = input.expenses.filter((e) => onOrAfter(e.expense_date, from));
   const feeMonths = input.feeMonths.filter((m) => !fromMonth || m.month >= fromMonth);
 
+  // Bendruomenės fondas YRA bendra, nepaskirstytų lėšų kišenė – į jį krenta ir
+  // nario mokesčiai, ir stojamieji, ir pradinis likutis, ir parama be projekto.
+  // Atskiro „nario mokesčių biudžeto" nedarom: tai tie patys laisvi pinigai, o
+  // dvi kortelės tam pačiam dalykui tik klaidina.
   const fundProject = input.projects.find((p) => p.slug === "bendruomenes-fondas") ?? null;
+  const generalKey = fundProject?.id ?? FEE_BUDGET_BUCKET;
 
   const donationsByBucket = new Map<string, FinanceDonation[]>();
   for (const d of donations) {
-    const key = d.project_id ?? FEE_BUDGET_BUCKET;
+    const key = d.project_id ?? generalKey;
     const list = donationsByBucket.get(key) ?? [];
     list.push(d);
     donationsByBucket.set(key, list);
@@ -370,39 +381,21 @@ export function buildBuckets(input: BucketInput): FinanceBucket[] {
 
   const expensesByBucket = new Map<string, FinanceExpense[]>();
   for (const e of expenses) {
-    const key = expenseBucketKey(e, fundProject?.id ?? null);
+    const key = expenseBucketKey(e, generalKey);
     const list = expensesByBucket.get(key) ?? [];
     list.push(e);
     expensesByBucket.set(key, list);
   }
 
-  const buckets: FinanceBucket[] = input.projects.map((project) => {
-    const own = donationsByBucket.get(project.id) ?? [];
-    const spent = expensesByBucket.get(project.id) ?? [];
-    return makeBucket({
-      key: project.id,
-      slug: project.slug,
-      title: project.title,
-      titleEn: project.title_en,
-      goalCents: project.goal_cents,
-      isPublic: project.is_public,
-      isSynthetic: false,
-      donations: own,
-      expenses: spent,
-      extraIncomeLines: [],
-      extraIncomeCents: 0,
-    });
-  });
-
-  // Nario mokesčių biudžetas – ne projektas, bet turi savo pajamas
-  // (mokesčiai + pradinis likutis) ir savo išlaidas.
+  // Pajamos, kurios nėra aukos: pradinis likutis ir nario mokesčiai. Abi
+  // keliauja į bendrą kišenę.
   const feeTotal = sum(feeMonths, (m) => m.total_cents);
   const feeCount = sum(feeMonths, (m) => m.payment_count);
   const openingCents = input.openingBalance?.amount_cents ?? 0;
 
-  const feeLines: BucketLine[] = [];
+  const generalLines: BucketLine[] = [];
   if (openingCents !== 0) {
-    feeLines.push({
+    generalLines.push({
       key: "opening",
       label: "Likutis laikotarpio pradžioje",
       labelEn: "Balance at the start of the period",
@@ -412,7 +405,7 @@ export function buildBuckets(input: BucketInput): FinanceBucket[] {
     });
   }
   if (feeTotal !== 0) {
-    feeLines.push({
+    generalLines.push({
       key: "fees",
       label: "Nario ir stojamieji mokesčiai",
       labelEn: "Membership and joining fees",
@@ -422,21 +415,44 @@ export function buildBuckets(input: BucketInput): FinanceBucket[] {
     });
   }
 
-  buckets.push(
-    makeBucket({
-      key: FEE_BUDGET_BUCKET,
-      slug: null,
-      title: "Nario mokesčių biudžetas",
-      titleEn: "Membership fee budget",
-      goalCents: 0,
-      isPublic: false,
-      isSynthetic: true,
-      donations: donationsByBucket.get(FEE_BUDGET_BUCKET) ?? [],
-      expenses: expensesByBucket.get(FEE_BUDGET_BUCKET) ?? [],
-      extraIncomeLines: feeLines,
-      extraIncomeCents: openingCents + feeTotal,
-    })
-  );
+  const buckets: FinanceBucket[] = input.projects.map((project) => {
+    const isGeneral = project.id === generalKey;
+    return makeBucket({
+      key: project.id,
+      slug: project.slug,
+      title: project.title,
+      titleEn: project.title_en,
+      goalCents: project.goal_cents,
+      isPublic: project.is_public,
+      isSynthetic: false,
+      isGeneralPot: isGeneral,
+      donations: donationsByBucket.get(project.id) ?? [],
+      expenses: expensesByBucket.get(project.id) ?? [],
+      extraIncomeLines: isGeneral ? generalLines : [],
+      extraIncomeCents: isGeneral ? openingCents + feeTotal : 0,
+    });
+  });
+
+  // Atsarginis variantas: jei `bendruomenes-fondas` projekto įrašo nėra,
+  // bendros lėšos vis tiek turi kur nusėsti – kitaip likutis nustotų sueiti.
+  if (!fundProject) {
+    buckets.push(
+      makeBucket({
+        key: FEE_BUDGET_BUCKET,
+        slug: null,
+        title: "Bendruomenės lėšos",
+        titleEn: "Community funds",
+        goalCents: 0,
+        isPublic: false,
+        isSynthetic: true,
+        isGeneralPot: true,
+        donations: donationsByBucket.get(FEE_BUDGET_BUCKET) ?? [],
+        expenses: expensesByBucket.get(FEE_BUDGET_BUCKET) ?? [],
+        extraIncomeLines: generalLines,
+        extraIncomeCents: openingCents + feeTotal,
+      })
+    );
+  }
 
   // Tuščios kortelės (nei pajamų, nei išlaidų) nieko nepasako – nerodom
   return buckets
@@ -452,6 +468,7 @@ function makeBucket(args: {
   goalCents: number;
   isPublic: boolean;
   isSynthetic: boolean;
+  isGeneralPot: boolean;
   donations: FinanceDonation[];
   expenses: FinanceExpense[];
   extraIncomeLines: BucketLine[];
@@ -470,6 +487,7 @@ function makeBucket(args: {
     goalCents: args.goalCents,
     isPublic: args.isPublic,
     isSynthetic: args.isSynthetic,
+    isGeneralPot: args.isGeneralPot,
     receivedCents,
     spentCents,
     remainingCents,

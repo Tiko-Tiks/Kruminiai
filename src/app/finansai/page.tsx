@@ -205,9 +205,7 @@ type FinanceDict = ReturnType<typeof getDict>["finance"];
 
 /** Domeno kortelė → vaizdo modelis: etiketės išverstos, vardai užmaskuoti. */
 function toBucketView(bucket: FinanceBucket, t: FinanceDict, locale: "lt" | "en"): BucketView {
-  const title = bucket.isSynthetic
-    ? t.feeBudgetTitle
-    : (locale === "en" && bucket.titleEn) || bucket.title;
+  const title = (locale === "en" && bucket.titleEn) || bucket.title;
 
   const donationById = new Map(bucket.donations.map((d) => [d.id, d]));
   const expenseById = new Map(bucket.expenses.map((e) => [e.id, e]));
@@ -216,9 +214,12 @@ function toBucketView(bucket: FinanceBucket, t: FinanceDict, locale: "lt" | "en"
     key: bucket.key,
     slug: bucket.slug,
     title,
-    subtitle: bucket.isSynthetic ? t.feeBudgetDesc : null,
+    // Bendrai kišenei paaiškinam, kas joje guli – kitaip nesimato, kad nario
+    // mokesčiai yra būtent čia.
+    subtitle: bucket.isGeneralPot ? t.generalPotDesc : null,
     goalCents: bucket.goalCents,
     isPublic: bucket.isPublic,
+    isGeneralPot: bucket.isGeneralPot,
     receivedCents: bucket.receivedCents,
     spentCents: bucket.spentCents,
     remainingCents: bucket.remainingCents,
