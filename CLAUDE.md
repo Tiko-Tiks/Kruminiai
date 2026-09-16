@@ -743,6 +743,18 @@ dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
   pakeičia seną, `remove_cover` pašalina, kitu atveju neliečiamas. Rodomas
   `/naujienos` sąraše, straipsnio viršuje ir kaip `og:image` (Facebook share)
 
+### Naujienų markdown (`MarkdownContent.tsx`)
+- **`prose` klasių NENAUDOTI**: `@tailwindcss/typography` projekte NĖRA
+  (`tailwind.config.ts` → `plugins: []`), todėl `prose prose-gray` negeneruoja
+  jokio CSS. Stiliai surašyti ranka per `ReactMarkdown` `components` prop'ą.
+- **4 tarpai eilutės pradžioje = markdown kodo blokas.** Redaktoriui tai lengva
+  padaryti netyčia (kopijuojant iš Word'o ar el. laiško). Todėl `pre`/`code`
+  turi `whitespace-pre-wrap break-words` – netyčinis atitraukimas lieka
+  skaitomas, o ne išbėga už ekrano (taip nutiko straipsniui
+  `gintauto-kairio-saknys-kruminiuose`, ištaisyta 2026-09-16).
+- **Pastraipos skiriamos TUŠČIA eilute.** Vien `\n` markdown'e yra minkštasis
+  lūžis – eilutės sulimpa į vieną pastraipą.
+
 ### Balsavimai
 - **GSM-7 SMS**: be lt diakritikos, ≤160 simb. (kad telpa į 1 segmentą)
 - **Tokenas**: 16 baitų hex (32 simb.) – per `crypto.randomBytes(16).toString("hex")`
