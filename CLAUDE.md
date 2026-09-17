@@ -743,6 +743,18 @@ dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
   pakeičia seną, `remove_cover` pašalina, kitu atveju neliečiamas. Rodomas
   `/naujienos` sąraše, straipsnio viršuje ir kaip `og:image` (Facebook share)
 
+### Naujienų markdown (`MarkdownContent.tsx`)
+- **`prose` klasių NENAUDOTI**: `@tailwindcss/typography` projekte NĖRA
+  (`tailwind.config.ts` → `plugins: []`), todėl `prose prose-gray` negeneruoja
+  jokio CSS. Stiliai surašyti ranka per `ReactMarkdown` `components` prop'ą.
+- **4 tarpai eilutės pradžioje = markdown kodo blokas.** Redaktoriui tai lengva
+  padaryti netyčia (kopijuojant iš Word'o ar el. laiško). Todėl `pre`/`code`
+  turi `whitespace-pre-wrap break-words` – netyčinis atitraukimas lieka
+  skaitomas, o ne išbėga už ekrano (taip nutiko straipsniui
+  `gintauto-kairio-saknys-kruminiuose`, ištaisyta 2026-09-16).
+- **Pastraipos skiriamos TUŠČIA eilute.** Vien `\n` markdown'e yra minkštasis
+  lūžis – eilutės sulimpa į vieną pastraipą.
+
 ### Balsavimai
 - **GSM-7 SMS**: be lt diakritikos, ≤160 simb. (kad telpa į 1 segmentą)
 - **Tokenas**: 16 baitų hex (32 simb.) – per `crypto.randomBytes(16).toString("hex")`
@@ -852,8 +864,42 @@ dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
 | 041 | `041_token_voting_window_and_member_locale.sql` | `cast_votes_with_token` tikrina balsavimo langą (`voting_closed`); `get_voting_token_data` grąžina nario `language` (taip pat prie `already_voted`/`expired`) ir `voting_open`; `on_member_status_change` ima `pg_advisory_xact_lock` – lygiagretūs balso teisės keitimai nebeperrašo kvorumo pasenusia reikšme |
 | 043 | `043_fix_istatai_document_path.sql` | Įstatų `documents.file_path` pataisymas į `__api__/dokumentai/istatai-kkb.pdf` (anksčiau `__api__/istatai-kkb.pdf` vedė į neegzistuojantį route'ą) |
 | 044 | `044_community_finance.sql` | **Bendruomenės finansų modulis** – `project_expenses` (nullable `project_id`, `category`, `funding_source`, `payment_method`), `opening_balance`, `cash_transfers`, `bank_statements`, `donations.display_mode` + `donor_first_name/last_name`; RLS (patvirtinti nariai skaito, admin rašo); `get_community_fee_summary()`, `get_members_without_current_fee(year)` |
+| 045 | `045_meeting_visibility.sql` | **Susirinkimo matomumas** – `meetings.is_published` (default `TRUE`); RLS: anon ir nariai mato tik paskelbtus, admin – visus; `resolutions` / `resolution_documents` SELECT seka susirinkimą; `get_public_meeting_data` nepaskelbtam grąžina `not_found` (SECURITY DEFINER apeina RLS) |
 
 DB pakeitimai daromi **per Supabase MCP** (`apply_migration`) IR sinchronizuojami į `supabase/migrations/` lokaliam repo įrašymui.
+
+## ARCHITEKTŪRA: Susirinkimo matomumas (migr. 045)
+
+**Problema, kuri buvo išspręsta:** Tarybos posėdis turėjo likti vidinis, bet buvo
+pasiekiamas VIEŠAI. Puslapiai `/susirinkimai` ir `/portalas/*` yra už middleware,
+tačiau **duomenys – ne**: `meetings` RLS anon politika leido `status <> 'atšauktas'`,
+todėl bet kas su viešu anon raktu (jis yra kiekvieno lankytojo naršyklėje) galėjo
+išvardyti visus posėdžius, o `get_public_meeting_data` pagal `meeting_id` grąžindavo
+pilną darbotvarkę su nutarimais.
+
+**Pamoka:** middleware saugo PUSLAPĮ, ne DUOMENIS. Kol lentelė turi anon SELECT
+politiką, o RPC – anon `EXECUTE`, turinys yra viešas, nesvarbu, kad UI jo nerodo.
+
+**Sprendimas – `meetings.is_published`** (default `TRUE`, todėl esamų susirinkimų
+elgsena nepasikeitė). `FALSE` = susirinkimą mato **tik administratorius**:
+
+| Sluoksnis | Kaip užtikrinta |
+|---|---|
+| `meetings` SELECT (anon ir authenticated) | RLS: `status <> 'atšauktas' AND is_published`; admin'ui – `meetings_admin_all` |
+| `resolutions`, `resolution_documents` | RLS `EXISTS` į `meetings` – užklausai galioja `meetings` RLS, todėl paslėpus susirinkimą jo darbotvarkė dingsta savaime |
+| `get_public_meeting_data` | Vėliavėlė tikrinama funkcijos VIDUJE – ji `SECURITY DEFINER`, todėl RLS jos nestabdo. Grąžina `not_found` (ne `forbidden`), kad atsakymas nepatvirtintų, jog toks susirinkimas yra |
+| `/`, `/susirinkimai`, `/portalas/susirinkimai`, `/dokumentai` | Filtro kode NEREIKIA – visi naudoja tas pačias lenteles, RLS nukerta automatiškai |
+
+**Admin UI jungiklio kol kas NĖRA** – vėliavėlė perjungiama SQL'u:
+
+```sql
+UPDATE meetings SET is_published = TRUE WHERE id = '...';   -- paskelbti
+UPDATE meetings SET is_published = FALSE WHERE id = '...';  -- paslėpti
+```
+
+**Taisyklė naujam kodui:** naujas susirinkimų sąrašas ar RPC neturi apeiti šios
+vėliavėlės. `SECURITY DEFINER` funkcijoje – tikrinti `is_published` ranka;
+paprastoje užklausoje RLS padaro tai pats.
 
 ## SMS / Email kintamieji `.env.local`
 
