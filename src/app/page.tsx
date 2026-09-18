@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { donationTotalsByProject, loadDonations } from "@/lib/donations-data";
 import { formatDateLong } from "@/lib/utils";
 import { SITE_NAME, COMMUNITY_LEGAL } from "@/lib/constants";
 import { getDict, getLocale } from "@/lib/i18n-server";
@@ -79,26 +80,18 @@ async function getFundraisingProjects() {
 
   if (!projects || projects.length === 0) return [];
 
-  // Visos aukos vienoje užklausoje – sugrupuojam per project_id
-  const { data: donations } = await supabase
-    .from("donations")
-    .select("project_id, amount_cents")
-    .in(
-      "project_id",
-      projects.map((p) => p.id)
-    );
-
-  const byProject = new Map<string, { total: number; count: number }>();
-  for (const d of donations ?? []) {
-    const cur = byProject.get(d.project_id as string) || { total: 0, count: 0 };
-    cur.total += d.amount_cents as number;
-    cur.count += 1;
-    byProject.set(d.project_id as string, cur);
+  // Aukos – per serverio kroviklį (žr. src/lib/donations-data.ts): `donations`
+  // lentelė anon raktui nebeprieinama, nes joje guli žali aukotojų vardai.
+  // Čia reikia tik agregatų, bet kelias tas pats – vienas šaltinis.
+  const donations = await loadDonations({ projectIds: projects.map((p) => p.id as string) });
+  const byProject = donations.ok ? donationTotalsByProject(donations.rows) : null;
+  if (!donations.ok) {
+    console.error("[/] Nepavyko užkrauti aukų suvestinės:", donations.error);
   }
 
   const locale = getLocale();
   return projects.map((project) => {
-    const agg = byProject.get(project.id as string) || { total: 0, count: 0 };
+    const agg = byProject?.get(project.id as string) ?? null;
     return {
       id: project.id as string,
       title:
@@ -110,8 +103,9 @@ async function getFundraisingProjects() {
       slug: project.slug as string,
       goalCents: project.goal_cents as number,
       acceptsDonations: project.accepts_donations !== false,
-      totalCents: agg.total,
-      donorCount: agg.count,
+      // `null` = sumos nepavyko užkrauti. Nulis čia meluotų („nieko nesurinkta").
+      totalCents: byProject ? (agg?.totalCents ?? 0) : null,
+      donorCount: byProject ? (agg?.donorCount ?? 0) : null,
     };
   });
 }
@@ -123,6 +117,7 @@ export default async function HomePage() {
     getFundraisingProjects(),
   ]);
   const t = getDict().home;
+  const tCommon = getDict().common;
 
   const organizationLd = {
     "@context": "https://schema.org",
@@ -298,35 +293,40 @@ export default async function HomePage() {
                       </p>
                     )}
 
-                    {/* Progresas */}
-                    <div className="space-y-1.5 max-w-xl">
-                      <div className="flex items-baseline justify-between gap-3 text-sm">
-                        <span className="font-semibold text-gray-900">
-                          {(project.totalCents / 100).toFixed(0)} €
-                          {project.goalCents > 0 && (
-                            <span className="text-gray-400 font-normal"> {t.lieptasProgressOf.replace("{goal}", (project.goalCents / 100).toFixed(0))}</span>
-                          )}
-                        </span>
-                        {project.acceptsDonations && (
-                          <span className="text-xs text-gray-500">
-                            {project.donorCount} {project.donorCount === 1 ? t.lieptasDonorSingular : t.lieptasDonorPlural}
+                    {/* Progresas. Nepavykus užkrauti sumų rodom žinutę, o ne
+                        nulius – „0 €" atrodytų kaip tikras rezultatas. */}
+                    {project.totalCents === null ? (
+                      <p className="text-sm text-gray-500">{tCommon.dataUnavailable}</p>
+                    ) : (
+                      <div className="space-y-1.5 max-w-xl">
+                        <div className="flex items-baseline justify-between gap-3 text-sm">
+                          <span className="font-semibold text-gray-900">
+                            {(project.totalCents / 100).toFixed(0)} €
+                            {project.goalCents > 0 && (
+                              <span className="text-gray-400 font-normal"> {t.lieptasProgressOf.replace("{goal}", (project.goalCents / 100).toFixed(0))}</span>
+                            )}
                           </span>
+                          {project.acceptsDonations && project.donorCount !== null && (
+                            <span className="text-xs text-gray-500">
+                              {project.donorCount} {project.donorCount === 1 ? t.lieptasDonorSingular : t.lieptasDonorPlural}
+                            </span>
+                          )}
+                        </div>
+                        {project.goalCents > 0 && (
+                          <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all"
+                              style={{
+                                width: `${Math.min(
+                                  100,
+                                  Math.round((project.totalCents / project.goalCents) * 100)
+                                )}%`,
+                              }}
+                            />
+                          </div>
                         )}
                       </div>
-                      {project.goalCents > 0 && (
-                        <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all"
-                            style={{
-                              width: `${Math.min(
-                                100,
-                                Math.round((project.totalCents / project.goalCents) * 100)
-                              )}%`,
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
                   <div className="flex-shrink-0 self-stretch md:self-center">
                     <span className="inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-semibold group-hover:bg-amber-700 transition-colors whitespace-nowrap">

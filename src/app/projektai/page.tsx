@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { donationTotalsByProject, loadDonations } from "@/lib/donations-data";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { Heart, ArrowRight } from "lucide-react";
@@ -22,8 +23,9 @@ interface ProjectCard {
   title: string;
   short_desc: string | null;
   goal_cents: number;
-  total_cents: number;
-  donor_count: number;
+  /** `null` – aukų suvestinės užkrauti nepavyko (nulis čia meluotų). */
+  total_cents: number | null;
+  donor_count: number | null;
 }
 
 async function getProjects(): Promise<ProjectCard[]> {
@@ -37,33 +39,24 @@ async function getProjects(): Promise<ProjectCard[]> {
 
   if (!projects || projects.length === 0) return [];
 
-  // Visos aukos vienoje užklausoje – sugrupuojam per project_id
-  const { data: donations } = await supabase
-    .from("donations")
-    .select("project_id, amount_cents")
-    .in(
-      "project_id",
-      projects.map((p) => p.id)
-    );
-
-  const byProject = new Map<string, { total: number; count: number }>();
-  for (const d of donations ?? []) {
-    const cur = byProject.get(d.project_id as string) || { total: 0, count: 0 };
-    cur.total += d.amount_cents as number;
-    cur.count += 1;
-    byProject.set(d.project_id as string, cur);
+  // Aukos – per serverio kroviklį (žr. src/lib/donations-data.ts): `donations`
+  // lentelėje guli žali aukotojų vardai, todėl anon raktui ji neprieinama.
+  const donations = await loadDonations({ projectIds: projects.map((p) => p.id as string) });
+  const byProject = donations.ok ? donationTotalsByProject(donations.rows) : null;
+  if (!donations.ok) {
+    console.error("[/projektai] Nepavyko užkrauti aukų suvestinės:", donations.error);
   }
 
   return projects.map((p) => {
-    const agg = byProject.get(p.id as string) || { total: 0, count: 0 };
+    const agg = byProject?.get(p.id as string) ?? null;
     return {
       id: p.id as string,
       slug: p.slug as string,
       title: p.title as string,
       short_desc: (p.short_desc as string) || null,
       goal_cents: p.goal_cents as number,
-      total_cents: agg.total,
-      donor_count: agg.count,
+      total_cents: byProject ? (agg?.totalCents ?? 0) : null,
+      donor_count: byProject ? (agg?.donorCount ?? 0) : null,
     };
   });
 }
@@ -71,6 +64,7 @@ async function getProjects(): Promise<ProjectCard[]> {
 export default async function ProjectsPage() {
   const projects = await getProjects();
   const t = getDict().projects;
+  const tCommon = getDict().common;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -93,9 +87,10 @@ export default async function ProjectsPage() {
           ) : (
             <div className="space-y-5">
               {projects.map((p) => {
+                const totalCents = p.total_cents;
                 const percent =
-                  p.goal_cents > 0
-                    ? Math.min(100, Math.round((p.total_cents / p.goal_cents) * 100))
+                  totalCents !== null && p.goal_cents > 0
+                    ? Math.min(100, Math.round((totalCents / p.goal_cents) * 100))
                     : 0;
                 return (
                   <Link
@@ -121,30 +116,36 @@ export default async function ProjectsPage() {
                             {p.short_desc}
                           </p>
                         )}
-                        <div className="space-y-1.5 max-w-xl">
-                          <div className="flex items-baseline justify-between gap-3 text-sm">
-                            <span className="font-semibold text-gray-900">
-                              {(p.total_cents / 100).toFixed(0)} €
-                              {p.goal_cents > 0 && (
-                                <span className="text-gray-400 font-normal">
-                                  {" "}{t.amountOfGoal.replace("{goal}", (p.goal_cents / 100).toFixed(0))}
+                        {totalCents === null ? (
+                          <p className="text-sm text-gray-500">{tCommon.dataUnavailable}</p>
+                        ) : (
+                          <div className="space-y-1.5 max-w-xl">
+                            <div className="flex items-baseline justify-between gap-3 text-sm">
+                              <span className="font-semibold text-gray-900">
+                                {(totalCents / 100).toFixed(0)} €
+                                {p.goal_cents > 0 && (
+                                  <span className="text-gray-400 font-normal">
+                                    {" "}{t.amountOfGoal.replace("{goal}", (p.goal_cents / 100).toFixed(0))}
+                                  </span>
+                                )}
+                              </span>
+                              {p.donor_count !== null && (
+                                <span className="text-xs text-gray-500">
+                                  {p.donor_count}{" "}
+                                  {p.donor_count === 1 ? t.donorSingular : t.donorPlural}
                                 </span>
                               )}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {p.donor_count}{" "}
-                              {p.donor_count === 1 ? t.donorSingular : t.donorPlural}
-                            </span>
-                          </div>
-                          {p.goal_cents > 0 && (
-                            <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all"
-                                style={{ width: `${percent}%` }}
-                              />
                             </div>
-                          )}
-                        </div>
+                            {p.goal_cents > 0 && (
+                              <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all"
+                                  style={{ width: `${percent}%` }}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="flex-shrink-0 self-stretch md:self-center">
                         <span className="inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-semibold group-hover:bg-amber-700 transition-colors whitespace-nowrap">
