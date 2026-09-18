@@ -150,6 +150,10 @@ BEGIN
         OR EXISTS (SELECT 1 FROM public.community_management cm WHERE cm.member_id = mb.id AND cm.is_current AND cm.role = 'revizorius'))))) THEN
     RAISE EXCEPTION 'Dalyvių sąraše yra asmenų be šio susirinkimo balso teisės; patikrinkite dalyvavimą';
   END IF;
+  IF EXISTS (SELECT 1 FROM public.vote_ballots vb WHERE vb.resolution_id = NEW.id
+      AND NOT EXISTS (SELECT 1 FROM public.meeting_attendance ma WHERE ma.meeting_id = m.id AND ma.member_id = vb.member_id)) THEN
+    RAISE EXCEPTION 'Balsavęs narys neįregistruotas dalyvių sąraše';
+  END IF;
   SELECT count(DISTINCT member_id) INTO participants FROM public.meeting_attendance WHERE meeting_id = m.id;
   IF participants < 1 OR m.total_members_at_time < 1 OR participants > m.total_members_at_time THEN
     RAISE EXCEPTION 'Neteisingas narių arba registruotų dalyvių skaičius';

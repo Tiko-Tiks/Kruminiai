@@ -98,4 +98,8 @@ scenario('DB: netekęs Tarybos pareigų dalyvis nebesuteikia kvorumo kitam spren
   await db.query(`update community_management set is_current=false where member_id=$1`,[uuid(1)]);
   await assert.rejects(finish(4),/balso teisės/);
 });
+scenario('DB: neužregistruoto dalyvio balso negalima paslėpti bendroje sumoje',{members:10,attendees:6},async()=>{
+  await db.query(`insert into vote_ballots(resolution_id,member_id,vote) values($1,$2,'uz')`,[uuid(200),uuid(10)]);
+  await assert.rejects(finish(5,0,0,'patvirtintas',{uz:1,pries:0,susilaike:0}),/neįregistruotas/);
+});
 test.after(async()=>db.close());
