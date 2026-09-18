@@ -16,7 +16,7 @@ Recenzentas – GitHub botas **`chatgpt-codex-connector[bot]`**. Jo signalai:
 
 | Signalas | Reikšmė |
 |---|---|
-| PR komentaras su `<!-- codex-pull-request-review-summary -->` („Codex Review Summary", lentelė *Review / Status / Commit / Review trigger*) | Vienas komentaras, atnaujinamas kas recenziją. `✅ Completed` + trumpas SHA = recenzija baigta **tam** commit'ui |
+| PR komentaras su `<!-- codex-pull-request-review-summary -->` („Codex Review Summary", lentelė *Review / Status / Commit / Review trigger*) | **Pagalbinis** signalas: `✅ Completed` + trumpas SHA rodo, kad recenzija tam commit'ui baigta, bet po rankinio kvietimo komentaras gali likti su senu SHA – rezultatas tikrinamas pagal „Reviewed commit" (žemiau), ne pagal šį komentarą |
 | 👀 reakcija ant kvietimo / PR, summary „Running" | Recenzija **pradėta** – tai ne rezultatas; laukti, bet su suplanuota patikra (4 sk.): pradėta, bet nebaigta recenzija į laiko juostą įeina taip pat, kaip tyla |
 | Codex PR komentaras „Codex Review: Didn't find any major issues" su **Reviewed commit** = head SHA (ir/arba 👍 reakcija) | Baigta **be pastabų** (PR #12: `6e0e6d5`) |
 | Codex PR review „💡 Codex Review" su **Reviewed commit** + inline komentarai (P1/P2/P3 badge'ai) **arba** bendras Codex PR komentaras su pastabomis | Pastabos – kiekviena taisoma; skaityti **abu** kanalus |
@@ -93,8 +93,10 @@ environment" (PR #12). Toks atsakymas nėra pastaba.
    likusios pastabos (nuoroda į giją), kas išbandyta, koks sprendimas reikalingas;
    Mindaugui – trumpa žinutė su tuo pačiu. Tęsti tik jam nusprendus, tada skaitiklis
    tęsiamas (ne nulinamas).
-6. **Baigta** = head SHA turi `✅ Completed` + 👍 be pastabų **IR** CI žalia **IR**
-   nėra konflikto **IR** nėra neišspręstų Codex gijų. Tada: būsenos komentare
+6. **Baigta** = head SHA turi baigtą Codex recenziją **be pastabų** – Codex review
+   arba PR komentaras su „Reviewed commit" = head SHA ir „Didn't find any major
+   issues" (arba 👍 reakcija); summary „Completed" nebūtinas, kaip ir CLAUDE.md
+   2 p. – **IR** CI žalia **IR** nėra konflikto **IR** nėra neišspręstų Codex gijų. Tada: būsenos komentare
    „Paruošta merginti", Mindaugui – viena žinutė. Merginimas – **tik Mindaugas**.
    Jei PR pažymimas „ready for review", Codex padaro dar vieną praėjimą – jo
    pastabos yra dar vienas ratas.
