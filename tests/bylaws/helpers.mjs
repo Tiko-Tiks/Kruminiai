@@ -116,10 +116,12 @@ export function form(values) {
 
 export function votingFixture({ attendees = 10, totalMembers = 10, votes = [], qualified = true } = {}) {
   return {
+    members: Array.from({length:totalMembers},(_,i)=>({id:`attendee-${i}`,status:'aktyvus'})),
+    community_management: [],
     meetings: [{ id: 'meeting', meeting_type: 'visuotinis', status: 'vyksta', total_members_at_time: totalMembers,
       quorum_required: Math.floor(totalMembers / 2) + 1, meeting_date: '2026-01-20T16:00:00Z' }],
     resolutions: [{ id: 'resolution', meeting_id: 'meeting', title: 'Įstatų keitimas', is_procedural: false,
-      requires_qualified_majority: qualified, decision_text: 'Pakeisti įstatus pagal pridėtą projektą.', status: 'balsuojamas' }],
+      requires_qualified_majority: qualified, decision_type:qualified?'statutes':'ordinary', decision_text: 'Pakeisti įstatus pagal pridėtą projektą.', status: 'balsuojamas' }],
     vote_ballots: votes.map((vote, i) => ({ resolution_id: 'resolution', member_id: `voter-${i}`, vote })),
     meeting_attendance: Array.from({ length: attendees }, (_, i) => ({ meeting_id: 'meeting', member_id: `attendee-${i}` })),
     meeting_announcements: [{ meeting_id:'meeting',channel:'web',url:null,published_at:'2026-01-01T16:00:00Z' }],

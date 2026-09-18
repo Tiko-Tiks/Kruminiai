@@ -29,6 +29,7 @@ interface Props {
   meetingId: string;
   meetingDate: string;
   meetingType: string;
+  repeatPolicy?: {repeat_notice_days?:number|null;repeat_notice_reference?:string|null};
   announcements: MeetingAnnouncement[];
 }
 
@@ -59,13 +60,14 @@ export function AnnouncementsPanel({
   meetingId,
   meetingDate,
   meetingType,
+  repeatPolicy,
   announcements,
 }: Props) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(announcements.length === 0);
   const [loading, setLoading] = useState(false);
 
-  const { daysAdvance, compliant, requiredDays } = summarizeAnnouncements(announcements, new Date(meetingDate), meetingType);
+  const { daysAdvance, compliant, requiredDays } = summarizeAnnouncements(announcements, new Date(meetingDate), meetingType, repeatPolicy);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

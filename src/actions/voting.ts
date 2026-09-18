@@ -12,7 +12,7 @@ import { getNutartaText, summarizeAnnouncements } from "@/lib/protocol-text";
 const resolutionSchema = z.object({
   title: z.string().min(1, "Pavadinimas privalomas"),
   description: z.string().optional().or(z.literal("")),
-  requires_qualified_majority: z.string().optional(),
+  decision_type: z.enum(["ordinary", "statutes", "transformation", "liquidation"]),
 });
 
 // Leistinos reikšmės (atitinka DB CHECK constraints) – app-lygio validacija
@@ -92,7 +92,7 @@ async function resolveDecisionText(
 
   const { data: meeting } = await supabase
     .from("meetings")
-    .select("meeting_type, meeting_date, chairperson_name, secretary_name")
+    .select("meeting_type, meeting_date, chairperson_name, secretary_name, repeat_notice_days, repeat_notice_reference")
     .eq("id", resolution.meeting_id)
     .single();
   if (!meeting) return { error: "Susirinkimas nerastas" };
@@ -106,7 +106,8 @@ async function resolveDecisionText(
   const summary = summarizeAnnouncements(
     announcements as Array<{ channel: string; url: string | null; published_at: string }> | null,
     new Date(meeting.meeting_date),
-    meeting.meeting_type
+    meeting.meeting_type,
+    meeting
   );
 
   const generated = getNutartaText(
@@ -157,7 +158,7 @@ export async function createResolution(meetingId: string, formData: FormData) {
   const raw = {
     title: formData.get("title"),
     description: formData.get("description"),
-    requires_qualified_majority: formData.get("requires_qualified_majority"),
+    decision_type: formData.get("decision_type"),
   };
   const parsed = resolutionSchema.safeParse(raw);
   if (!parsed.success) {
@@ -186,7 +187,8 @@ export async function createResolution(meetingId: string, formData: FormData) {
     title: parsed.data.title,
     description: parsed.data.description || null,
     resolution_number: nextNumber,
-    requires_qualified_majority: parsed.data.requires_qualified_majority === "on",
+    decision_type: parsed.data.decision_type,
+    requires_qualified_majority: parsed.data.decision_type !== "ordinary",
     created_by: user?.id ?? null,
   };
 
@@ -256,14 +258,14 @@ export async function createResolution(meetingId: string, formData: FormData) {
 export async function updateResolution(
   id: string,
   meetingId: string,
-  data: { discussion_text?: string; decision_text?: string; title?: string; description?: string }
+  data: { decision_type?: "ordinary" | "statutes" | "transformation" | "liquidation"; discussion_text?: string; decision_text?: string; title?: string; description?: string }
 ) {
   const supabase = createServerSupabaseClient();
   const auth = await requireAdmin(supabase);
   if (auth.error) return { error: auth.error };
   const user = auth.user;
 
-  const parsed = z.object({ discussion_text: z.string().optional(), decision_text: z.string().optional(), title: z.string().min(1).optional(), description: z.string().optional() }).strict().safeParse(data);
+  const parsed = z.object({ decision_type: z.enum(["ordinary", "statutes", "transformation", "liquidation"]).optional(), discussion_text: z.string().optional(), decision_text: z.string().optional(), title: z.string().min(1).optional(), description: z.string().optional() }).strict().safeParse(data);
   if (!parsed.success) return { error: "Neleistini nutarimo laukai" };
   const { data: meeting, error: meetingError } = await supabase.from("meetings").select("status").eq("id", meetingId).single();
   if (meetingError || !meeting) return { error: "Nepavyko patikrinti susirinkimo" };

@@ -58,3 +58,17 @@ export function overdueMoreThanTwelveMonths(dueDate: string | null | undefined, 
   const anniversary = `${y + 1}-${String(m).padStart(2, '0')}-${String(Math.min(d, last)).padStart(2, '0')}`;
   return today > anniversary;
 }
+
+export function terminationEvidenceError(member: {
+  termination_kind?: string | null; termination_reference?: string | null;
+  termination_date?: string | null; expulsion_ground?: string | null; appeal_reference?: string | null;
+}): string | null {
+  if (!['withdrawal','expulsion'].includes(member.termination_kind || '') || !member.termination_reference?.trim() ||
+      !member.termination_date || !/^\d{4}-\d{2}-\d{2}$/.test(member.termination_date) || Number.isNaN(Date.parse(member.termination_date))) {
+    return "Nurodykite narystės pabaigos būdą, raštiško prašymo arba Tarybos sprendimo pagrindą ir taikymo datą.";
+  }
+  if (member.termination_kind === 'expulsion' && (!['3.4.1','3.4.2','3.4.3'].includes(member.expulsion_ground || '') || !member.appeal_reference?.trim())) {
+    return "Pašalinimui būtinas įstatų 3.4 p. pagrindas ir pranešimo apie teisę skųsti įrodymas (3.5 p.).";
+  }
+  return null;
+}

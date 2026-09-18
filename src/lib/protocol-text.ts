@@ -62,10 +62,13 @@ export interface AnnouncementSummary {
 export function summarizeAnnouncements(
   announcements: ProtocolAnnouncement[] | null | undefined,
   meetingDate: Date,
-  meetingType = "visuotinis"
+  meetingType = "visuotinis",
+  repeatPolicy?: { repeat_notice_days?: number | null; repeat_notice_reference?: string | null }
 ): AnnouncementSummary {
   const list = announcements || [];
-  const requiredDays = meetingType === "neeilinis" ? 7 : ["visuotinis", "pakartotinis"].includes(meetingType) ? 14 : null;
+  const repeatDays = repeatPolicy?.repeat_notice_days;
+  const requiredDays = meetingType === "neeilinis" ? 7 : meetingType === "visuotinis" ? 14 :
+    meetingType === "pakartotinis" && Number.isInteger(repeatDays) && repeatDays! >= 0 && repeatPolicy?.repeat_notice_reference?.trim() ? repeatDays! : null;
   const earliestMs = list
     .filter(a => ["web", "facebook", "email", "paper", "rc"].includes(a.channel))
     .map((a) => new Date(a.published_at).getTime())

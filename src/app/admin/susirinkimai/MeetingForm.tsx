@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createMeeting, updateMeeting, getMeetings } from "@/actions/meetings";
+import { createMeeting, updateMeeting, getMeetings, getEligibleAttendees } from "@/actions/meetings";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -21,6 +21,8 @@ interface Props {
 export function MeetingForm({ meeting }: Props) {
   const router = useRouter();
   const [meetingType, setMeetingType] = useState(meeting?.meeting_type || "visuotinis");
+  const [eligibleMembers, setEligibleMembers] = useState<Array<{id:string;first_name:string;last_name:string}>>([]);
+  useEffect(() => { if (meetingType === "neeilinis") getEligibleAttendees("visuotinis").then(setEligibleMembers).catch(() => toast.error("Nepavyko gauti narių sąrašo")); }, [meetingType]);
   const [previousMeetings, setPreviousMeetings] = useState<Meeting[]>([]);
   useEffect(() => { getMeetings().then(setPreviousMeetings).catch(() => toast.error("Nepavyko gauti susirinkimų sąrašo")); }, []);
   const [loading, setLoading] = useState(false);
@@ -103,9 +105,18 @@ export function MeetingForm({ meeting }: Props) {
             <div className="space-y-2">
               <Select name="previous_meeting_id" label="Dėl kvorumo neįvykęs susirinkimas" defaultValue={meeting?.previous_meeting_id || ""} required
                 options={[{ value: "", label: "Pasirinkite" }, ...previousMeetings.filter(m => m.id !== meeting?.id && ["visuotinis", "neeilinis"].includes(m.meeting_type) && m.status === "baigtas").map(m => ({ value: m.id, label: `${m.title} (${m.meeting_date.slice(0, 10)})` }))]} />
+              <Input name="repeat_notice_days" type="number" min={0} step={1} label="Patvirtintas pakartotinio susirinkimo informavimo terminas dienomis" defaultValue={meeting?.repeat_notice_days ?? ""} />
+              <Input name="repeat_notice_reference" label="Informavimo termino tvarkos dokumento nuoroda" defaultValue={meeting?.repeat_notice_reference || ""} />
               <p className="text-sm text-gray-600">Kuriant pakartotinį susirinkimą perkeliama ankstesnė darbotvarkė. Spręsti naujų klausimų pagal kvorumo išimtį negalima.</p>
             </div>
           )}
+          {meetingType === "neeilinis" && <fieldset className="space-y-3 border-t pt-4">
+            <legend className="font-medium">Neeilinio susirinkimo sušaukimo pagrindas</legend>
+            <Select name="convening_kind" label="Kas inicijavo susirinkimą" defaultValue={meeting?.convening_kind || ""} options={[{value:"",label:"Pasirinkite"},{value:"council",label:"Tarybos sprendimas"},{value:"members",label:"Bent 1/5 narių reikalavimas"}]} />
+            <Input name="convening_reference" label="Tarybos sprendimo arba narių pasirašyto reikalavimo nuoroda" defaultValue={meeting?.convening_reference || ""} />
+            <p className="text-sm text-gray-600">Narių reikalavimo atveju pažymėkite jį pasirašiusius narius. Šiam keliui papildomo Tarybos sprendimo nereikia.</p>
+            <div className="max-h-48 overflow-auto space-y-1">{eligibleMembers.map(member => <label key={member.id} className="flex gap-2 text-sm"><input type="checkbox" name="convening_requesters" value={member.id} defaultChecked={meeting?.convening_requesters?.includes(member.id)} />{member.first_name} {member.last_name}</label>)}</div>
+          </fieldset>}
           <Select name="majority_rule" label="Patvirtintoje balsavimo tvarkoje nustatyta paprasta dauguma" defaultValue={meeting?.majority_rule || ""}
             options={[{ value: "", label: "Tvarka dar nenurodyta" }, { value: "for_against", label: "Daugiau už negu prieš" }, { value: "participants", label: "Daugiau nei pusė dalyvaujančių" }]} />
           <Input name="majority_reference" label="Balsavimo tvarkos dokumentas / sprendimo nuoroda" defaultValue={meeting?.majority_reference || ""} />

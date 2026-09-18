@@ -18,10 +18,46 @@ ALTER TABLE public.resolutions
 CREATE INDEX meetings_previous_meeting_idx ON public.meetings(previous_meeting_id) WHERE previous_meeting_id IS NOT NULL;
 CREATE INDEX resolutions_source_resolution_idx ON public.resolutions(source_resolution_id) WHERE source_resolution_id IS NOT NULL;
 
+
+-- Evidence that cannot be inferred from an administrator's status checkbox.
+ALTER TABLE public.members
+  ADD COLUMN termination_kind text CHECK (termination_kind IN ('withdrawal', 'expulsion')),
+  ADD COLUMN termination_reference text,
+  ADD COLUMN termination_date date,
+  ADD COLUMN expulsion_ground text CHECK (expulsion_ground IN ('3.4.1', '3.4.2', '3.4.3')),
+  ADD COLUMN appeal_reference text;
+ALTER TABLE public.meetings
+  ADD COLUMN repeat_notice_days integer CHECK (repeat_notice_days >= 0),
+  ADD COLUMN repeat_notice_reference text,
+  ADD COLUMN convening_kind text CHECK (convening_kind IN ('council', 'members')),
+  ADD COLUMN convening_reference text,
+  ADD COLUMN convening_requesters uuid[],
+  ADD COLUMN chairperson_member_id uuid REFERENCES public.members(id);
+ALTER TABLE public.resolutions ADD COLUMN decision_type text
+  CHECK (decision_type IN ('ordinary', 'statutes', 'transformation', 'liquidation'));
+CREATE INDEX meetings_chairperson_member_idx ON public.meetings(chairperson_member_id) WHERE chairperson_member_id IS NOT NULL;
+
 -- Keep the already stored history; require evidence for new admissions and re-admissions.
 CREATE FUNCTION public.bylaws_admission_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
 BEGIN
+  PERFORM pg_advisory_xact_lock(hashtext('members_voting_eligibility'));
+  IF TG_OP = 'DELETE' THEN
+    IF OLD.status IN ('aktyvus', 'pasyvus', 'garbes_narys') THEN
+      RAISE EXCEPTION 'Pirmiausia dokumentuokite narystės pabaigą; galiojančio nario ištrinti negalima';
+    END IF;
+    RETURN OLD;
+  END IF;
+  IF TG_OP = 'UPDATE' AND OLD.status IN ('aktyvus', 'pasyvus', 'garbes_narys') AND NEW.status = 'išstojęs' THEN
+    IF NEW.termination_kind IS NULL OR nullif(btrim(NEW.termination_reference), '') IS NULL OR NEW.termination_date IS NULL THEN
+      RAISE EXCEPTION 'Būtinas narystės pabaigos būdas, raštiško išstojimo prašymo arba Tarybos sprendimo pagrindas ir taikymo data';
+    END IF;
+    IF NEW.termination_kind = 'expulsion' AND (NEW.expulsion_ground IS NULL OR nullif(btrim(NEW.appeal_reference), '') IS NULL) THEN
+      RAISE EXCEPTION 'Pašalinimui būtinas 3.4 p. pagrindas ir pranešimo apie teisę skųsti įrodymas (3.5 p.)';
+    END IF;
+    INSERT INTO public.audit_log(user_id, action, table_name, record_id, old_data, new_data)
+      VALUES(auth.uid(), 'UPDATE', 'members', OLD.id, to_jsonb(OLD), to_jsonb(NEW));
+  END IF;
   IF TG_OP = 'UPDATE' AND nullif(btrim(OLD.application_reference), '') IS NOT NULL
       AND nullif(btrim(OLD.admission_reference), '') IS NOT NULL AND OLD.admission_date IS NOT NULL
       AND (nullif(btrim(NEW.application_reference), '') IS NULL OR
@@ -37,7 +73,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END; $$;
-CREATE TRIGGER bylaws_admission BEFORE INSERT OR UPDATE ON public.members
+CREATE TRIGGER bylaws_admission BEFORE INSERT OR UPDATE OR DELETE ON public.members
 FOR EACH ROW EXECUTE FUNCTION public.bylaws_admission_guard();
 
 CREATE FUNCTION public.bylaws_fee_guard() RETURNS trigger
@@ -59,6 +95,15 @@ CREATE FUNCTION public.bylaws_meeting_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
 DECLARE expected integer;
 BEGIN
+  PERFORM pg_advisory_xact_lock(hashtext('members_voting_eligibility'));
+  IF TG_OP = 'UPDATE' AND NEW.status = 'baigtas' AND OLD.status <> 'baigtas' THEN
+    SELECT count(DISTINCT mb.id) INTO NEW.total_members_at_time FROM public.members mb
+      WHERE mb.status IN ('aktyvus', 'pasyvus', 'garbes_narys') AND
+        (NEW.meeting_type <> 'valdybos' OR (EXISTS (SELECT 1 FROM public.community_management cm
+          WHERE cm.member_id=mb.id AND cm.is_current AND cm.role IN ('pirmininkas','tarybos_narys'))
+          AND NOT EXISTS (SELECT 1 FROM public.community_management cm WHERE cm.member_id=mb.id AND cm.is_current AND cm.role='revizorius')));
+    NEW.quorum_required := CASE WHEN NEW.meeting_type='pakartotinis' OR NEW.total_members_at_time=0 THEN 0 ELSE NEW.total_members_at_time/2+1 END;
+  END IF;
   IF TG_OP = 'UPDATE' AND NEW.meeting_type IS DISTINCT FROM OLD.meeting_type THEN
     RAISE EXCEPTION 'Susirinkimo tipo keisti negalima; sukurkite naują susirinkimą';
   END IF;
@@ -116,6 +161,17 @@ BEGIN
     IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
     RAISE EXCEPTION 'Susirinkimas nerastas';
   END IF;
+  IF ms = 'baigtas' AND TG_TABLE_NAME = 'meeting_attendance' THEN
+    IF EXISTS (SELECT 1 FROM public.meetings WHERE previous_meeting_id=mid) THEN
+      RAISE EXCEPTION 'Dalyvavimas yra pakartotinio susirinkimo pagrindas; būtinas atskiras istorijos taisymas';
+    END IF;
+    INSERT INTO public.audit_log(user_id, action, table_name, record_id, old_data, new_data)
+      VALUES(auth.uid(), TG_OP, 'meeting_attendance', CASE WHEN TG_OP='DELETE' THEN OLD.id ELSE NEW.id END,
+        CASE WHEN TG_OP='INSERT' THEN NULL ELSE to_jsonb(OLD) END,
+        jsonb_build_object('reason','post_meeting_attendance_correction','row',CASE WHEN TG_OP='DELETE' THEN NULL ELSE to_jsonb(NEW) END));
+    IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+    RETURN NEW;
+  END IF;
   IF ms IN ('baigtas', 'atšauktas') THEN RAISE EXCEPTION 'Susirinkimas uždarytas'; END IF;
   IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
   IF NOT EXISTS (SELECT 1 FROM public.members WHERE id = memberid AND status IN ('aktyvus', 'pasyvus', 'garbes_narys')) THEN
@@ -137,7 +193,7 @@ CREATE FUNCTION public.bylaws_resolution_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
 DECLARE m public.meetings%ROWTYPE; previous public.meetings%ROWTYPE; source public.resolutions%ROWTYPE;
   participants integer; prior_participants integer; live_capacity integer;
-  f integer; a integer; s integer; passed boolean; threshold integer; notice jsonb;
+  f integer; a integer; s integer; passed boolean; threshold integer; notice jsonb; chair_ballot text;
 BEGIN
   PERFORM pg_advisory_xact_lock(hashtext('members_voting_eligibility'));
   -- Preserve both final decisions (including cascading deletion) and the agenda
@@ -157,19 +213,35 @@ BEGIN
     RAISE EXCEPTION 'Uždaryto susirinkimo darbotvarkės keisti negalima';
   END IF;
   IF TG_OP = 'UPDATE' AND OLD.status IN ('patvirtintas', 'atmestas') THEN
-    IF (NEW.status, NEW.meeting_id, NEW.title, NEW.description, NEW.decision_text, NEW.requires_qualified_majority,
-        NEW.result_for, NEW.result_against, NEW.result_abstain, NEW.source_resolution_id, NEW.chair_vote, NEW.participants_at_decision, NEW.decision_basis)
-       IS DISTINCT FROM
-       (OLD.status, OLD.meeting_id, OLD.title, OLD.description, OLD.decision_text, OLD.requires_qualified_majority,
-        OLD.result_for, OLD.result_against, OLD.result_abstain, OLD.source_resolution_id, OLD.chair_vote, OLD.participants_at_decision, OLD.decision_basis) THEN
+    IF (to_jsonb(NEW) - 'updated_at') IS DISTINCT FROM (to_jsonb(OLD) - 'updated_at') THEN
       RAISE EXCEPTION 'Galutinis sprendimas užfiksuotas; reikia atskiro protokolo taisymo';
     END IF;
     RETURN NEW;
   END IF;
+  IF NEW.decision_type IS NOT NULL THEN
+    NEW.requires_qualified_majority := NEW.decision_type IN ('statutes', 'transformation', 'liquidation');
+  END IF;
   IF NEW.status NOT IN ('patvirtintas', 'atmestas') THEN RETURN NEW; END IF;
+  IF NEW.decision_type IS NULL THEN RAISE EXCEPTION 'Pasirinkite sprendimo rūšį; daugumos reikalavimas nustatomas pagal ją'; END IF;
   PERFORM pg_advisory_xact_lock(hashtext('members_voting_eligibility'));
   SELECT * INTO m FROM public.meetings WHERE id = NEW.meeting_id FOR UPDATE;
   IF NOT FOUND OR m.status IN ('baigtas', 'atšauktas') THEN RAISE EXCEPTION 'Susirinkimas nerastas arba uždarytas'; END IF;
+  SELECT count(DISTINCT mb.id) INTO m.total_members_at_time FROM public.members mb
+    WHERE mb.status IN ('aktyvus', 'pasyvus', 'garbes_narys') AND
+      (m.meeting_type <> 'valdybos' OR (EXISTS (SELECT 1 FROM public.community_management cm
+        WHERE cm.member_id=mb.id AND cm.is_current AND cm.role IN ('pirmininkas','tarybos_narys'))
+        AND NOT EXISTS (SELECT 1 FROM public.community_management cm WHERE cm.member_id=mb.id AND cm.is_current AND cm.role='revizorius')));
+  IF m.meeting_type='neeilinis' THEN
+    IF m.convening_kind IS NULL OR nullif(btrim(m.convening_reference),'') IS NULL THEN
+      RAISE EXCEPTION 'Neeiliniam susirinkimui būtinas Tarybos sprendimas arba bent 1/5 narių reikalavimas (4.2 p.)';
+    END IF;
+    IF m.convening_kind='members' AND (
+      (SELECT count(DISTINCT mb.id)*5 FROM public.members mb WHERE mb.id=ANY(m.convening_requesters)
+        AND mb.status IN ('aktyvus','pasyvus','garbes_narys')) < m.total_members_at_time
+      OR m.total_members_at_time < 1) THEN
+      RAISE EXCEPTION 'Reikalavimą turi pagrįsti bent 1/5 narių; patikrinkite pasirašiusius narius';
+    END IF;
+  END IF;
   IF EXISTS (SELECT 1 FROM public.meeting_attendance ma JOIN public.members mb ON mb.id = ma.member_id
     WHERE ma.meeting_id = m.id AND (mb.status NOT IN ('aktyvus', 'pasyvus', 'garbes_narys') OR
       (m.meeting_type = 'valdybos' AND (NOT EXISTS (SELECT 1 FROM public.community_management cm WHERE cm.member_id = mb.id AND cm.is_current AND cm.role IN ('pirmininkas', 'tarybos_narys'))
@@ -194,8 +266,10 @@ BEGIN
     SELECT count(DISTINCT member_id) INTO prior_participants FROM public.meeting_attendance WHERE meeting_id = previous.id;
     IF 2 * prior_participants > previous.total_members_at_time THEN RAISE EXCEPTION 'Ankstesniame susirinkime buvo kvorumas'; END IF;
     SELECT * INTO source FROM public.resolutions WHERE id = NEW.source_resolution_id AND meeting_id = previous.id;
-    IF NOT FOUND OR (NEW.title, coalesce(NEW.description, ''), NEW.requires_qualified_majority)
-        IS DISTINCT FROM (source.title, coalesce(source.description, ''), source.requires_qualified_majority) THEN
+    IF NOT FOUND OR (NEW.title, coalesce(NEW.description, ''))
+        IS DISTINCT FROM (source.title, coalesce(source.description, ''))
+        OR (source.decision_type IS NOT NULL AND NEW.decision_type IS DISTINCT FROM source.decision_type)
+        OR (source.requires_qualified_majority AND NOT NEW.requires_qualified_majority) THEN
       RAISE EXCEPTION 'Pakartotiniame susirinkime leidžiami tik ankstesnės darbotvarkės klausimai (4.6 p.)';
     END IF;
   ELSIF participants * 2 <= m.total_members_at_time THEN
@@ -215,6 +289,11 @@ BEGIN
   SELECT count(*) INTO live_capacity FROM public.meeting_attendance ma
     WHERE ma.meeting_id = m.id AND ma.attendance_type = 'fizinis'
     AND NOT EXISTS (SELECT 1 FROM public.vote_ballots vb WHERE vb.resolution_id = NEW.id AND vb.member_id = ma.member_id);
+  IF NEW.result_for+NEW.result_against+NEW.result_abstain > f+a+s AND EXISTS (
+    SELECT 1 FROM public.vote_ballots vb JOIN public.meeting_attendance ma ON ma.meeting_id=m.id AND ma.member_id=vb.member_id
+      WHERE vb.resolution_id=NEW.id AND (ma.attendance_type='fizinis' OR vb.vote_type='fizinis')) THEN
+    RAISE EXCEPTION 'Negalima maišyti vardinių gyvų balsų su bendru gyvų balsų skaičiumi; suveskite visus balsavusius vardais';
+  END IF;
   IF NEW.result_for < f OR NEW.result_against < a OR NEW.result_abstain < s OR
       NEW.result_for + NEW.result_against + NEW.result_abstain - f - a - s > live_capacity THEN
     RAISE EXCEPTION 'Papildomi gyvi balsai viršija dar nebalsavusių gyvų dalyvių skaičių';
@@ -226,10 +305,11 @@ BEGIN
       RAISE EXCEPTION 'Būtina patvirtinta paprastos daugumos tvarka ir jos pagrindas';
     END IF;
     IF m.meeting_type = 'valdybos' AND NEW.result_for = NEW.result_against THEN
-      IF NEW.chair_vote IS NULL OR nullif(btrim(m.chairperson_name), '') IS NULL OR
-         (NEW.chair_vote = 'uz' AND NEW.result_for < 1) OR (NEW.chair_vote = 'pries' AND NEW.result_against < 1) OR
-         (NEW.chair_vote = 'susilaike' AND NEW.result_abstain < 1) THEN
-        RAISE EXCEPTION 'Būtinas posėdžio pirmininkas ir jo jau įskaičiuotas balsas (5.5 p.)';
+      SELECT vb.vote INTO chair_ballot FROM public.vote_ballots vb
+        JOIN public.meeting_attendance ma ON ma.meeting_id=m.id AND ma.member_id=vb.member_id
+        WHERE vb.resolution_id=NEW.id AND vb.member_id=m.chairperson_member_id;
+      IF NOT FOUND OR NEW.chair_vote IS DISTINCT FROM chair_ballot THEN
+        RAISE EXCEPTION 'Būtinas dalyvaujančio posėdžio pirmininko vardinis, jau įskaičiuotas balsas (5.5 p.)';
       END IF;
       passed := NEW.chair_vote = 'uz';
     ELSE
@@ -238,7 +318,13 @@ BEGIN
   END IF;
   IF (NEW.status = 'patvirtintas') IS DISTINCT FROM passed THEN RAISE EXCEPTION 'Nutarimo statusas neatitinka balsų daugumos'; END IF;
   IF m.meeting_type <> 'valdybos' THEN
-    threshold := CASE WHEN m.meeting_type = 'neeilinis' THEN 7 ELSE 14 END;
+    IF m.meeting_type='pakartotinis' THEN
+      IF m.repeat_notice_days IS NULL OR nullif(btrim(m.repeat_notice_reference),'') IS NULL THEN
+        RAISE EXCEPTION 'Pakartotiniam susirinkimui būtina patvirtinta informavimo termino tvarka ir jos pagrindas';
+      END IF;
+      threshold := m.repeat_notice_days;
+    ELSE threshold := CASE WHEN m.meeting_type = 'neeilinis' THEN 7 ELSE 14 END;
+    END IF;
     SELECT jsonb_build_object('id', id, 'channel', channel, 'published_at', published_at, 'url', url)
       INTO notice FROM public.meeting_announcements WHERE meeting_id = m.id
         AND channel IN ('web', 'facebook', 'email', 'paper', 'rc')
@@ -252,7 +338,10 @@ BEGIN
   NEW.decision_basis := jsonb_build_object('bylaws', '2025-12-07', 'total_members', m.total_members_at_time,
     'participants', participants, 'meeting_type', m.meeting_type, 'majority_rule', m.majority_rule,
     'majority_reference', m.majority_reference, 'previous_meeting_id', m.previous_meeting_id,
-    'notice', notice, 'recorded_at', now());
+    'notice', notice, 'notice_days', threshold, 'repeat_notice_reference', m.repeat_notice_reference,
+    'decision_type', NEW.decision_type, 'chairperson_member_id', m.chairperson_member_id, 'chair_vote', chair_ballot,
+    'convening_kind', m.convening_kind, 'convening_reference', m.convening_reference,
+    'convening_requesters', m.convening_requesters, 'recorded_at', now());
   NEW.early_voting_open := false;
   RETURN NEW;
 END; $$;
@@ -328,6 +417,11 @@ LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
 BEGIN
   PERFORM pg_advisory_xact_lock(hashtext('members_voting_eligibility'));
   IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  IF NEW.is_current AND EXISTS (
+    SELECT 1 FROM public.community_management cm WHERE cm.member_id=NEW.member_id AND cm.is_current AND cm.id<>NEW.id
+      AND ((NEW.role='revizorius' AND cm.role IN ('pirmininkas','tarybos_narys'))
+        OR (NEW.role IN ('pirmininkas','tarybos_narys') AND cm.role='revizorius'))
+  ) THEN RAISE EXCEPTION 'Revizorius negali būti Tarybos nariu ar Pirmininku (6.2 p.)'; END IF;
   RETURN NEW;
 END; $$;
 CREATE TRIGGER bylaws_council_lock BEFORE INSERT OR UPDATE OR DELETE ON public.community_management

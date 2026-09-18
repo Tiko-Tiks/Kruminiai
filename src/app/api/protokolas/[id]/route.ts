@@ -95,7 +95,8 @@ export async function GET(
   const announcementSummary = summarizeAnnouncements(
     announcements as Array<{ channel: string; url: string | null; published_at: string }> | null,
     meetingDate,
-    meeting.meeting_type
+    meeting.meeting_type,
+    meeting
   );
   const announcementParagraph = announcementSummary.paragraph;
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { actionHarness, votingFixture, form } from './helpers.mjs';
+import { actionHarness, votingFixture, form, loadSource } from './helpers.mjs';
 
 const meetingForm=type=>form({title:'Testinis',meeting_date:'2026-09-20',meeting_time:'12:00',location:'Testas',meeting_type:type});
 test('Peržiūra: Tarybos posėdis nepaverčiamas Visuotiniu su sena narių baze',async()=>{
@@ -79,4 +79,22 @@ for(const locale of ['lt','en']) test(`Peržiūra: portalo paskyros laiškas nes
   assert.doesNotMatch(html,/narystė.*patvirtinta|membership.*confirmed|Sveiki tapę/);
   assert.match(html,/Testas &lt;Narys&gt;/);
   await h.actions.approveUser('profile');assert.equal(h.notifications.length,1);
+});
+
+const {summarizeAnnouncements}=loadSource('src/lib/protocol-text.ts');
+const {terminationEvidenceError}=loadSource('src/lib/bylaws.ts');
+for(const [policy,expected] of [[undefined,false],[{repeat_notice_days:10},false],[{repeat_notice_days:10,repeat_notice_reference:'Patvirtinta tvarka'},true],[{repeat_notice_days:11,repeat_notice_reference:'Patvirtinta tvarka'},false]]) test(`Pakartotinio terminas taikomas tik pagal patvirtintą tvarką: ${JSON.stringify(policy)}`,()=>{
+  assert.equal(summarizeAnnouncements([{channel:'web',url:null,published_at:'2026-09-10T12:00:00Z'}],new Date('2026-09-20T12:00:00Z'),'pakartotinis',policy).compliant,expected);
+});
+test('Narystės pabaiga: raštiškas išstojimas nereikalauja Tarybos sprendimo',()=>{
+  assert.equal(terminationEvidenceError({termination_kind:'withdrawal',termination_reference:'Nario prašymas',termination_date:'2026-09-18'}),null);
+});
+test('Narystės pabaiga: Tarybos pašalinimas turi nurodyti teisę skųsti',()=>{
+  assert.ok(terminationEvidenceError({termination_kind:'expulsion',termination_reference:'Tarybos 2',termination_date:'2026-09-18',expulsion_ground:'3.4.2'}));
+});
+test('Serveris perskaičiuoja naujai priimtus narius prieš uždarydamas nutarimą',async()=>{
+  const seed=votingFixture({attendees:6});seed.members.push({id:'new1',status:'aktyvus'},{id:'new2',status:'aktyvus'});
+  const h=actionHarness('src/actions/voting.ts',seed);
+  assert.match((await h.actions.setResolutionResults('resolution','meeting',{result_for:6,result_against:0,result_abstain:0},'patvirtintas')).error,/kvorumo/);
+  assert.equal(h.writes.length,0);
 });

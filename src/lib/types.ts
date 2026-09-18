@@ -9,6 +9,11 @@ export interface Profile {
 export type MemberStatus = "aktyvus" | "pasyvus" | "išstojęs" | "garbes_narys";
 
 export interface Member {
+  termination_kind?: "withdrawal" | "expulsion" | null;
+  termination_reference?: string | null;
+  termination_date?: string | null;
+  expulsion_ground?: "3.4.1" | "3.4.2" | "3.4.3" | null;
+  appeal_reference?: string | null;
   application_reference?: string | null;
   admission_reference?: string | null;
   admission_date?: string | null;
@@ -120,6 +125,12 @@ export type MeetingType = "visuotinis" | "neeilinis" | "pakartotinis" | "valdybo
 export type MeetingStatus = "planuojamas" | "registracija" | "vyksta" | "baigtas" | "atšauktas";
 
 export interface Meeting {
+  repeat_notice_days?: number | null;
+  repeat_notice_reference?: string | null;
+  convening_kind?: "council" | "members" | null;
+  convening_reference?: string | null;
+  convening_requesters?: string[] | null;
+  chairperson_member_id?: string | null;
   previous_meeting_id?: string | null;
   majority_rule?: "for_against" | "participants" | null;
   majority_reference?: string | null;
@@ -147,7 +158,9 @@ export interface Meeting {
 
 export type ResolutionStatus = "projektas" | "svarstomas" | "balsuojamas" | "patvirtintas" | "atmestas";
 
+export type DecisionType = "ordinary" | "statutes" | "transformation" | "liquidation";
 export interface Resolution {
+  decision_type?: DecisionType | null;
   source_resolution_id?: string | null;
   chair_vote?: string | null;
   id: string;
