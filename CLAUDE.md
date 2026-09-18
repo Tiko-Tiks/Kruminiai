@@ -11,10 +11,19 @@ tyliai neperrašoma. Jei taisyklei reikia žingsnis po žingsnio procedūros, ji
 ### Taisyklė Nr. 1 – Codex recenzija kiekvienam PR
 
 1. **Kiekvienas PR į `main` privalo gauti Codex recenziją** (GitHub botas
-   `chatgpt-codex-connector`, repo jau prijungtas). Recenziją paleidžia PR atidarymas
-   „ready for review", draft'o pažymėjimas „ready" arba komentaras `@codex review`.
-   **Draft PR automatiškai nerecenzuojamas**, todėl sukūrus draft PR iškart rašomas
-   komentaras `@codex review`.
+   `chatgpt-codex-connector`). Codex nustatymai (2026-09-18, Mindaugo paskyra):
+   **automatinė recenzija įjungta**, **pakartotinė recenzija po kiekvieno push'o**,
+   **išsami recenzija**. AI asistento PR ir komentarai eina per Mindaugo GitHub
+   paskyrą, todėl į apimtį patenka. **Draft PR automatika nerecenzuoja** (patikrinta
+   PR #12), todėl sukūrus draft PR iškart rašomas komentaras `@codex review`; tas pats
+   komentaras – atsarginis kelias, jei po push'o recenzija neprasideda.
+   **Ciklas visada toks:**
+   1. sukurti PR arba push'inti pataisymus;
+   2. **sulaukti BAIGTOS** Codex recenzijos **naujausiam** commit'ui – 👀 reakcija
+      reiškia tik pradėtą tikrinimą, ne rezultatą;
+   3. perskaityti recenzijos pastabas **ir** bendrus PR komentarus;
+   4. pataisyti, atlikti patikras, push'inti ir vėl laukti recenzijos. Naujas
+      commit'as visada reikalauja naujos recenzijos.
 2. **Be Codex recenzijos PR nemerginamas.** Recenzija galioja TIK tam commit'ui, kurį
    Codex nurodo savo „Codex Review Summary" komentare – kiekvienas naujas push'as ją
    anuliuoja. Merginti galima tik kai PR **paskutinis** head commit'as turi baigtą

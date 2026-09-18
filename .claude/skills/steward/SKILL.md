@@ -17,24 +17,35 @@ Recenzentas – GitHub botas **`chatgpt-codex-connector[bot]`**. Jo signalai:
 | Signalas | Reikšmė |
 |---|---|
 | PR komentaras su `<!-- codex-pull-request-review-summary -->` („Codex Review Summary", lentelė *Review / Status / Commit / Review trigger*) | Vienas komentaras, atnaujinamas kas recenziją. `✅ Completed` + trumpas SHA = recenzija baigta **tam** commit'ui |
-| 👀 reakcija | Recenzija vyksta – laukti, nieko nedaryti |
-| 👍 reakcija + nėra naujo review | Baigta **be pastabų** |
-| PR review (inline komentarai su P1/P2/P3 badge'ais ir/arba review body) | Pastabos – kiekviena taisoma |
+| 👀 reakcija ant kvietimo / PR | Recenzija **pradėta** – tai ne rezultatas; laukti, nieko nedaryti |
+| Codex PR komentaras „Codex Review: Didn't find any major issues" su **Reviewed commit** = head SHA (ir/arba 👍 reakcija) | Baigta **be pastabų** (PR #12: `6e0e6d5`) |
+| Codex PR review „💡 Codex Review" su **Reviewed commit** + inline komentarai (P1/P2/P3 badge'ai) **arba** bendras Codex PR komentaras su pastabomis | Pastabos – kiekviena taisoma; skaityti **abu** kanalus |
 
-**Recenzija galioja tik nurodytam commit'ui.** Jei PR head SHA ≠ summary komentaro
-SHA, recenzijos dabartiniam kodui NĖRA – nesvarbu, kad anksčiau buvo 👍.
+**Recenzija galioja tik nurodytam commit'ui.** Rezultato šaltinis – Codex review
+arba komentaras, kurio **Reviewed commit** sutampa su PR head SHA. Summary
+komentaras rankinių kvietimų atveju gali neatsinaujinti (PR #12: liko `2105ad0`,
+kai `6e0e6d5` jau buvo įvertintas), todėl vien juo nesiremti. Jei head SHA neturi
+tokio rezultato, recenzijos dabartiniam kodui NĖRA – nesvarbu, kad anksčiau buvo
+„no issues". Naujas commit'as visada reikalauja naujos baigtos recenzijos.
 
-Trigeriai: PR atidarytas „ready for review", draft pažymėtas „ready", komentaras
-`@codex review` (arba `@codex security review`). **Draft automatiškai
-nerecenzuojamas.**
+Trigeriai: automatinė recenzija (Mindaugo paskyros nustatymas: PR atidarymas
+„ready for review" **ir pakartotinė recenzija po kiekvieno push'o**), draft'o
+pažymėjimas „ready", komentaras `@codex review` (arba `@codex security review`).
+**Draft'o sukūrimas automatikos nepaleidžia** – patikrinta PR #12.
+
+**`@codex` minimas TIK kvietimo komentare.** Gijų atsakymuose ir būsenos
+komentare rašyti „Codex recenzija", ne `@codex ...` – bet kokį `@codex`
+paminėjimą (net backtick'uose) botas laiko užduotimi ir atsako „create an
+environment" (PR #12). Toks atsakymas nėra pastaba.
 
 ## 2. Procedūra
 
 0. **Sukūrus PR** (draft): iškart komentaras `@codex review` (+ atributacijos
    poraštė), `subscribe_pr_activity` ir **dvi** `send_later` patikros: po **15 min.**
    (ar Codex sureagavo – 4 sk. laiko juosta) ir po **~1 val.** (bendra PR būsena).
-   15 min. patikra planuojama po **kiekvieno** `@codex review` kvietimo – Codex tyla
-   PR įvykio nesukuria, todėl be suplanuotos patikros sesija nepabustų.
+   **Po kiekvieno push'o** Codex recenzuoja automatiškai – `@codex review`
+   nerašomas, tik planuojama 15 min. patikra (4 sk.). Codex tyla PR įvykio
+   nesukuria, todėl be suplanuotos patikros sesija nepabustų.
 1. **Laukti įvykio.** Nepolinti (jokių `sleep`); sesiją pažadina PR įvykis arba
    suplanuota patikra. Kiekvieną kartą pabudus – patikrinti **visą** PR: head SHA,
    summary komentaro SHA ir būseną, neišspręstas review gijas, CI, konfliktus.
@@ -46,11 +57,12 @@ nerecenzuojamas.**
    npm run build   # jei keistas kodas, kuris veikia build'ą (route'ai, server actions, config)
    ```
    Commit + push (be `--force`), gijoje trumpas atsakymas „Pataisyta `<sha>`",
-   gija resolve'inama, naujas komentaras `@codex review`. **Vienas push'as ratui**,
-   ne po push'ą kiekvienai pastabai.
+   gija resolve'inama, `send_later` +15 min. (ar automatinė recenzija prasidėjo).
+   **Vienas push'as ratui**, ne po push'ą kiekvienai pastabai. Laukti **baigtos**
+   recenzijos naujam head'ui – 👀 dar ne rezultatas.
 3. **Faktiškai klaidinga pastaba** – atsakymas gijoje su įrodymu (failas:eilutė,
    testas ar dokumentacija); gija **ne**resolve'inama. Kitos to paties rato pastabos
-   pataisomos ir push'inamos, `@codex review` paprašoma, o tada – **stabdis** (5 p.,
+   pataisomos ir push'inamos (recenzija prasidės automatiškai), o tada – **stabdis** (5 p.,
    sąlyga „ginčijama pastaba"): būsenos komentaras, žinutė Mindaugui, jokių tolesnių
    push'ų, kol jis nenuspręs (taisyti, kaip Codex sako, arba giją uždaro jis pats).
 4. **Ratų skaitiklis ir būsenos komentaras.** Ratas apibrėžtas CLAUDE.md Taisyklės
@@ -93,13 +105,16 @@ nerecenzuojamas.**
 ## 4. Kai Codex nereaguoja
 
 Codex tyla PR įvykio nesukuria, todėl kiekviena patikra planuojama `send_later`
-iš anksto (2 sk. 0 p.), ne laukiama pasyviai. „Tyli" = head SHA neturi nei 👀
-reakcijos, nei summary komentaro „Running" / „Completed".
+iš anksto, ne laukiama pasyviai. „Tyli" = head SHA neturi nei 👀 reakcijos, nei
+summary komentaro „Running" / „Completed". Laukimo pradžia T0 = push'as
+(automatinė recenzija) arba draft'o `@codex review`. Skaičiuojami tik **rankiniai**
+`@codex review` kvietimai – daugiausia **du**.
 
-| Kada | Patikra | Veiksmas, jei Codex tyli |
-|---|---|---|
-| +15 min. po 1-o `@codex review` | 1-a | Patikrinti, ar komentare būtent `@codex review` (draft'ui „ready" nepadeda). **Antras** `@codex review`; `send_later` dar +15 min. |
-| +15 min. po 2-o `@codex review` | 2-a | **Stabdis**: būsenos komentare „Codex neatsako nuo `<laikas>`", žinutė Mindaugui (integraciją valdo <https://chatgpt.com/codex/cloud/settings/general>), PR nemerginamas, daugiau kvietimų nerašoma. |
+| Kada | Jei Codex tyli |
+|---|---|
+| T0 + 15 min. | Rankinis `@codex review` (pirmas arba, jei T0 buvo draft'o kvietimas, antras); `send_later` dar +15 min. |
+| dar + 15 min. | Jei rankinių kvietimų buvo tik vienas – antras `@codex review` ir `send_later` +15 min.; jei jau du – **stabdis** |
+| stabdis | Būsenos komentare „Codex neatsako nuo `<T0>`", žinutė Mindaugui (integraciją valdo <https://chatgpt.com/codex/cloud/settings/general>), PR nemerginamas, daugiau kvietimų nerašoma |
 
-Iš viso ~30 min. nuo pirmo kvietimo – tai CLAUDE.md Taisyklės Nr. 1 4 p. sąlyga
-„Codex nereaguoja".
+Tai CLAUDE.md Taisyklės Nr. 1 4 p. sąlyga „Codex nereaguoja" (~30 min. tylos po
+dviejų rankinių kvietimų).
