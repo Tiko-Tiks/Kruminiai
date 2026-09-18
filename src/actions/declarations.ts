@@ -385,11 +385,13 @@ export async function resendDeclarationSms(expiresAtInput: string) {
   const supabase = createServerSupabaseClient();
   // SAUGUMAS: siunčia masinį SMS (Infobip kaina) – privalo būti admin (žr. authz)
   const auth = await requireAdmin(supabase);
-  if (auth.error) return { success: false as const, smsSent: 0, errors: [auth.error] };
+  if (auth.error) {
+    return { success: false as const, smsSent: 0, skipped: 0, errors: [auth.error] };
+  }
 
   const expiry = resolveExpiresAt(expiresAtInput);
   if ("error" in expiry) {
-    return { success: false as const, smsSent: 0, errors: [expiry.error] };
+    return { success: false as const, smsSent: 0, skipped: 0, errors: [expiry.error] };
   }
 
   const { data: tokens } = await supabase
@@ -398,17 +400,32 @@ export async function resendDeclarationSms(expiresAtInput: string) {
     .is("submitted_at", null);
 
   if (!tokens || tokens.length === 0) {
-    return { success: true as const, smsSent: 0, errors: [] };
+    return { success: true as const, smsSent: 0, skipped: 0, errors: [] };
   }
+
+  // Skolininkų aibė perskaičiuojama KIEKVIENAM siuntimui (kaip
+  // `sendOverdueDeclarationReminders`). Narys, kuris jau sumokėjo, bet formos
+  // nepateikė, priminimo apie skolą nebegauna, o jo tokenas nebepratęsiamas –
+  // kitaip veikianti nuoroda leistų keisti jo deklaraciją ir kontaktus.
+  const { members: debtors } = await getMembersWithDebts();
+  const debtorIds = new Set(debtors.map((m) => m.id));
 
   const baseUrl = getBaseUrl();
   let smsSent = 0;
+  let skipped = 0;
   const errors: string[] = [];
 
   const batchId = crypto.randomUUID();
   for (const t of tokens) {
     const member = Array.isArray(t.members) ? t.members[0] : t.members;
-    if (!member?.phone) continue;
+    if (!member?.phone) {
+      skipped++;
+      continue;
+    }
+    if (!debtorIds.has(t.member_id as string)) {
+      skipped++;
+      continue;
+    }
 
     // Priminimo nuoroda turi galioti – pratęsiam iki šios kampanijos pabaigos
     await supabase
@@ -441,7 +458,7 @@ export async function resendDeclarationSms(expiresAtInput: string) {
   }
 
   revalidatePath("/admin/nariai/deklaracija");
-  return { success: true as const, smsSent, errors };
+  return { success: true as const, smsSent, skipped, errors };
 }
 
 // =============================================================================

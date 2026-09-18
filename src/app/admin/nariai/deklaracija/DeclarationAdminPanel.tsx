@@ -83,10 +83,13 @@ export function DeclarationAdminPanel({
   stats,
   defaultExpiresAt,
   recipients,
+  pendingDebtors,
 }: {
   stats: Stats;
   defaultExpiresAt: string;
   recipients: { total: number; withPhone: number };
+  /** Neatsakiusieji, kurie DABAR yra skolingi ir turi telefoną – tik jiems eina priminimas. */
+  pendingDebtors: number;
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -145,7 +148,7 @@ export function DeclarationAdminPanel({
     if (!expiresAt) return;
     if (
       !confirm(
-        `Siųsti priminimą ${stats.pending} nariams, kurie dar neatsakė?\nNuoroda galios iki ${expiresAt} (imtinai).`
+        `Siųsti priminimą ${pendingDebtors} nariams, kurie dar neatsakė ir tebėra skolingi?\nNuoroda galios iki ${expiresAt} (imtinai).`
       )
     )
       return;
@@ -157,7 +160,11 @@ export function DeclarationAdminPanel({
       toast.error(result.errors[0] || "Klaida");
       return;
     }
-    toast.success(`Priminimo SMS išsiųsta: ${result.smsSent}`);
+    toast.success(
+      `Priminimo SMS išsiųsta: ${result.smsSent}${
+        result.skipped ? ` (praleista ${result.skipped} – be skolos arba be telefono)` : ""
+      }`
+    );
     router.refresh();
   }
 
@@ -295,11 +302,11 @@ export function DeclarationAdminPanel({
                   type="button"
                   onClick={handleResend}
                   loading={resending}
-                  disabled={stats.pending === 0}
+                  disabled={pendingDebtors === 0}
                   variant="outline"
                 >
                   <RotateCcw className="h-4 w-4" />
-                  Priminimas neatsakiusiems ({stats.pending})
+                  Priminimas skolingiems neatsakiusiems ({pendingDebtors})
                 </Button>
               </div>
             )}

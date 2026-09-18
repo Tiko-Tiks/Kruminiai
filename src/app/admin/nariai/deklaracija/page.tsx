@@ -25,6 +25,16 @@ export default async function DeclarationAdminPage() {
     withPhone: debtors.filter((m) => !!m.phone).length,
   };
 
+  // Priminimas siunčiamas tik tiems, kurie DABAR yra skolingi ir turi telefoną –
+  // toks pat filtras kaip `resendDeclarationSms`, kad mygtuko skaičius atitiktų
+  // tikrovę (sumokėjęs, bet formos nepateikęs narys į jį nebepatenka).
+  const debtorIds = new Set(debtors.map((m) => m.id));
+  const pendingDebtors = stats.declarations.filter((d) => {
+    if (d.submitted_at) return false;
+    const member = Array.isArray(d.member) ? d.member[0] : d.member;
+    return !!member?.phone && debtorIds.has(member.id);
+  }).length;
+
   return (
     <div>
       <Link
@@ -46,6 +56,7 @@ export default async function DeclarationAdminPage() {
         stats={stats}
         defaultExpiresAt={defaultExpiresAt}
         recipients={recipients}
+        pendingDebtors={pendingDebtors}
       />
     </div>
   );
