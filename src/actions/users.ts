@@ -6,20 +6,10 @@ import { requireAdmin } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
 import { logNotification } from "@/lib/notification-log";
-import { renderMemberWelcomeEmail } from "@/lib/membership-emails";
+import { renderPortalApprovalEmail } from "@/lib/portal-approval-email";
 import { revalidatePath } from "next/cache";
 
-/**
- * Patvirtina portalo vartotoją (is_approved=true) IR užtikrina, kad jis
- * egzistuoja narių registre (`members`).
- *
- * Kontekstas: self-registracijos atveju (`/registracija`) `handle_new_user`
- * trigger'is sukuria TIK `profiles` įrašą. Jei pagal el. paštą nerandamas
- * esamas narys, `member_id` lieka NULL – t.y. žmogus turi portalo paskyrą,
- * bet NEatsiranda `/admin/nariai` ir nepatenka į balsavimo / mokesčių
- * srautus. Patvirtinant tą spragą užpildome: jei profilis dar nesusietas,
- * automatiškai sukuriamas (arba prisiejamas pagal el. paštą) `members` įrašas.
- */
+/** Patvirtina portalo paskyrą. Narystė registruojama atskirai pagal Tarybos sprendimą. */
 export async function approveUser(
   profileId: string
 ): Promise<{ success?: boolean; error?: string; createdMember?: boolean }> {
@@ -40,7 +30,7 @@ export async function approveUser(
   const wasApproved = profile.is_approved === true;
 
   let memberId = (profile.member_id as string | null) ?? null;
-  let createdMember = false;
+  const createdMember = false;
 
   if (!memberId) {
     // El. paštą imam iš auth.users (tik service-role klientas mato auth schemą).
@@ -62,38 +52,8 @@ export async function approveUser(
       if (existing) memberId = existing.id as string;
     }
 
-    // Naujas žmogus – sukuriam narį iš profilio duomenų.
     if (!memberId) {
-      const fullName = ((profile.full_name as string) || "").trim();
-      const parts = fullName.split(/\s+/).filter(Boolean);
-      const firstName = parts[0] || fullName || "Narys";
-      const lastName = parts.slice(1).join(" ") || "—";
-
-      const { data: newMember, error: memErr } = await supabase
-        .from("members")
-        .insert({
-          first_name: firstName,
-          last_name: lastName,
-          email,
-          status: "aktyvus",
-          created_by: auth.user.id,
-          notes: "Sukurta automatiškai patvirtinant portalo registraciją.",
-        })
-        .select("id")
-        .single();
-      if (memErr || !newMember) {
-        return { error: `Nepavyko sukurti nario: ${memErr?.message ?? "nežinoma klaida"}` };
-      }
-      memberId = newMember.id as string;
-      createdMember = true;
-
-      await logAudit(supabase, {
-        userId: auth.user.id,
-        action: "CREATE",
-        tableName: "members",
-        recordId: memberId,
-        newData: { first_name: firstName, last_name: lastName, email, via: "approve_user" },
-      });
+      return { error: "Pirmiausia narių registre įrašykite raštiško prašymo ir Tarybos priėmimo sprendimo pagrindą bei nario el. paštą. Paskyros patvirtinimas narystės nesuteikia." };
     }
   }
 
@@ -126,7 +86,7 @@ export async function approveUser(
       }
     }
 
-    // 2) Laiškas #2 – pasveikinimas tapus nariu + supažindinimas su sistema.
+    // 2) Portalo prieigos pranešimas jau priimtam nariui.
     //    Kalba – pagal nario `language` lauką (admin gali nustatyti 'en').
     if (memberId) {
       const { data: member } = await supabase
@@ -138,12 +98,11 @@ export async function approveUser(
         const locale = member.language === "en" ? "en" : "lt";
         const subject =
           locale === "en"
-            ? "Welcome to the Krūminiai Village Community!"
-            : "Sveiki tapę Krūminių kaimo bendruomenės nariu!";
-        const html = renderMemberWelcomeEmail({
+            ? "Your Krūminiai portal account is active"
+            : "Jūsų Krūminių portalo paskyra aktyvuota";
+        const html = renderPortalApprovalEmail({
           firstName: member.first_name as string,
           locale,
-          isHonorary: (member as { status?: string }).status === "garbes_narys",
         });
         const r = await sendEmail(member.email as string, subject, html);
         await logNotification(supabase, {

@@ -9,6 +9,15 @@ export interface Profile {
 export type MemberStatus = "aktyvus" | "pasyvus" | "išstojęs" | "garbes_narys";
 
 export interface Member {
+  archived_at?: string | null;
+  termination_kind?: "withdrawal" | "expulsion" | null;
+  termination_reference?: string | null;
+  termination_date?: string | null;
+  expulsion_ground?: "3.4.1" | "3.4.2" | "3.4.3" | null;
+  appeal_reference?: string | null;
+  application_reference?: string | null;
+  admission_reference?: string | null;
+  admission_date?: string | null;
   id: string;
   first_name: string;
   last_name: string;
@@ -25,6 +34,8 @@ export interface Member {
 }
 
 export interface FeePeriod {
+  decision_reference?: string | null;
+  decision_date?: string | null;
   id: string;
   year: number;
   name: string;
@@ -115,6 +126,24 @@ export type MeetingType = "visuotinis" | "neeilinis" | "pakartotinis" | "valdybo
 export type MeetingStatus = "planuojamas" | "registracija" | "vyksta" | "baigtas" | "atšauktas";
 
 export interface Meeting {
+  electorate_snapshot?: {total:number;reference?:string;recorded_at?:string} | null;
+  convening_snapshot?: {total:number;requester_ids:string[];demand_date:string} | null;
+  convening_date?: string | null;
+  convening_same_day_reference?: string | null;
+  convening_total_members?: number | null;
+  notice_channels?: string[] | null;
+  notice_reference?: string | null;
+  notice_day_rule?: "vilnius_calendar" | "elapsed_hours" | null;
+  notice_day_reference?: string | null;
+  repeat_notice_days?: number | null;
+  repeat_notice_reference?: string | null;
+  convening_kind?: "council" | "members" | null;
+  convening_reference?: string | null;
+  convening_requesters?: string[] | null;
+  chairperson_member_id?: string | null;
+  previous_meeting_id?: string | null;
+  majority_rule?: "for_against" | "participants" | null;
+  majority_reference?: string | null;
   id: string;
   title: string;
   description: string | null;
@@ -139,7 +168,11 @@ export interface Meeting {
 
 export type ResolutionStatus = "projektas" | "svarstomas" | "balsuojamas" | "patvirtintas" | "atmestas";
 
+export type DecisionType = "ordinary" | "statutes" | "transformation" | "liquidation" | "council_election" | "council_removal" | "auditor_election" | "reports" | "fees" | "seat";
 export interface Resolution {
+  decision_type?: DecisionType | null;
+  source_resolution_id?: string | null;
+  chair_vote?: string | null;
   id: string;
   meeting_id: string;
   title: string;

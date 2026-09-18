@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:bylaws": "node --test tests/bylaws/*.test.mjs",
+    "test:bylaws:core": "node --test tests/bylaws/core.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.0",
@@ -30,6 +32,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   updateResolutionStatus,
@@ -8,6 +8,8 @@ import {
   deleteResolution,
   setResolutionResults,
   reorderResolution,
+  recordBallots,
+  getRecordedVoters,
 } from "@/actions/voting";
 import { updateMeetingProtocolInfo } from "@/actions/meetings";
 import { Badge } from "@/components/ui/Badge";
@@ -144,9 +146,7 @@ export function ResolutionsList({
         const needsDecisionText =
           !res.is_procedural && !(res.decision_text && res.decision_text.trim());
         const totalVotes = res.result_for + res.result_against + res.result_abstain;
-        const isPassed = res.requires_qualified_majority
-          ? res.result_for >= Math.ceil((totalVotes * 2) / 3)
-          : res.result_for > res.result_against;
+        const isPassed = res.status === "patvirtintas";
 
         return (
           <div
@@ -161,7 +161,7 @@ export function ResolutionsList({
               <span className="text-sm font-bold text-gray-400 w-8">
                 {res.resolution_number}.
               </span>
-              {canModify && resolutions.length > 1 && (
+              {canModify && !resolutions.some(r => ["patvirtintas","atmestas"].includes(r.status)) && resolutions.length > 1 && (
                 <div className="flex flex-col -my-1">
                   <button
                     type="button"
@@ -237,7 +237,7 @@ export function ResolutionsList({
                     meetingId={meetingId}
                     attached={res.resolution_documents || []}
                     allDocuments={allDocuments}
-                    canModify={canModify}
+                    canModify={canModify && !["patvirtintas","atmestas"].includes(res.status)}
                   />
                 )}
 
@@ -275,6 +275,14 @@ export function ResolutionsList({
                   </div>
                 )}
 
+                {!['patvirtintas','atmestas'].includes(res.status) && canModify && <label className="block text-sm text-gray-600">Sprendimo rūšis
+                  <select value={res.decision_type || ""} className="ml-2 rounded border p-1" onChange={async e => {
+                    const result = await updateResolution(res.id, meetingId, {decision_type: e.target.value as NonNullable<Resolution['decision_type']>});
+                    if (result.error) toast.error(result.error); else router.refresh();
+                  }}>
+                    <option value="" disabled>Pasirinkite sprendimo rūšį</option><option value="ordinary">Kitas / procedūrinis sprendimas</option><option value="statutes">Įstatų keitimas (2/3)</option><option value="transformation">Pertvarkymas (2/3)</option><option value="liquidation">Likvidavimas (2/3)</option><option value="council_election">Tarybos rinkimai</option><option value="council_removal">Tarybos atšaukimas</option><option value="auditor_election">Revizoriaus rinkimai</option><option value="reports">Metinių ataskaitų tvirtinimas</option><option value="fees">Stojamojo / nario mokesčio tvarka</option><option value="seat">Buveinės nustatymas</option>
+                  </select>
+                </label>}
                 {/* Protokolo tekstai */}
                 <div className="space-y-3">
                   <div>
@@ -283,6 +291,7 @@ export function ResolutionsList({
                       SVARSTYTA (protokolui)
                     </label>
                     <textarea
+                      disabled={!canModify || ['patvirtintas','atmestas'].includes(res.status)}
                       value={editingTexts[res.id]?.discussion ?? res.discussion_text ?? ""}
                       onChange={(e) =>
                         setEditingTexts({
@@ -303,6 +312,7 @@ export function ResolutionsList({
                       NUTARTA (protokolui)
                     </label>
                     <textarea
+                      disabled={!canModify || ['patvirtintas','atmestas'].includes(res.status)}
                       value={editingTexts[res.id]?.decision ?? res.decision_text ?? ""}
                       onChange={(e) =>
                         setEditingTexts({
@@ -356,11 +366,10 @@ export function ResolutionsList({
                     )}
 
                     {res.status === "balsuojamas" && (
-                      <QuickVoteForm
-                        resolutionId={res.id}
-                        meetingId={meetingId}
-                        needsDecisionText={needsDecisionText}
-                      />
+                      <div className="w-full space-y-3">
+                        <NamedLiveVotes resolutionId={res.id} meetingId={meetingId} attendees={liveAttendees} />
+                        <QuickVoteForm resolutionId={res.id} meetingId={meetingId} needsDecisionText={needsDecisionText} />
+                      </div>
                     )}
 
                     {!res.is_procedural && res.status === "projektas" && (
@@ -384,6 +393,37 @@ export function ResolutionsList({
   );
 }
 
+function NamedLiveVotes({resolutionId, meetingId, attendees}: {resolutionId:string;meetingId:string;attendees:LiveAttendee[]}) {
+  const router = useRouter();
+  const [recorded, setRecorded] = useState<Record<string,boolean> | null>(null);
+  const [choices, setChoices] = useState<Record<string,string>>({});
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    getRecordedVoters(resolutionId).then(rows => setRecorded(Object.fromEntries(rows.map(row => [row.member_id,true]))))
+      .catch(() => toast.error("Nepavyko perskaityti balsavimo įrašymo būsenos"));
+  }, [resolutionId]);
+  async function save() {
+    if (!recorded) return;
+    const ballots = attendees.filter(a => choices[a.member_id] && !recorded[a.member_id]).map(a => ({memberId:a.member_id,vote:choices[a.member_id]}));
+    if (!ballots.length) return;
+    setSaving(true);
+    const result = await recordBallots(resolutionId,meetingId,ballots,"fizinis");
+    if(result.error) toast.error(result.error);
+    else { setRecorded({...recorded,...Object.fromEntries(ballots.map(b=>[b.memberId,true]))}); setChoices({}); toast.success("Vardiniai balsai įrašyti"); router.refresh(); }
+    setSaving(false);
+  }
+  if (!attendees.length) return null;
+  return <details className="w-full rounded border p-3 text-sm"><summary>Vardinis gyvų dalyvių balsavimas</summary>
+    <p className="my-2 text-xs text-gray-600">Tarybos balsų lygybei išspręsti būtinas vardinis posėdžio pirmininko balsas. Įvedus vardinius gyvus balsus, visus kitus gyvus balsus taip pat įveskite čia; bendruose gyvų balsų laukuose palikite nulius.</p>
+    <div className="space-y-2">{attendees.map(a => <label key={a.member_id} className="flex items-center justify-between gap-3">{a.member?.first_name} {a.member?.last_name}
+      <select aria-label={`Balsas: ${a.member?.first_name} ${a.member?.last_name}`} className="rounded border p-1" disabled={!recorded || !!recorded[a.member_id]} value={recorded?.[a.member_id] ? "recorded" : choices[a.member_id] || ""} onChange={e=>setChoices({...choices,[a.member_id]:e.target.value})}>
+        <option value="recorded" hidden>Įrašytas (pasirinkimas nerodomas)</option><option value="">Neįrašytas</option><option value="uz">Už</option><option value="pries">Prieš</option><option value="susilaike">Susilaikė</option>
+      </select>
+    </label>)}</div>
+    <Button size="sm" className="mt-3" disabled={!recorded || !Object.values(choices).some(Boolean)} loading={saving} onClick={save}>Įrašyti vardinius balsus</Button>
+  </details>;
+}
+
 function QuickVoteForm({
   resolutionId,
   meetingId,
@@ -399,6 +439,7 @@ function QuickVoteForm({
   const [pries, setPries] = useState("0");
   const [susilaike, setSusilaike] = useState("0");
   const [saving, setSaving] = useState(false);
+  const [chairVote, setChairVote] = useState("");
 
   const handleSave = async (status: "patvirtintas" | "atmestas") => {
     setSaving(true);
@@ -406,7 +447,7 @@ function QuickVoteForm({
       result_for: parseInt(uz) || 0,
       result_against: parseInt(pries) || 0,
       result_abstain: parseInt(susilaike) || 0,
-    }, status);
+    }, status, chairVote || undefined);
 
     if (result.error) {
       toast.error(result.error);
@@ -419,6 +460,11 @@ function QuickVoteForm({
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
+      <label className="w-full text-xs text-gray-600">Tarybos posėdyje, balsams pasiskirsčius po lygiai: posėdžio pirmininko balsas (turi būti įrašytas vardiniame balsavime)
+        <select aria-label="Posėdžio pirmininko balsas" value={chairVote} onChange={e => setChairVote(e.target.value)} className="ml-2 rounded border p-1">
+          <option value="">Netaikoma / neįrašyta</option><option value="uz">Už</option><option value="pries">Prieš</option><option value="susilaike">Susilaikė</option>
+        </select>
+      </label>
       {needsDecisionText && (
         <div className="w-full bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-900 flex items-start gap-2">
           <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
@@ -508,7 +554,10 @@ function ChairmanSecretaryPicker({
   defaultSecretary: string | null;
 }) {
   const router = useRouter();
-  const [chairperson, setChairperson] = useState(defaultChairperson || "");
+  const defaultMatches = liveAttendees.filter(a => a.member && `${a.member.first_name} ${a.member.last_name}` === defaultChairperson);
+  const [chairpersonId, setChairpersonId] = useState(defaultMatches.length === 1 ? defaultMatches[0].member_id : "");
+  const chairMember = liveAttendees.find(a => a.member_id === chairpersonId)?.member;
+  const chairperson = chairMember ? `${chairMember.first_name} ${chairMember.last_name}` : "";
   const [secretary, setSecretary] = useState(defaultSecretary || "");
   const [saving, setSaving] = useState(false);
 
@@ -520,14 +569,6 @@ function ChairmanSecretaryPicker({
     })
     .filter((n): n is string => !!n)
     .sort((a, b) => a.localeCompare(b, "lt"));
-
-  // Pirmininko opcijos – įtraukiam default (jei jis dalyvauja arba ne) + visus dalyvavusius
-  const chairpersonOptions = Array.from(
-    new Set([
-      ...(defaultChairperson ? [defaultChairperson] : []),
-      ...attendeeNames,
-    ])
-  );
 
   // Sekretoriaus opcijos – tik dalyvavusieji, NE pirmininkas
   const secretaryOptions = attendeeNames.filter((n) => n !== chairperson);
@@ -549,6 +590,7 @@ function ChairmanSecretaryPicker({
 
     // 1. Įrašom pavardes į meetings lentelę
     const updateRes = await updateMeetingProtocolInfo(meetingId, {
+      chairperson_member_id: chairpersonId,
       chairperson_name: chairperson,
       secretary_name: secretary,
     });
@@ -596,14 +638,12 @@ function ChairmanSecretaryPicker({
             Susirinkimo pirmininkas {defaultChairperson && <span className="text-gray-400">(default: bendruomenės pirmininkas)</span>}
           </label>
           <select
-            value={chairperson}
-            onChange={(e) => setChairperson(e.target.value)}
+            value={chairpersonId}
+            onChange={(e) => setChairpersonId(e.target.value)}
             className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             <option value="">Pasirinkite...</option>
-            {chairpersonOptions.map((name) => (
-              <option key={name} value={name}>{name}</option>
-            ))}
+            {liveAttendees.map(a => a.member && <option key={a.member_id} value={a.member_id}>{a.member.first_name} {a.member.last_name}</option>)}
           </select>
         </div>
         <div>
