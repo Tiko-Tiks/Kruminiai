@@ -193,6 +193,9 @@ Baziniai komponentai (`src/components/ui/`) naudoja `class-variance-authority` (
 
 ## Paleidimas lokaliai
 
+Reikia **Node.js ≥ 22.18** (`.nvmrc` → `nvm use`): `npm test` TypeScript failus
+importuoja tiesiogiai, o tipus be atskiro kompiliavimo Node nuima tik nuo šios versijos.
+
 ```bash
 # Priklausomybės
 npm install
@@ -205,6 +208,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
 npm run dev        # http://localhost:3000
 npm run build      # Production build
 npm run lint       # ESLint tikrinimas
+npm test           # Node test runner (tests/)
 ```
 
 ---
