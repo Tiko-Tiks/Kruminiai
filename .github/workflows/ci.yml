@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Naujas push'as į tą pačią šaką nutraukia ankstesnį, dar nebaigtą paleidimą
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    env:
+      # Fiktyvios reikšmės – `next build` reikalauja, kad kintamieji egzistuotų,
+      # bet CI į duomenų bazę nesikreipia. Tikri raktai čia NEnaudojami.
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+      NEXT_PUBLIC_SITE_URL: https://example.invalid
+    steps:
+      - name: Parsisiųsti kodą
+        uses: actions/checkout@v4
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Priklausomybės
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: TypeScript tipai
+        run: npx tsc --noEmit
+
+      - name: Testai
+        run: npm test --if-present
+
+      - name: Asmens duomenų patikra
+        run: node scripts/check-no-pii.mjs
+
+      - name: Migracijų numeracija
+        run: node scripts/check-migrations.mjs
+
+      - name: Build
+        run: npm run build
