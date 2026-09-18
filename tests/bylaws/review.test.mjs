@@ -253,3 +253,47 @@ for(const locale of ['lt','en']) test(`Peržiūra: priminimo tekstas nežada aut
   assert.equal(h.notifications.length,1);
   const html=h.notifications[0][2];assert.match(html,/3\.4\.2/);assert.match(html,/7\.00/);assert.doesNotMatch(html,/būsite šalinami|20 EUR joining fee|clause 3\.5/);
 });
+
+for(const method of ['getMeetingExpulsions','addExpulsion']) test(`Peržiūra: pašalinimo įrodyme nėra būsimų ar be termino mokesčių ${method}`,async()=>{
+  const seed=debtSeed([]);seed.fee_periods.push({id:'future',year:2027,fee_type:'metinis',amount_cents:9900,due_date:'2099-12-31'},{id:'unknown',year:2026,fee_type:'metinis',amount_cents:8800,due_date:null});
+  const h=actionHarness('src/actions/expulsions.ts',seed);
+  const result=await h.actions[method]('meeting','member');
+  const item=method==='getMeetingExpulsions'?result.candidates[0]:h.tables.meeting_expulsions[0];
+  assert.equal(item.debt_cents,1200);assert.equal(item.debt_years,'2021');
+});
+test('Peržiūra: administratoriui grąžinama tik balsavimo įrašymo būsena',async()=>{
+  const seed=votingFixture({votes:['uz','pries']});const h=actionHarness('src/actions/voting.ts',seed);
+  assert.deepEqual(await h.actions.getRecordedVoters('resolution'),[{member_id:'attendee-0'},{member_id:'attendee-1'}]);
+});
+test('Peržiūra: balsavimo įrašymo būsena skirta tik administratoriui',async()=>{
+  const h=actionHarness('src/actions/voting.ts',{...votingFixture(),profiles:[{id:'test-admin',role:'member'}]});
+  await assert.rejects(h.actions.getRecordedVoters('resolution'));assert.equal(h.calls.filter(c=>c.table==='vote_ballots').length,0);
+});
+test('Peržiūra: įrašymas nepakeičia jau esančio elektroninio balso',async()=>{
+  const h=actionHarness('src/actions/voting.ts',votingFixture({votes:['uz']}),{errors:{'vote_ballots:insert':'duplicate key'}});
+  assert.ok((await h.actions.recordBallots('resolution','meeting',[{memberId:'attendee-0',vote:'pries'}],'fizinis')).error);
+  assert.equal(h.tables.vote_ballots[0].vote,'uz');
+});
+test('Peržiūra: būsimas Tarybos narys nerodomas tarp dabartinių balsuotojų',async()=>{
+  const h=actionHarness('src/actions/meetings.ts',{community_management:[{role:'tarybos_narys',is_current:true,term_start:'2099-01-01',member:{id:'future',status:'aktyvus'}},{role:'tarybos_narys',is_current:true,term_start:'2020-01-01',term_end:'2024-01-01',member:{id:'current',status:'aktyvus'}}]});
+  assert.deepEqual((await h.actions.getEligibleAttendees('valdybos')).map(m=>m.id),['current']);
+});
+for(const storageFailure of [true,false]) test(`Peržiūra: dokumento trynimo klaida išsaugo pakartojimo galimybę ${storageFailure}`,async()=>{
+  const h=actionHarness('src/actions/documents.ts',{documents:[{id:'doc',file_path:'test.pdf'}]});let calls=0;
+  h.client.storage={from:()=>({remove:async()=>{calls++;assert.equal(h.tables.documents[0].deletion_pending,true);return {error:storageFailure?{message:'Storage nepasiekiama'}:null};}})};
+  const result=await h.actions.deleteDocument('doc');assert.equal(calls,1);
+  if(storageFailure) {assert.ok(result.error);assert.equal(h.tables.documents.length,1);}else {assert.equal(result.success,true);assert.equal(h.tables.documents.length,0);}
+});
+test('Peržiūra: saugomo priedo trynimo atmetimas nepasiekia failo saugyklos',async()=>{
+  const h=actionHarness('src/actions/documents.ts',{documents:[{id:'doc',file_path:'test.pdf'}]},{errors:{'documents:update':'Galutinio nutarimo priedas'}});
+  h.client.storage={from:()=>{throw new Error('Storage neturi būti pasiekta');}};
+  assert.ok((await h.actions.deleteDocument('doc')).error);assert.equal(h.tables.documents.length,1);
+});
+test('Peržiūra: protokolo dalyvavimas iš užfiksuoto sprendimo, ne pataisyto registro',()=>{
+  const {protocolAttendance,decisionParticipation}=loadSource('src/lib/protocol-attendance.ts');
+  const rows=[{member_id:'first',attendance_type:'fizinis',member:{first_name:'Testas',last_name:'Narys'}}];
+  const basis={participants:6,total_members:10,meeting_type:'visuotinis',attendance:rows};
+  const result=protocolAttendance([{status:'patvirtintas',decision_basis:basis}],Array(10).fill({member_id:'later'}));
+  assert.deepEqual(result.rows,rows);assert.match(decisionParticipation(basis),/6 iš 10/);assert.match(decisionParticipation(basis),/YRA/);
+  assert.equal(protocolAttendance([{status:'patvirtintas'}],rows).source,'missing');
+});

@@ -115,7 +115,7 @@ export function MeetingForm({ meeting }: Props) {
             <legend className="font-medium">Neeilinio susirinkimo sušaukimo pagrindas</legend>
             <Select name="convening_kind" label="Kas inicijavo susirinkimą" defaultValue={meeting?.convening_kind || ""} options={[{value:"",label:"Pasirinkite"},{value:"council",label:"Tarybos sprendimas"},{value:"members",label:"Bent 1/5 narių reikalavimas"}]} />
             <Input name="convening_reference" label="Tarybos sprendimo arba pasirašyto reikalavimo ir jo dienos narių registro išrašo nuoroda" defaultValue={meeting?.convening_reference || ""} />
-            <Input name="convening_date" type="date" label="Narių reikalavimo data" defaultValue={meeting?.convening_date || ""} />
+            <Input name="convening_date" type="date" label="Sušaukimo sprendimo arba narių reikalavimo data" defaultValue={meeting?.convening_date || ""} />
             <Input name="convening_total_members" type="number" min={1} step={1} label="Reikalavimo dieną buvęs narių skaičius pagal pridėtą registro išrašą (istoriniam reikalavimui)" defaultValue={meeting?.convening_total_members ?? ""} />
             {meeting?.convening_snapshot && <p className="text-sm text-green-800">Reikalavimo dienos pagrindas užfiksuotas. Vėlesni narystės pokyčiai jo nekeičia.</p>}
             <p className="text-sm text-gray-600">Narių reikalavimo atveju pažymėkite jį pasirašiusius narius. Šiam keliui papildomo Tarybos sprendimo nereikia.</p>

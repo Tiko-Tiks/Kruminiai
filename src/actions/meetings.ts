@@ -69,7 +69,7 @@ export async function createMeeting(formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
-  if (parsed.data.convening_kind === "members" && parsed.data.convening_date && parsed.data.convening_date > parsed.data.meeting_date) return {error:{_form:["Narių reikalavimas turi būti pateiktas iki susirinkimo."]}};
+  if (parsed.data.convening_date && (parsed.data.convening_date > parsed.data.meeting_date || parsed.data.convening_date > new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vilnius" }))) return {error:{_form:["Sušaukimo sprendimas arba reikalavimas turi būti iki susirinkimo; jo data negali būti ateityje."]}};
 
   // Formose laikas įvedamas VILNIAUS laiku – konvertuojam į UTC instantą.
   // Be to naivus „…T18:00:00" Postgres'e (UTC zona) virsdavo 18:00 UTC ir
@@ -228,7 +228,7 @@ export async function updateMeeting(id: string, formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
-  if (parsed.data.convening_kind === "members" && parsed.data.convening_date && parsed.data.convening_date > parsed.data.meeting_date) return {error:{_form:["Narių reikalavimas turi būti pateiktas iki susirinkimo."]}};
+  if (parsed.data.convening_date && (parsed.data.convening_date > parsed.data.meeting_date || parsed.data.convening_date > new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vilnius" }))) return {error:{_form:["Sušaukimo sprendimas arba reikalavimas turi būti iki susirinkimo; jo data negali būti ateityje."]}};
 
   const { data: oldData } = await supabase.from("meetings").select("*").eq("id", id).single();
   const meetingDateTime = vilniusLocalToIso(
@@ -411,7 +411,7 @@ async function fetchEligibleAttendees(meetingType: string): Promise<EligibleAtte
   if (isCouncilMeeting(meetingType)) {
     const { data, error } = await supabase
       .from("community_management")
-      .select("role, sort_order, member:members(id, first_name, last_name, status)")
+      .select("role, term_start, sort_order, member:members(id, first_name, last_name, status)")
       .eq("is_current", true)
       .in("role", ["pirmininkas", "tarybos_narys"])
       .order("sort_order", { ascending: true });
@@ -419,6 +419,7 @@ async function fetchEligibleAttendees(meetingType: string): Promise<EligibleAtte
 
     const rows = (data || []) as Array<{
       role: string;
+      term_start: string | null;
       member:
         | { id: string; first_name: string; last_name: string; status: string }
         | { id: string; first_name: string; last_name: string; status: string }[]
@@ -427,7 +428,9 @@ async function fetchEligibleAttendees(meetingType: string): Promise<EligibleAtte
 
     const seen = new Set<string>();
     const result: EligibleAttendee[] = [];
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vilnius" });
     for (const row of rows) {
+      if (!row.term_start || row.term_start > today) continue;
       const m = Array.isArray(row.member) ? row.member[0] : row.member;
       if (!m) continue;
       if (!ACTIVE_MEMBER_STATUSES.includes(m.status)) continue;

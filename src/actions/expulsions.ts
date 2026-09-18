@@ -105,10 +105,10 @@ export async function getMeetingExpulsions(
     if (existingIds.has(m.id)) continue;
     const joinYear = m.join_date ? new Date(m.join_date).getFullYear() : 2012;
     const paid = paidMap.get(m.id) || new Map<string, number>();
-    const unpaid = (periods || []).filter(p => p.year >= joinYear)
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vilnius" });
+    const unpaid = (periods || []).filter(p => p.year >= joinYear && p.due_date && p.due_date < today)
       .map(p => ({ ...p, outstanding: Math.max(0, p.amount_cents - (paid.get(p.id) || 0)) }))
       .filter(p => p.outstanding > 0);
-    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vilnius" });
     if (!unpaid.some(p => overdueMoreThanTwelveMonths(p.due_date, today))) continue;
     candidates.push({
       member_id: m.id,
@@ -158,11 +158,11 @@ export async function addExpulsion(
   if (periodsError || paymentsError || !periods || !payments) return { error: "Nepavyko patikrinti mokesčių ir mokėjimų." };
   const paid = new Map<string, number>();
   for (const p of payments) paid.set(p.fee_period_id, (paid.get(p.fee_period_id) || 0) + p.amount_cents);
-  const unpaid = periods.filter(p => p.year >= joinYear)
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vilnius" });
+  const unpaid = periods.filter(p => p.year >= joinYear && p.due_date && p.due_date < today)
     .map(p => ({ ...p, outstanding: Math.max(0, p.amount_cents - (paid.get(p.id) || 0)) }))
     .filter(p => p.outstanding > 0);
 
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vilnius" });
   if (!unpaid.some(p => overdueMoreThanTwelveMonths(p.due_date, today))) {
     return { error: "Nėra pagrįsto ilgiau nei 12 mėnesių pradelsto mokesčio. Reikia patvirtintos mokėjimo tvarkos ir termino (3.4.2 p.)." };
   }

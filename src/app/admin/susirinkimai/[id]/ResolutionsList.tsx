@@ -9,7 +9,7 @@ import {
   setResolutionResults,
   reorderResolution,
   recordBallots,
-  getBallots,
+  getRecordedVoters,
 } from "@/actions/voting";
 import { updateMeetingProtocolInfo } from "@/actions/meetings";
 import { Badge } from "@/components/ui/Badge";
@@ -395,12 +395,12 @@ export function ResolutionsList({
 
 function NamedLiveVotes({resolutionId, meetingId, attendees}: {resolutionId:string;meetingId:string;attendees:LiveAttendee[]}) {
   const router = useRouter();
-  const [recorded, setRecorded] = useState<Record<string,string> | null>(null);
+  const [recorded, setRecorded] = useState<Record<string,boolean> | null>(null);
   const [choices, setChoices] = useState<Record<string,string>>({});
   const [saving, setSaving] = useState(false);
   useEffect(() => {
-    getBallots(resolutionId).then(rows => setRecorded(Object.fromEntries(rows.map(row => [row.member_id,row.vote]))))
-      .catch(() => toast.error("Nepavyko perskaityti vardinių balsų"));
+    getRecordedVoters(resolutionId).then(rows => setRecorded(Object.fromEntries(rows.map(row => [row.member_id,true]))))
+      .catch(() => toast.error("Nepavyko perskaityti balsavimo įrašymo būsenos"));
   }, [resolutionId]);
   async function save() {
     if (!recorded) return;
@@ -409,15 +409,15 @@ function NamedLiveVotes({resolutionId, meetingId, attendees}: {resolutionId:stri
     setSaving(true);
     const result = await recordBallots(resolutionId,meetingId,ballots,"fizinis");
     if(result.error) toast.error(result.error);
-    else { setRecorded({...recorded,...Object.fromEntries(ballots.map(b=>[b.memberId,b.vote]))}); setChoices({}); toast.success("Vardiniai balsai įrašyti"); router.refresh(); }
+    else { setRecorded({...recorded,...Object.fromEntries(ballots.map(b=>[b.memberId,true]))}); setChoices({}); toast.success("Vardiniai balsai įrašyti"); router.refresh(); }
     setSaving(false);
   }
   if (!attendees.length) return null;
   return <details className="w-full rounded border p-3 text-sm"><summary>Vardinis gyvų dalyvių balsavimas</summary>
     <p className="my-2 text-xs text-gray-600">Tarybos balsų lygybei išspręsti būtinas vardinis posėdžio pirmininko balsas. Įvedus vardinius gyvus balsus, visus kitus gyvus balsus taip pat įveskite čia; bendruose gyvų balsų laukuose palikite nulius.</p>
     <div className="space-y-2">{attendees.map(a => <label key={a.member_id} className="flex items-center justify-between gap-3">{a.member?.first_name} {a.member?.last_name}
-      <select aria-label={`Balsas: ${a.member?.first_name} ${a.member?.last_name}`} className="rounded border p-1" disabled={!recorded || !!recorded[a.member_id]} value={recorded?.[a.member_id] || choices[a.member_id] || ""} onChange={e=>setChoices({...choices,[a.member_id]:e.target.value})}>
-        <option value="">Neįrašytas</option><option value="uz">Už</option><option value="pries">Prieš</option><option value="susilaike">Susilaikė</option>
+      <select aria-label={`Balsas: ${a.member?.first_name} ${a.member?.last_name}`} className="rounded border p-1" disabled={!recorded || !!recorded[a.member_id]} value={recorded?.[a.member_id] ? "recorded" : choices[a.member_id] || ""} onChange={e=>setChoices({...choices,[a.member_id]:e.target.value})}>
+        <option value="recorded" hidden>Įrašytas (pasirinkimas nerodomas)</option><option value="">Neįrašytas</option><option value="uz">Už</option><option value="pries">Prieš</option><option value="susilaike">Susilaikė</option>
       </select>
     </label>)}</div>
     <Button size="sm" className="mt-3" disabled={!recorded || !Object.values(choices).some(Boolean)} loading={saving} onClick={save}>Įrašyti vardinius balsus</Button>

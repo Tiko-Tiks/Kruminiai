@@ -46,7 +46,7 @@ for (const [description, data, now, expected] of [
 
 test('KKB-25: einantis pareigas Tarybos narys lieka sąraše po kadencijos datos', async () => {
   const h = actionHarness('src/actions/meetings.ts', { community_management: [{
-    role: 'tarybos_narys', is_current: true, term_end: '2020-01-01', sort_order: 1,
+    role: 'tarybos_narys', is_current: true, term_start: '2016-01-01', term_end: '2020-01-01', sort_order: 1,
     member: { id: 'council', first_name: 'Testas', last_name: 'Vienas', status: 'aktyvus' },
   }] });
   assert.equal((await h.actions.getEligibleAttendees('valdybos')).length, 1);
@@ -55,7 +55,7 @@ test('KKB-25: einantis pareigas Tarybos narys lieka sąraše po kadencijos datos
 test('KKB-20: tas pats Pirmininkas / Tarybos narys neskaičiuojamas du kartus', async () => {
   const member = { id: 'council', first_name: 'Testas', last_name: 'Vienas', status: 'aktyvus' };
   const h = actionHarness('src/actions/meetings.ts', { community_management: [
-    { role: 'pirmininkas', is_current: true, member }, { role: 'tarybos_narys', is_current: true, member },
+    { role: 'pirmininkas', is_current: true, term_start: '2016-01-01', member }, { role: 'tarybos_narys', is_current: true, term_start: '2016-01-01', member },
   ] });
   assert.equal((await h.actions.getEligibleAttendees('valdybos')).length, 1);
 });

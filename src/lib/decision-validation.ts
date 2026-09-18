@@ -14,6 +14,8 @@ export async function validateDecision(db: Client, resolutionId: string, meeting
   ]);
   if (re || me || ae || !r || !m || !attendees) return "Nepavyko patikrinti nutarimo, susirinkimo ar dalyvių duomenų.";
   if (['baigtas', 'atšauktas'].includes(m.status)) return "Susirinkimas uždarytas. Rezultatų keisti negalima.";
+  const meetingDay = new Date(m.meeting_date).toLocaleDateString("en-CA", { timeZone: "Europe/Vilnius" });
+  if (meetingDay < "2026-01-15") return "Šiai datai reikia ankstesnės galiojusios įstatų redakcijos. Pateikta redakcija įregistruota 2026-01-15.";
   if (m.meeting_type !== 'valdybos') {
     const { data: announcements, error } = await db.from('meeting_announcements').select('channel, url, published_at').eq('meeting_id', meetingId);
     if (error || !summarizeAnnouncements(announcements, new Date(m.meeting_date), m.meeting_type, m).compliant) {
@@ -34,6 +36,7 @@ export async function validateDecision(db: Client, resolutionId: string, meeting
   }
   if (m.meeting_type === 'neeilinis') {
     if (!['council','members'].includes(m.convening_kind) || !m.convening_reference?.trim()) return "Nurodykite neeilinio susirinkimo sušaukimo pagrindą (4.2 p.).";
+    if (m.convening_kind === 'council' && (!m.convening_date || m.convening_date > meetingDay || m.convening_date > new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Vilnius' }))) return 'Nurodykite iki susirinkimo priimto Tarybos sušaukimo sprendimo datą.';
     if (m.convening_kind === 'members' && !m.convening_snapshot) return "Reikia užfiksuoto bent 1/5 narių reikalavimo pagrindo.";
   }
   let repeatValidated = false;

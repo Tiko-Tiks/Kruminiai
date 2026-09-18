@@ -78,8 +78,8 @@ test('AUD-03 / 4.6: pakartotinio išimtis negalioja be ankstesnio susirinkimo pa
 
 test('AUD-04 / 5.1, 5.5, 6.2: Revizorius nepatenka į Tarybos balsuotojų sąrašą', async () => {
   const h = actionHarness('src/actions/meetings.ts', { community_management: [
-    { role: 'tarybos_narys', is_current: true, member: { id: 'council', first_name: 'Testas', last_name: 'Vienas', status: 'aktyvus' } },
-    { role: 'revizorius', is_current: true, member: { id: 'auditor', first_name: 'Testas', last_name: 'Du', status: 'aktyvus' } },
+    { role: 'tarybos_narys', is_current: true, term_start: '2016-01-01', member: { id: 'council', first_name: 'Testas', last_name: 'Vienas', status: 'aktyvus' } },
+    { role: 'revizorius', is_current: true, term_start: '2016-01-01', member: { id: 'auditor', first_name: 'Testas', last_name: 'Du', status: 'aktyvus' } },
   ] });
   assert.deepEqual((await h.actions.getEligibleAttendees('valdybos')).map(m => m.id), ['council']);
 });

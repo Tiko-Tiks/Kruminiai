@@ -382,11 +382,13 @@ export async function reorderResolution(
 
 // Balsai
 
-export async function getBallots(resolutionId: string) {
+export async function getRecordedVoters(resolutionId: string) {
   const supabase = createServerSupabaseClient();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) throw new Error(auth.error);
   const { data, error } = await supabase
     .from("vote_ballots")
-    .select("*, member:members(id, first_name, last_name)")
+    .select("member_id")
     .eq("resolution_id", resolutionId)
     .order("voted_at", { ascending: true });
   if (error) throw error;
@@ -431,19 +433,18 @@ export async function recordBallots(
     recorded_by: user?.id ?? null,
   }));
 
-  const { error } = await supabase.from("vote_ballots").upsert(rows, {
-    onConflict: "resolution_id,member_id",
-  });
+  const { error } = await supabase.from("vote_ballots").insert(rows);
   if (error) return { error: error.message };
 
   // Atnaujinti rezultatus
   const totals = await countVotes(resolutionId);
   if (totals.error) return { error: totals.error };
-  await supabase.from("resolutions").update({
+  const { error: totalsError } = await supabase.from("resolutions").update({
     result_for: totals.uz,
     result_against: totals.pries,
     result_abstain: totals.susilaike,
   }).eq("id", resolutionId);
+  if (totalsError) return { error: "Balsai įrašyti, bet suvestinė neatnaujinta. Atnaujinkite puslapį. " + totalsError.message };
 
   await logAudit(supabase, {
     userId: user?.id ?? null,
@@ -749,11 +750,12 @@ export async function castOnlineVote(resolutionId: string, memberId: string, vot
   // Atnaujinti rezultatus
   const totals = await countVotes(resolutionId);
   if (totals.error) return { error: totals.error };
-  await supabase.from("resolutions").update({
+  const { error: totalsError } = await supabase.from("resolutions").update({
     result_for: totals.uz,
     result_against: totals.pries,
     result_abstain: totals.susilaike,
   }).eq("id", resolutionId);
+  if (totalsError) return { error: "Balsai įrašyti, bet suvestinė neatnaujinta. Atnaujinkite puslapį. " + totalsError.message };
 
   revalidateMeetingPaths(resolution.meeting_id);
   return { success: true };
