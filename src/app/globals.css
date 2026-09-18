@@ -17,38 +17,45 @@
  *
  * Tamsi tema: pridedama vienu `:root[data-theme="dark"]` bloku su tomis
  * pačiomis kintamųjų reikšmėmis – atskiro puslapių perrašymo nereikės.
+ *
+ * KODĖL RGB KANALAI, o ne `#hex`: Tailwind permatomumo modifikatorių
+ * (`bg-surface/90`) moka pritaikyti tik tada, kai spalva turi `<alpha-value>`
+ * vietą. Su pliku `var(--surface)` klasė TYLIAI nesugeneruojama – sticky
+ * header'is būtų likęs visai be fono. Todėl reikšmės saugomos kaip „R G B",
+ * o `tailwind.config.ts` jas suriša per `rgb(var(--x) / <alpha-value>)`.
+ * Plikame CSS (ne per Tailwind) kintamąjį reikia vynioti: `rgb(var(--brand))`.
  */
 :root {
   color-scheme: light;
 
   /* Paviršiai – šilti pilkumai (šalti mėlynsvyliai pilki šiam turiniui
      atrodė kaip SaaS panelė, o ne kaimo bendruomenė) */
-  --surface: #ffffff;
-  --surface-muted: #faf8f5;
-  --surface-card: #ffffff;
-  --line: #e9e5df;
-  --line-strong: #d9d3ca;
+  --surface: 255 255 255;
+  --surface-muted: 250 248 245;
+  --surface-card: 255 255 255;
+  --line: 233 229 223;
+  --line-strong: 217 211 202;
 
   /* Tekstas – visi trys atitinka WCAG AA ant --surface.
      Pakaitalas buvusiam `text-gray-400` (2,5:1 – neatitiko normos). */
-  --ink: #1c1917; /* 16,9:1 */
-  --ink-muted: #57534e; /* 7,6:1 */
-  --ink-subtle: #6f6862; /* 5,5:1 */
+  --ink: 28 25 23; /* 16,9:1 */
+  --ink-muted: 87 83 78; /* 7,6:1 */
+  --ink-subtle: 111 104 98; /* 5,5:1 */
 
   /* Bendruomenės žalia */
-  --brand: #15803d; /* 5,0:1 ant balto – tinka ir tekstui */
-  --brand-strong: #14532d;
-  --brand-soft: #f0fdf4;
-  --brand-line: #bbf7d0;
-  --on-brand: #ffffff;
+  --brand: 21 128 61; /* 5,0:1 ant balto – tinka ir tekstui */
+  --brand-strong: 20 83 45;
+  --brand-soft: 240 253 244;
+  --brand-line: 187 247 208;
+  --on-brand: 255 255 255;
 
   /* Akcentas – TIK skubiems dalykams (artėjantis susirinkimas, CTA).
      Kai geltona dažomi ir projektai, ir prisegtos naujienos, ir „pasidalink",
      ekrane lieka penki vienodai rėkiantys blokai ir svarbos ženklas dingsta. */
-  --accent: #b45309; /* 5,0:1 ant balto */
-  --accent-strong: #92400e;
-  --accent-soft: #fffbeb;
-  --accent-line: #fde68a;
+  --accent: 180 83 9; /* 5,0:1 ant balto */
+  --accent-strong: 146 64 14;
+  --accent-soft: 255 251 235;
+  --accent-line: 253 230 138;
 
   /* Senieji Tailwind `bg-background` / `text-foreground` raktai */
   --background: var(--surface);
@@ -70,8 +77,8 @@ html {
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  color: rgb(var(--foreground));
+  background: rgb(var(--background));
   -webkit-font-smoothing: antialiased;
 }
 
@@ -80,14 +87,14 @@ body {
      turėjo tik `<Button>`, o viešas puslapis susideda beveik vien iš `<Link>` –
      naršant klaviatūra nesimatydavo, kur esi. */
   :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
-    outline: 2px solid var(--brand);
+    outline: 2px solid rgb(var(--brand));
     outline-offset: 2px;
     border-radius: 0.25rem;
   }
 
   ::selection {
-    background: var(--brand-line);
-    color: var(--brand-strong);
+    background: rgb(var(--brand-line));
+    color: rgb(var(--brand-strong));
   }
 }
 
@@ -101,8 +108,8 @@ body {
     transform: translateY(-200%);
     transition: transform 150ms ease;
     border-radius: 0.5rem;
-    background: var(--brand);
-    color: var(--on-brand);
+    background: rgb(var(--brand));
+    color: rgb(var(--on-brand));
     padding: 0.625rem 1rem;
     font-size: 0.875rem;
     font-weight: 600;

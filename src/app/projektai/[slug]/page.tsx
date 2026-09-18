@@ -556,7 +556,7 @@ export default async function ProjectPage({ params }: { params: { slug: string }
                 {hiddenDonations.length > 0 && (
                   <details className="group mt-2">
                     <summary className="cursor-pointer list-none py-3 text-sm font-semibold text-brand hover:text-brand-strong flex items-center gap-1.5">
-                      <ChevronDown className="h-4 w-4 group-open:rotate-180 transition-transform" aria-hidden />
+                      <ChevronDown className="h-4 w-4 group-[[open]]:rotate-180 transition-transform" aria-hidden />
                       {t.supportersShowAll.replace("{count}", String(hiddenDonations.length))}
                     </summary>
                     <div className="divide-y divide-line border-t border-line">

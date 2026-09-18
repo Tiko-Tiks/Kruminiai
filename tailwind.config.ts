@@ -10,36 +10,40 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        background: "rgb(var(--background) / <alpha-value>)",
+        foreground: "rgb(var(--foreground) / <alpha-value>)",
         // Semantiniai tokenai (žr. src/app/globals.css). Viešuose puslapiuose
         // naudoti JUOS, ne `green-700` / `gray-400` atspalvių numerius.
+        //
+        // `rgb(var(--x) / <alpha-value>)`, o ne `var(--x)`: kitaip Tailwind
+        // TYLIAI praleidžia permatomumo modifikatorius (`bg-surface/90`) ir
+        // klasė iš viso nesugeneruojama.
         surface: {
-          DEFAULT: "var(--surface)",
-          muted: "var(--surface-muted)",
-          card: "var(--surface-card)",
+          DEFAULT: "rgb(var(--surface) / <alpha-value>)",
+          muted: "rgb(var(--surface-muted) / <alpha-value>)",
+          card: "rgb(var(--surface-card) / <alpha-value>)",
         },
         line: {
-          DEFAULT: "var(--line)",
-          strong: "var(--line-strong)",
+          DEFAULT: "rgb(var(--line) / <alpha-value>)",
+          strong: "rgb(var(--line-strong) / <alpha-value>)",
         },
         ink: {
-          DEFAULT: "var(--ink)",
-          muted: "var(--ink-muted)",
-          subtle: "var(--ink-subtle)",
+          DEFAULT: "rgb(var(--ink) / <alpha-value>)",
+          muted: "rgb(var(--ink-muted) / <alpha-value>)",
+          subtle: "rgb(var(--ink-subtle) / <alpha-value>)",
         },
         brand: {
-          DEFAULT: "var(--brand)",
-          strong: "var(--brand-strong)",
-          soft: "var(--brand-soft)",
-          line: "var(--brand-line)",
-          ink: "var(--on-brand)",
+          DEFAULT: "rgb(var(--brand) / <alpha-value>)",
+          strong: "rgb(var(--brand-strong) / <alpha-value>)",
+          soft: "rgb(var(--brand-soft) / <alpha-value>)",
+          line: "rgb(var(--brand-line) / <alpha-value>)",
+          ink: "rgb(var(--on-brand) / <alpha-value>)",
         },
         accent: {
-          DEFAULT: "var(--accent)",
-          strong: "var(--accent-strong)",
-          soft: "var(--accent-soft)",
-          line: "var(--accent-line)",
+          DEFAULT: "rgb(var(--accent) / <alpha-value>)",
+          strong: "rgb(var(--accent-strong) / <alpha-value>)",
+          soft: "rgb(var(--accent-soft) / <alpha-value>)",
+          line: "rgb(var(--accent-line) / <alpha-value>)",
         },
       },
       fontFamily: {
