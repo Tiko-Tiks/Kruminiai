@@ -9,6 +9,7 @@ import { generateAndSendDeclarations, resendDeclarationSms } from "@/actions/dec
 import {
   declarationReminderSmsText,
   declarationSmsText,
+  isCalendarDate,
   smsSegments,
 } from "@/lib/notification-texts";
 import {
@@ -99,12 +100,26 @@ export function DeclarationAdminPanel({
     return typeof value === "string" ? value.trim() : "";
   }
 
-  async function handleSend() {
-    const expiresAt = readExpiresAt();
-    if (!expiresAt) {
+  /**
+   * Ta pati patikra kaip server action'e – kad patvirtinimo lange nebūtų
+   * rodoma diena, kurios kalendoriuje nėra (pvz. vasario 30).
+   */
+  function checkedExpiresAt(): string | null {
+    const value = readExpiresAt();
+    if (!value) {
       toast.error("Nurodykite, iki kada nuoroda galioja");
-      return;
+      return null;
     }
+    if (!isCalendarDate(value)) {
+      toast.error("Tokios datos kalendoriuje nėra");
+      return null;
+    }
+    return value;
+  }
+
+  async function handleSend() {
+    const expiresAt = checkedExpiresAt();
+    if (!expiresAt) return;
     if (
       !confirm(
         `Siųsti SMS skolingiems nariams su narystės patvirtinimo nuoroda?\nNuoroda galios iki ${expiresAt} (imtinai).`
@@ -126,11 +141,8 @@ export function DeclarationAdminPanel({
   }
 
   async function handleResend() {
-    const expiresAt = readExpiresAt();
-    if (!expiresAt) {
-      toast.error("Nurodykite, iki kada nuoroda galioja");
-      return;
-    }
+    const expiresAt = checkedExpiresAt();
+    if (!expiresAt) return;
     if (
       !confirm(
         `Siųsti priminimą ${stats.pending} nariams, kurie dar neatsakė?\nNuoroda galios iki ${expiresAt} (imtinai).`

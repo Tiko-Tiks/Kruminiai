@@ -6,6 +6,7 @@ import {
   declarationSmsText,
   formatMeetingDateLong,
   formatMeetingDateTime,
+  isCalendarDate,
   isGsm7,
   isValidMeetingDate,
   meetingTypeLabel,
@@ -40,6 +41,26 @@ test("netinkama data – aiški klaida, ne tylus „Invalid Date“", () => {
   assert.equal(isValidMeetingDate("ne data"), false);
   assert.equal(isValidMeetingDate(null), false);
   assert.equal(isValidMeetingDate(SUMMER_ISO), true);
+});
+
+test("isCalendarDate atmeta kalendoriuje neegzistuojančias datas", () => {
+  for (const ok of ["2026-01-01", "2026-12-31", "2028-02-29"]) {
+    assert.equal(isCalendarDate(ok), true, `turėjo būti tinkama: ${ok}`);
+  }
+  // Formatą atitinka, bet Date jas „pataisytų" į kitą dieną arba grąžintų NaN
+  for (const bad of [
+    "2026-02-30",
+    "2026-02-29",
+    "2026-04-31",
+    "2026-13-01",
+    "2026-00-10",
+    "2026-1-01",
+    "2026/01/01",
+    "rytoj",
+    "",
+  ]) {
+    assert.equal(isCalendarDate(bad), false, `turėjo būti netinkama: ${bad}`);
+  }
 });
 
 test("susirinkimo tipo pavadinimas pagal meetings.meeting_type", () => {

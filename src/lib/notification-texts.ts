@@ -102,6 +102,21 @@ export function isValidMeetingDate(iso: string | null | undefined): boolean {
   return !Number.isNaN(new Date(iso).getTime());
 }
 
+/**
+ * Ar eilutė yra reali kalendorinė data „YYYY-MM-DD".
+ *
+ * Vien formos patikros neužtenka: `2026-02-30` ją atitinka, bet `Date` tokią
+ * datą „pataiso" į kovo 2 d. – galiojimo pabaiga tyliai nušoktų į kitą dieną,
+ * nei matyti formoje. Todėl datą suformatuojam atgal ir reikalaujam, kad
+ * sutaptų su įvestimi.
+ */
+export function isCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const utc = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(utc.getTime())) return false;
+  return utc.toISOString().slice(0, 10) === value;
+}
+
 /** „2026 m. gegužės 23 d." / „23 May 2026" – laiškams ir puslapių tekstams. */
 export function formatMeetingDateLong(iso: string, locale: NotificationLocale): string {
   const p = vilniusParts(iso);

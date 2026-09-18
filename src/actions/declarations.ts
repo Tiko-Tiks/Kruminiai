@@ -15,6 +15,7 @@ import { z } from "zod";
 import {
   declarationReminderSmsText,
   declarationSmsText,
+  isCalendarDate,
   overdueDeclarationSmsText,
 } from "@/lib/notification-texts";
 
@@ -37,7 +38,14 @@ function generateToken(): string {
 // Deklaracijos nuorodos galiojimas yra KAMPANIJOS parametras – admin'as jį
 // pasirenka siuntimo formoje (numatytoji reikšmė – po 14 d.). Anksčiau čia buvo
 // įrašyta konkreti data, todėl kitai kampanijai nuorodos būdavo nebegaliojančios.
-const expiresAtSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+//
+// Tikrinamas ne tik formatas, bet ir ar tokia diena kalendoriuje yra: reikšmė
+// ateina iš `DatePicker` teksto lauko per mygtuko veiksmą, todėl naršyklės
+// `pattern` čia nieko nesustabdo.
+const expiresAtSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Netinkamas datos formatas (turi būti YYYY-MM-DD)")
+  .refine(isCalendarDate, "Tokios datos kalendoriuje nėra");
 
 const DEFAULT_EXPIRY_DAYS = 14;
 
@@ -55,7 +63,9 @@ function defaultExpiresAtDate(): string {
 function resolveExpiresAt(input: string): { iso: string } | { error: string } {
   const parsed = expiresAtSchema.safeParse(input);
   if (!parsed.success) {
-    return { error: "Netinkama galiojimo data (formatas YYYY-MM-DD)" };
+    return {
+      error: parsed.error.issues[0]?.message ?? "Netinkama galiojimo data",
+    };
   }
   const iso = vilniusLocalToIso(`${parsed.data}T23:59`);
   const time = new Date(iso).getTime();
