@@ -1,20 +1,30 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createAdminSupabaseClient, isAdminClientAvailable } from "@/lib/supabase-admin";
 import { NextResponse, type NextRequest } from "next/server";
 import { readFile } from "fs/promises";
 import path from "path";
 import { getLocale } from "@/lib/i18n-server";
+import { escapeAttr, escapeHtml } from "@/lib/html";
 import type { Locale } from "@/lib/i18n";
 
 /**
- * Statinių dokumentų (repo `private/documents/`) atidavimo route'as.
+ * Dokumentų atidavimo route'as – VIENA vieta, kur sprendžiama dokumento prieiga.
  *
- * KELIO FORMATAS: `documents.file_path = "__api__/dokumentai/<failas>"`
- * → `getDocumentPublicUrl()` paverčia į `/api/dokumentai/<failas>`.
+ * Aptarnauja du saugyklos tipus, abu adresuojamus per `documents.file_path`
+ * (`getDocumentPublicUrl()` `src/lib/utils.ts` paverčia jį nuoroda):
  *
- * Kodėl toks mechanizmas apskritai reikalingas (žr. CLAUDE.md „Įkelti failai"):
- * dauguma PDF'ų gyvena Supabase Storage `documents` bucket'e ir atiduodami
- * tiesiogiai per public URL. Tačiau keli dokumentai (įstatai) yra versijuojami
- * kartu su kodu repozitorijoje – jiems reikia serverio route'o.
+ *   `__api__/dokumentai/<failas>`  → `/api/dokumentai/<failas>`
+ *        statinis failas repo `private/documents/` aplanke (įstatai) –
+ *        versijuojamas kartu su kodu;
+ *   bet koks kitas kelias         → `/api/dokumentai/failai/<kelias>`
+ *        objektas Supabase Storage `documents` bucket'e.
+ *
+ * KODĖL Storage failai eina per route'ą, o ne tiesioginiu bucket'o URL:
+ * viešame bucket'e failas atiduodamas be jokios autentifikacijos, todėl
+ * `documents.is_public = false` nieko nereiškė – nuorodą žinantis žmogus
+ * failą parsisiųsdavo. Bucket'as padarytas privatus (migracija 050), o
+ * matomumą sprendžia šis route'as; pats objektas paimamas service-role
+ * klientu su trumpalaike pasirašyta nuoroda, kuri į naršyklę nepatenka.
  *
  * PRIEIGA seka `documents.is_public`, o ne vien sesiją:
  *   • `is_public = true`  → mato visi, įskaitant neprisijungusius (įstatai yra
@@ -30,8 +40,16 @@ export const dynamic = "force-dynamic";
 
 const DOCS_ROOT = path.join(process.cwd(), "private", "documents");
 
-// Leidžiam tik paprastus failų vardus/aplankus – jokių „..", slash'ų ar
-// ne-ASCII simbolių (Storage'e failų vardai irgi sanitarizuojami).
+const STORAGE_BUCKET = "documents";
+
+/** Rezervuotas pirmas segmentas, skiriantis Storage kelius nuo repo failų. */
+const STORAGE_PREFIX = "failai";
+
+/** Kiek galioja vidinė pasirašyta nuoroda (sekundėmis). Į naršyklę nepatenka. */
+const SIGNED_URL_TTL_SECONDS = 60;
+
+// Repo failams leidžiam tik paprastus failų vardus/aplankus – jokių „..",
+// slash'ų ar ne-ASCII simbolių.
 const SAFE_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -48,7 +66,9 @@ interface ErrorCopy {
   hint: string;
 }
 
-const ERROR_COPY: Record<Locale, Record<"missing" | "denied" | "unauthorized", ErrorCopy>> = {
+type ErrorKind = "missing" | "denied" | "unauthorized" | "unavailable";
+
+const ERROR_COPY: Record<Locale, Record<ErrorKind, ErrorCopy>> = {
   lt: {
     missing: {
       heading: "Dokumento failas nerastas",
@@ -64,6 +84,11 @@ const ERROR_COPY: Record<Locale, Record<"missing" | "denied" | "unauthorized", E
       heading: "Reikia prisijungti",
       body: "Šis dokumentas nėra viešas – norint jį atidaryti, reikia prisijungti.",
       hint: "Prisijunkite su savo nario paskyra ir bandykite dar kartą.",
+    },
+    unavailable: {
+      heading: "Dokumentų saugykla nepasiekiama",
+      body: "Failo nepavyko paimti iš saugyklos.",
+      hint: "Pabandykite vėliau arba praneškite administratoriui.",
     },
   },
   en: {
@@ -82,11 +107,16 @@ const ERROR_COPY: Record<Locale, Record<"missing" | "denied" | "unauthorized", E
       body: "This document is not public – please sign in to open it.",
       hint: "Sign in with your member account and try again.",
     },
+    unavailable: {
+      heading: "Document storage unavailable",
+      body: "The file could not be fetched from storage.",
+      hint: "Please try again later or let the administrator know.",
+    },
   },
 };
 
 function errorPage(
-  kind: "missing" | "denied" | "unauthorized",
+  kind: ErrorKind,
   status: number,
   locale: Locale,
   detail?: string
@@ -94,15 +124,15 @@ function errorPage(
   const copy = ERROR_COPY[locale][kind];
   const backLabel = locale === "en" ? "Back to documents" : "Grįžti į dokumentus";
   const loginLabel = locale === "en" ? "Sign in" : "Prisijungti";
-  const showLogin = kind !== "missing";
+  const showLogin = kind === "denied" || kind === "unauthorized";
 
   const html = `<!DOCTYPE html>
-<html lang="${locale}">
+<html lang="${escapeAttr(locale)}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex">
-  <title>${copy.heading}</title>
+  <title>${escapeHtml(copy.heading)}</title>
   <style>
     *{ box-sizing: border-box; }
     body {
@@ -123,13 +153,13 @@ function errorPage(
 </head>
 <body>
   <div class="box">
-    <h1>${copy.heading}</h1>
-    <p>${copy.body}</p>
-    <p class="hint">${copy.hint}</p>
-    ${detail ? `<p class="detail">${detail}</p>` : ""}
+    <h1>${escapeHtml(copy.heading)}</h1>
+    <p>${escapeHtml(copy.body)}</p>
+    <p class="hint">${escapeHtml(copy.hint)}</p>
+    ${detail ? `<p class="detail">${escapeHtml(detail)}</p>` : ""}
     <div class="actions">
-      <a class="btn primary" href="/dokumentai">${backLabel}</a>
-      ${showLogin ? `<a class="btn secondary" href="/prisijungimas">${loginLabel}</a>` : ""}
+      <a class="btn primary" href="/dokumentai">${escapeHtml(backLabel)}</a>
+      ${showLogin ? `<a class="btn secondary" href="/prisijungimas">${escapeHtml(loginLabel)}</a>` : ""}
     </div>
   </div>
 </body>
@@ -141,31 +171,72 @@ function errorPage(
   });
 }
 
+/**
+ * ASCII atsarginis failo vardas `Content-Disposition` antraštei. HTTP antraštėje
+ * lietuviški simboliai neleistini, o kabutės ir backslash'as nutrauktų quoted-string
+ * (tikrąjį vardą perduodam `filename*=UTF-8''...`).
+ */
+function asciiFileName(name: string): string {
+  const cleaned = name.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "_");
+  return cleaned.trim() || "dokumentas";
+}
+
+function contentDisposition(downloadName: string, asciiFallback: string): string {
+  return `inline; filename="${asciiFileName(asciiFallback)}"; filename*=UTF-8''${encodeURIComponent(downloadName)}`;
+}
+
+function cacheControl(isPublicDoc: boolean): string {
+  return isPublicDoc
+    ? "public, max-age=3600, stale-while-revalidate=86400"
+    : "private, no-store";
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { path: string[] } }
 ) {
   const locale = getLocale();
   const segments = params.path || [];
+  if (segments.length === 0) return errorPage("missing", 404, locale);
 
-  if (segments.length === 0 || !segments.every((s) => SAFE_SEGMENT.test(s))) {
-    return errorPage("missing", 404, locale);
-  }
+  const isStorageRequest = segments[0] === STORAGE_PREFIX;
 
-  const relativePath = segments.join("/");
-  const fullPath = path.resolve(DOCS_ROOT, relativePath);
-  if (fullPath !== DOCS_ROOT && !fullPath.startsWith(DOCS_ROOT + path.sep)) {
-    return errorPage("missing", 404, locale);
+  // `documents.file_path` reikšmė, pagal kurią randam registro įrašą.
+  let filePath: string;
+  let relativePath = "";
+
+  if (isStorageRequest) {
+    const storageSegments = segments.slice(1);
+    // Storage failų vardai istoriškai turi tarpų, skliaustų ir lietuviškų
+    // raidžių (įkeliami ir nesanitarizuoti), todėl simbolių aibės neribojam –
+    // užtenka atmesti kelio manipuliacijas. Tikroji prieigos kontrolė yra
+    // `documents` įrašas: be jo failas neatiduodamas.
+    const invalid =
+      storageSegments.length === 0 ||
+      storageSegments.some((s) => s === "" || s === "." || s === ".." || s.includes("\\"));
+    if (invalid) return errorPage("missing", 404, locale);
+    filePath = storageSegments.join("/");
+  } else {
+    if (!segments.every((s) => SAFE_SEGMENT.test(s))) {
+      return errorPage("missing", 404, locale);
+    }
+    relativePath = segments.join("/");
+    const fullPath = path.resolve(DOCS_ROOT, relativePath);
+    if (fullPath !== DOCS_ROOT && !fullPath.startsWith(DOCS_ROOT + path.sep)) {
+      return errorPage("missing", 404, locale);
+    }
+    filePath = `__api__/dokumentai/${relativePath}`;
   }
 
   const supabase = createServerSupabaseClient();
 
-  // RLS jau riboja matomumą (anon mato tik `is_public = true`), bet mums
-  // reikia žinoti ir patį `is_public`, kad nuspręstume dėl anon prieigos.
+  // RLS jau riboja matomumą (anon mato tik `is_public = true`, patvirtintas
+  // narys – ir neviešus), bet mums reikia žinoti ir patį `is_public`, kad
+  // nuspręstume dėl anon prieigos.
   const { data: doc } = await supabase
     .from("documents")
     .select("id, title, file_name, is_public")
-    .eq("file_path", `__api__/dokumentai/${relativePath}`)
+    .eq("file_path", filePath)
     .maybeSingle();
 
   const isPublicDoc = doc?.is_public === true;
@@ -184,29 +255,96 @@ export async function GET(
       !!profile &&
       (profile.is_approved || profile.role === "admin" || profile.role === "super_admin");
     if (!allowed) return errorPage("denied", 403, locale);
+
+    // Storage objektą atiduodam TIK tada, kai jis užregistruotas `documents`
+    // lentelėje – kitaip patvirtintas narys galėtų pasiimti bet kurį bucket'o
+    // failą (pvz. seną, sąmoningai nepaskelbtą versiją). Repo failams įrašo
+    // nereikalaujam: jie patenka į saugyklą tik per repozitoriją.
+    if (isStorageRequest && !doc) return errorPage("missing", 404, locale, filePath);
+  }
+
+  if (isStorageRequest) {
+    return serveStorageObject(filePath, doc?.file_name ?? null, isPublicDoc, locale);
   }
 
   let file: Buffer;
   try {
-    file = await readFile(fullPath);
+    file = await readFile(path.resolve(DOCS_ROOT, relativePath));
   } catch {
     // Failas dingęs / niekada neįkeltas – aiški būsena, ne tylus nieko
     // neveikimas ir ne neinformatyvus JSON.
     return errorPage("missing", 404, locale, relativePath);
   }
 
+  const baseName = path.basename(relativePath);
   const ext = path.extname(relativePath).toLowerCase();
-  const contentType = CONTENT_TYPES[ext] || "application/octet-stream";
-  const fileName = doc?.file_name || path.basename(relativePath);
 
   return new NextResponse(file as unknown as BodyInit, {
     headers: {
-      "Content-Type": contentType,
-      // ASCII-only filename – lietuviški simboliai HTTP antraštėje neleistini
-      "Content-Disposition": `inline; filename="${path.basename(relativePath)}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
-      "Cache-Control": isPublicDoc
-        ? "public, max-age=3600, stale-while-revalidate=86400"
-        : "private, no-store",
+      "Content-Type": CONTENT_TYPES[ext] || "application/octet-stream",
+      "Content-Disposition": contentDisposition(doc?.file_name || baseName, baseName),
+      "Cache-Control": cacheControl(isPublicDoc),
     },
   });
+}
+
+/**
+ * Atiduoda objektą iš privataus `documents` bucket'o.
+ *
+ * Pasirašyta nuoroda generuojama service-role klientu ir naudojama TIK
+ * serveryje – turinys persiunčiamas srautu, todėl naršyklė mato tik mūsų
+ * domeno adresą (svarbu ir `react-pdf` peržiūrėtuvui: same-origin, be CORS).
+ */
+async function serveStorageObject(
+  filePath: string,
+  fileName: string | null,
+  isPublicDoc: boolean,
+  locale: Locale
+): Promise<NextResponse> {
+  if (!isAdminClientAvailable()) {
+    return errorPage("unavailable", 503, locale);
+  }
+
+  const admin = createAdminSupabaseClient();
+  const { data: signed, error: signError } = await admin.storage
+    .from(STORAGE_BUCKET)
+    .createSignedUrl(filePath, SIGNED_URL_TTL_SECONDS);
+
+  if (signError || !signed?.signedUrl) {
+    // Dažniausia priežastis – objekto nebėra (`documents` eilutė ir failas yra
+    // du atskiri dalykai, žr. `src/lib/document-status.ts`).
+    return errorPage("missing", 404, locale, filePath);
+  }
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(signed.signedUrl, { cache: "no-store" });
+  } catch {
+    return errorPage("unavailable", 502, locale);
+  }
+
+  if (!upstream.ok || !upstream.body) {
+    const gone = upstream.status === 400 || upstream.status === 404;
+    return gone
+      ? errorPage("missing", 404, locale, filePath)
+      : errorPage("unavailable", 502, locale);
+  }
+
+  const baseName = filePath.split("/").pop() || "dokumentas";
+  const ext = path.extname(baseName).toLowerCase();
+  const contentType =
+    CONTENT_TYPES[ext] || upstream.headers.get("content-type") || "application/octet-stream";
+  const contentLength = upstream.headers.get("content-length");
+
+  const headers = new Headers({
+    "Content-Type": contentType,
+    "Content-Disposition": contentDisposition(fileName || baseName, baseName),
+    "Cache-Control": cacheControl(isPublicDoc),
+    // Range užklausų nepersiunčiam, todėl ir `Accept-Ranges` neskelbiam –
+    // kitaip pdf.js bandytų dalinius parsiuntimus, kurių route'as nepalaiko.
+    "Accept-Ranges": "none",
+  });
+  if (contentLength) headers.set("Content-Length", contentLength);
+
+  return new NextResponse(upstream.body, { headers });
 }

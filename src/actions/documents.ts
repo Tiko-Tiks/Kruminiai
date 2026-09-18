@@ -139,11 +139,9 @@ export async function deleteDocument(id: string) {
   return { success: true };
 }
 
-export async function getDocumentUrl(filePath: string) {
-  const supabase = createServerSupabaseClient();
-  const { data } = supabase.storage.from("documents").getPublicUrl(filePath);
-  return data.publicUrl;
-}
+// `getDocumentUrl()` pašalintas: `documents` bucket'as privatus, viešo URL
+// nebėra. Nuorodą į dokumentą konstruoja `getDocumentPublicUrl()`
+// (`src/lib/utils.ts`) – ji veda į prieigą tikrinantį `/api/dokumentai` route'ą.
 
 export async function toggleDocumentVisibility(id: string, isPublic: boolean) {
   const supabase = createServerSupabaseClient();

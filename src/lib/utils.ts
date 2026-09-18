@@ -136,8 +136,17 @@ export function getDocumentPublicUrl(filePath: string): string {
   if (filePath.startsWith("__public__/")) {
     return `/${filePath.replace("__public__/", "")}`;
   }
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  return `${base}/storage/v1/object/public/documents/${filePath}`;
+  // Supabase Storage objektai atiduodami per prieigos kontrolės route'ą, o ne
+  // tiesioginiu bucket'o URL: viešame bucket'e failas pasiekiamas be jokios
+  // autentifikacijos, todėl `documents.is_public = false` nieko nereikštų.
+  // `failai/` – rezervuotas pirmas segmentas (žr.
+  // `src/app/api/dokumentai/[...path]/route.ts`); kiekvienas kelio segmentas
+  // koduojamas atskirai, kad tarpai ir skliaustai failų varduose nesugadintų URL.
+  const encoded = filePath
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  return `/api/dokumentai/failai/${encoded}`;
 }
 
 // Sukonstruoti viešą URL nuotraukai images bucket'e (pvz. projektų eigos foto)
