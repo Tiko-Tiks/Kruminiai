@@ -6,7 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { sendSms, normalizePhone } from "@/lib/infobip";
 import { sendEmail, renderBrandedEmail } from "@/lib/email";
 import { logNotification, logNotificationSystem } from "@/lib/notification-log";
-import { vocative } from "@/lib/utils";
+import { getDocumentPublicUrl, vocative } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
@@ -359,9 +359,10 @@ export async function castVotesByToken(
         susilaike: { label: "Susilaikė", color: "#374151", bg: "#f3f4f6" },
       };
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const docUrl = (filePath: string) =>
-    `${supabaseUrl}/storage/v1/object/public/documents/${filePath}`;
+  // Dokumentų nuorodos eina per prieigos kontrolės route'ą (vienas šaltinis –
+  // `getDocumentPublicUrl`), ne tiesiai į Storage: `documents` bucket'as
+  // privatus. Laiške reikia absoliutaus adreso, todėl priekyje – `getBaseUrl()`.
+  const docUrl = (filePath: string) => `${getBaseUrl()}${getDocumentPublicUrl(filePath)}`;
 
   const votesHtml = votes
     .map((v) => {
