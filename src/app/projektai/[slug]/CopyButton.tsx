@@ -10,6 +10,15 @@ interface Props {
   /** Tekstas, kuris keliauja į iškarpinę (IBAN, nuoroda…). */
   value: string;
   className?: string;
+  /**
+   * Etiketės perrašymas kitam kontekstui. Numatytoji reikšmė – IBAN tekstai
+   * (pirmasis, seniausias naudojimas). „Pasidalink" bloke kopijuojama nuoroda,
+   * ne IBAN, todėl ten paduodamos `shareLinkCopyAriaLabel`/`shareLinkCopyToastSuccess`
+   * – kitaip ekrano skaitytuvas ir sėkmės pranešimas sakytų „IBAN", nors
+   * nukopijuota nuoroda (Codex peržiūra, PR #17).
+   */
+  ariaLabel?: string;
+  successMessage?: string;
 }
 
 /**
@@ -18,7 +27,7 @@ interface Props {
  * be jokio `onClick`: atrodė kaip mygtukas, bet paspaudus nieko neįvykdavo.
  * Dabar abi vietos naudoja tą patį komponentą.
  */
-export function CopyButton({ value, className }: Props) {
+export function CopyButton({ value, className, ariaLabel, successMessage }: Props) {
   const t = useT().lieptas;
   const [copied, setCopied] = useState(false);
 
@@ -26,7 +35,7 @@ export function CopyButton({ value, className }: Props) {
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
-      toast.success(t.copyToastSuccess);
+      toast.success(successMessage ?? t.copyToastSuccess);
       setTimeout(() => setCopied(false), 2500);
     } catch {
       toast.error(t.copyToastError);
@@ -41,7 +50,7 @@ export function CopyButton({ value, className }: Props) {
         "inline-flex items-center gap-1.5 text-xs font-semibold text-brand hover:text-brand-strong px-2 py-1.5 rounded hover:bg-brand-soft transition-colors",
         className
       )}
-      aria-label={t.copyAriaLabel}
+      aria-label={ariaLabel ?? t.copyAriaLabel}
     >
       {copied ? (
         <>

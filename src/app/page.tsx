@@ -132,9 +132,15 @@ export default async function HomePage() {
 
   // Prisegtos naujienos rodomos „Svarbu" juostoje, VISOS kitos – žemiau.
   // Vienas įrašas niekada nepatenka į abu blokus.
+  //
+  // SVARBU: „latest" atmeta VISUS `is_pinned` įrašus, ne tik tuos du, kurie
+  // rodomi „Svarbu" juostoje (`pinned`, apkarpyta iki PINNED_LIMIT). Kai
+  // prisegtų yra daugiau nei PINNED_LIMIT, trečias ir tolesni anksčiau
+  // nukeliaudavo į „Naujausios naujienos" bloką – ten pasirodydavo prisegtas
+  // straipsnis be „Svarbu" žymos, ir dar užimdavo vietą, skirtą tikrai
+  // naujai, neprisegtai naujienai (Codex peržiūra, PR #17).
   const pinned = news.filter((n) => n.is_pinned).slice(0, PINNED_LIMIT);
-  const pinnedIds = new Set(pinned.map((n) => n.id));
-  const latest = news.filter((n) => !pinnedIds.has(n.id)).slice(0, LATEST_LIMIT);
+  const latest = news.filter((n) => !n.is_pinned).slice(0, LATEST_LIMIT);
 
   const organizationLd = {
     "@context": "https://schema.org",
@@ -290,9 +296,15 @@ export default async function HomePage() {
           <section className="bg-surface border-b border-line">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 grid grid-cols-1 lg:grid-cols-2 gap-6">
               {projects.map((project) => {
+                // Sukapota iškart – kaip /projektai sąraše. Perpildyto projekto
+                // realus % gali viršyti 100 (žr. /projektai/[slug] surplus
+                // logiką), bet `aria-valuemax` čia visada 100, tad
+                // `aria-valuenow` privalo būti tame pačiame ribose (Codex
+                // peržiūra, PR #17) – juolab kad šioje kortelėje skaičius
+                // niekur tekstu nerodomas, tik juostos plotis.
                 const percent =
                   project.goalCents > 0
-                    ? Math.round((project.totalCents / project.goalCents) * 100)
+                    ? Math.min(100, Math.round((project.totalCents / project.goalCents) * 100))
                     : 0;
                 return (
                   <Link
@@ -348,7 +360,7 @@ export default async function HomePage() {
                         >
                           <div
                             className="h-full bg-brand rounded-full"
-                            style={{ width: `${Math.min(100, percent)}%` }}
+                            style={{ width: `${percent}%` }}
                           />
                         </div>
                       )}

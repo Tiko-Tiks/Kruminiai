@@ -122,6 +122,8 @@ export interface Dictionary {
     copyAriaLabel: string;
     copyLabel: string;
     copiedLabel: string;
+    shareLinkCopyAriaLabel: string;
+    shareLinkCopyToastSuccess: string;
     goalReachedTitle: string;
     goalSurplusNote: string;
     noGoalNote: string;
@@ -677,6 +679,11 @@ const lt: Dictionary = {
     copyAriaLabel: "Kopijuoti IBAN",
     copyLabel: "Kopijuoti",
     copiedLabel: "Nukopijuota",
+    // „Pasidalink" bloko nuorodos kopijavimui – TAS PATS <CopyButton>, kaip ir
+    // IBAN laukui, bet su savo etiketėmis (Codex peržiūra, PR #17): be jų
+    // ekrano skaitytuvas sakydavo „Kopijuoti IBAN", nors kopijuojama nuoroda.
+    shareLinkCopyAriaLabel: "Kopijuoti nuorodą",
+    shareLinkCopyToastSuccess: "Nuoroda nukopijuota",
     goalReachedTitle: "Tikslas pasiektas – ačiū visiems! 🎉",
     goalSurplusNote:
       "Surinkta {surplus} € daugiau nei planuota – visos papildomos lėšos skiriamos liepto darbams.",
@@ -1304,6 +1311,8 @@ const en: Dictionary = {
     copyAriaLabel: "Copy IBAN",
     copyLabel: "Copy",
     copiedLabel: "Copied",
+    shareLinkCopyAriaLabel: "Copy link",
+    shareLinkCopyToastSuccess: "Link copied",
     goalReachedTitle: "Goal reached – thank you all! 🎉",
     goalSurplusNote:
       "We raised {surplus} € more than planned – all additional funds go towards the footbridge works.",

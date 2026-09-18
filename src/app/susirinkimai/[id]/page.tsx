@@ -158,7 +158,7 @@ export default async function MeetingArchivePage({ params }: { params: { id: str
     <div className="min-h-screen flex flex-col">
       <PublicHeader />
 
-      <main className="flex-1 bg-gray-50">
+      <main id="turinys" className="flex-1 bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
           <Link
             href="/susirinkimai"

@@ -574,7 +574,11 @@ export default async function ProjectPage({ params }: { params: { slug: string }
             <p className="text-sm text-amber-800 mb-4">{t.shareIntro}</p>
             <div className="inline-flex items-center gap-1 bg-surface-card border border-amber-300 rounded-full pl-4 pr-1.5 py-1.5 text-sm">
               <span className="font-mono text-ink">{shareUrl}</span>
-              <CopyButton value={`https://${shareUrl}`} />
+              <CopyButton
+                value={`https://${shareUrl}`}
+                ariaLabel={t.shareLinkCopyAriaLabel}
+                successMessage={t.shareLinkCopyToastSuccess}
+              />
             </div>
           </section>
 
