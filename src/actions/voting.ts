@@ -170,6 +170,26 @@ export async function createResolution(meetingId: string, formData: FormData) {
   const newFiles = formData.getAll("new_files").filter((f) => f instanceof File && f.size > 0) as File[];
   const newFileTitles = formData.getAll("new_file_titles") as string[];
 
+  // Failų tipai tikrinami PRIEŠ nutarimo įrašymą (tipų sąrašas –
+  // `src/lib/document-mime.ts`). Anksčiau neleistinas failas būdavo tyliai
+  // praleidžiamas jau sukūrus nutarimą, o forma parodydavo sėkmę su per dideliu
+  // dokumentų skaičiumi. Dabar nutarimas nesukuriamas, o admin'as sužino, kuris
+  // failas netinka.
+  const newFileTypes: string[] = [];
+  for (const file of newFiles) {
+    const contentType = documentUploadType(file.name);
+    if (!contentType) {
+      return {
+        error: {
+          _form: [
+            `Neleistinas failo tipas: „${file.name}". Galimi plėtiniai: ${ALLOWED_DOCUMENT_EXTENSIONS.join(", ")}`,
+          ],
+        },
+      };
+    }
+    newFileTypes.push(contentType);
+  }
+
   // Sekantis numeris
   const { data: existing } = await supabase
     .from("resolutions")
@@ -204,17 +224,9 @@ export async function createResolution(meetingId: string, formData: FormData) {
     const title = (newFileTitles[i] || file.name.replace(/\.[^.]+$/, "")).trim();
     const fileName = `${Date.now()}-${i}-${file.name}`;
 
-    // Tipų sąrašas – vienas šaltinis su `/api/dokumentai` atidavimu
-    // (`src/lib/document-mime.ts`): įkeltas HTML/SVG vykdytųsi mūsų kilmėje.
-    const uploadContentType = documentUploadType(file.name);
-    if (!uploadContentType) {
-      console.error("Neleistinas failo tipas:", file.name);
-      continue;
-    }
-
     const { error: uploadErr } = await supabase.storage
       .from("documents")
-      .upload(fileName, file, { contentType: uploadContentType });
+      .upload(fileName, file, { contentType: newFileTypes[i] });
     if (uploadErr) {
       console.error("Upload klaida:", uploadErr);
       continue;

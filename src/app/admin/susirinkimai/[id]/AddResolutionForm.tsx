@@ -76,7 +76,11 @@ export function AddResolutionForm({
     const result = await createResolution(meetingId, formData);
 
     if (result.error) {
-      toast.error("Klaida kuriant nutarimą");
+      // Serveris bendrąsias klaidas (pvz. neleistiną failo tipą) grąžina
+      // `_form` lauke – parodom jas, kad admin'as žinotų, ką taisyti.
+      const formError =
+        "_form" in result.error ? result.error._form?.[0] : undefined;
+      toast.error(formError || "Klaida kuriant nutarimą");
     } else {
       const docCount = selectedDocIds.size + newFiles.length;
       toast.success(
