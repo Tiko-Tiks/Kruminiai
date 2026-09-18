@@ -6,6 +6,7 @@ import path from "path";
 import { getLocale } from "@/lib/i18n-server";
 import { escapeAttr, escapeHtml } from "@/lib/html";
 import { resolveDocumentDelivery, type DocumentDelivery } from "@/lib/document-mime";
+import { findDocumentForVotingToken } from "@/lib/document-access";
 import type { Locale } from "@/lib/i18n";
 
 /**
@@ -30,7 +31,10 @@ import type { Locale } from "@/lib/i18n";
  * PRIEIGA seka `documents.is_public`, o ne vien sesiją:
  *   • `is_public = true`  → mato visi, įskaitant neprisijungusius (įstatai yra
  *     vieši pagal LR Asociacijų įstatymą – jų negalima slėpti už prisijungimo);
- *   • kitu atveju        → tik prisijungęs IR patvirtintas narys arba adminas.
+ *   • kitu atveju        → tik prisijungęs IR patvirtintas narys arba adminas,
+ *     ARBA anon balsuotojas su galiojančiu `?token=` TO PATIES susirinkimo
+ *     dokumentui (`src/lib/document-access.ts`) – be šito prie darbotvarkės
+ *     prikabintas neviešas failas SMS nuorodos gavėjui liktų neatidaromas.
  *     (/api/* yra už middleware matcher ribų, todėl tikrinam patys.)
  *
  * KLAIDOS grąžinamos kaip suprantamas HTML puslapis (dokumentai atidaromi
@@ -252,6 +256,22 @@ export async function GET(
   const isPublicDoc = doc?.is_public === true;
 
   if (!isPublicDoc) {
+    // (a) Anon balsuotojas su galiojančiu tokenu – prie jo susirinkimo
+    // prikabintus failus jis mato ir be sesijos (žr. `src/lib/document-access.ts`).
+    // Repo statiniams failams šis kelias nereikalingas: darbotvarkėje jų nėra.
+    const token = request.nextUrl.searchParams.get("token");
+    if (isStorageRequest && token && isAdminClientAvailable()) {
+      const tokenDoc = await findDocumentForVotingToken(
+        { anon: supabase, admin: createAdminSupabaseClient() },
+        filePath,
+        token
+      );
+      if (tokenDoc) {
+        return serveStorageObject(filePath, tokenDoc.file_name, false, locale);
+      }
+    }
+
+    // (b) Įprastas kelias – prisijungęs patvirtintas narys arba adminas.
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return errorPage("unauthorized", 401, locale);
 
