@@ -722,6 +722,13 @@ buvo naudojamas datoms 146 vietose.
 - Viešuose puslapiuose naudoti **tokenus**, ne `green-700` / `gray-400` atspalvių
   numerius. Admin ir portalo ekranai kol kas lieka su Tailwind pilkais – jie nėra
   šio sluoksnio dalis.
+- **Siaura, sąmoninga išimtis** – teksto atspalviai ANT tamsaus `bg-brand-strong`
+  herojaus (`src/app/page.tsx` viršuje): tokenų rinkinys kurtas šviesiems
+  paviršiams, „šviesaus žalio teksto ant tamsaus žalio fono" atitikmens jame
+  nėra, todėl ten liko `text-green-200` / `text-green-50/90` / `hover:bg-green-50`.
+  Jei tokio konteksto (tekstas ant tamsaus brand'o) prireiks daugiau nei šioje
+  vienoje vietoje – pridėti `--on-brand-muted` tipo tokenus, o ne daugintis
+  raw atspalvius toliau.
 - **Gintaro (accent) spalva rezervuota skubai.** Kai ja dažomi ir projektai, ir
   prisegtos naujienos, ir „pasidalink" blokas, ekrane lieka penki vienodai
   rėkiantys blokai ir svarbos ženklas nustoja veikti.
@@ -1007,7 +1014,8 @@ Naudoja `node scripts/X.mjs` su .env.local skaitymu.
 - **Išlaidos be `funding_source`** – tada nesimato, iš kurios „kišenės" pinigai, ir projektų likučiai nustoja sueiti.
 - **`green-700` / `gray-400` klasės viešuose puslapiuose** – naudoti tokenus
   (`text-ink-muted`, `bg-brand`…). `text-gray-400` ant balto yra 2,5:1 ir
-  neatitinka WCAG AA.
+  neatitinka WCAG AA. (Siaura, dokumentuota išimtis tamsaus herojaus tekstui –
+  žr. „ARCHITEKTŪRA: Viešo puslapio dizaino tokenai".)
 - **Gintaro spalva „šiaip gražumui"** – ji reiškia skubą. Viskas, kas ja nudažyta
   be reikalo, atima dėmesį nuo artėjančio susirinkimo.
 - **Nuotrauka be `width` `getImagePublicUrl()` kvietime** – į miniatiūrą
