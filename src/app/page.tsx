@@ -197,7 +197,7 @@ export default async function HomePage() {
                     <span className="inline-flex items-center gap-1 text-xs font-bold text-accent-strong uppercase tracking-wide">
                       <Clock className="h-3 w-3" aria-hidden /> {t.upcomingMeetingBadge}
                     </span>
-                    <h2 className="font-display text-lg sm:text-xl font-semibold text-ink mt-1 mb-1 text-balance group-hover:text-accent-strong transition-colors">
+                    <h2 className="text-lg sm:text-xl font-bold text-ink mt-1 mb-1 text-balance group-hover:text-accent-strong transition-colors">
                       {upcomingMeeting.title}
                     </h2>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted">
@@ -237,7 +237,7 @@ export default async function HomePage() {
               <p className="text-sm uppercase tracking-[0.2em] text-green-200 mb-4 font-semibold">
                 {t.heroEyebrow}
               </p>
-              <h1 className="font-display text-display-lg font-semibold text-balance mb-6">
+              <h1 className="text-display-lg font-bold text-balance mb-6">
                 {t.heroTitle}
               </h1>
               <p className="text-lg md:text-xl text-green-50/90 leading-relaxed mb-9 max-w-2xl text-pretty">
@@ -269,7 +269,7 @@ export default async function HomePage() {
                 <div key={stat.label} className={i > 0 ? "border-l border-white/20 pl-4" : ""}>
                   <dt className="sr-only">{stat.label}</dt>
                   <dd>
-                    <span className="block font-display text-4xl md:text-5xl font-semibold">
+                    <span className="block text-4xl md:text-5xl font-bold">
                       {stat.value}
                     </span>
                     <span className="block text-xs sm:text-sm text-green-200 mt-1.5">
@@ -306,7 +306,7 @@ export default async function HomePage() {
                       </span>
                     </div>
 
-                    <h2 className="font-display text-xl sm:text-2xl font-semibold text-ink mb-2 text-balance group-hover:text-brand-strong transition-colors">
+                    <h2 className="text-xl sm:text-2xl font-bold text-ink mb-2 text-balance group-hover:text-brand-strong transition-colors">
                       {project.title}
                     </h2>
                     {project.shortDesc && (
@@ -318,7 +318,7 @@ export default async function HomePage() {
                     {/* Progresas */}
                     <div className="mt-auto space-y-2">
                       <div className="flex items-baseline justify-between gap-3">
-                        <span className="font-display text-2xl font-semibold text-brand-strong">
+                        <span className="text-2xl font-semibold text-brand-strong">
                           {(project.totalCents / 100).toFixed(0)} €
                           {project.goalCents > 0 && (
                             <span className="text-sm font-sans font-normal text-ink-subtle">
@@ -380,7 +380,7 @@ export default async function HomePage() {
                         {article.published_at ? formatDateLong(article.published_at) : ""}
                       </span>
                     </div>
-                    <h3 className="font-display text-base sm:text-lg font-semibold text-ink mb-1 text-balance group-hover:text-brand-strong transition-colors">
+                    <h3 className="text-base sm:text-lg font-bold text-ink mb-1 text-balance group-hover:text-brand-strong transition-colors">
                       {article.title}
                     </h3>
                     {article.excerpt && (
@@ -404,7 +404,7 @@ export default async function HomePage() {
           <section className="py-16 sm:py-20 bg-surface">
             <div className="max-w-6xl mx-auto px-4 sm:px-6">
               <div className="flex items-end justify-between gap-4 mb-8">
-                <h2 className="font-display text-display-sm text-ink text-balance">
+                <h2 className="text-display-sm font-bold text-ink text-balance">
                   {t.latestNewsHeading}
                 </h2>
                 <Link
@@ -424,7 +424,7 @@ export default async function HomePage() {
                     <p className="text-xs text-ink-subtle mb-2">
                       {article.published_at ? formatDateLong(article.published_at) : ""}
                     </p>
-                    <h3 className="font-display text-lg font-semibold text-ink mb-2 line-clamp-2 text-balance group-hover:text-brand-strong transition-colors">
+                    <h3 className="text-lg font-semibold text-ink mb-2 line-clamp-2 text-balance group-hover:text-brand-strong transition-colors">
                       {article.title}
                     </h3>
                     <p className="text-sm text-ink-muted line-clamp-3 text-pretty">
@@ -441,7 +441,7 @@ export default async function HomePage() {
         <section className="py-16 sm:py-20 bg-surface-muted">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="max-w-prose mx-auto text-center mb-12">
-              <h2 className="font-display text-display-sm text-ink mb-4 text-balance">
+              <h2 className="text-display-sm font-bold text-ink mb-4 text-balance">
                 {t.aboutHeading}
               </h2>
               <p className="text-prose text-ink-muted text-pretty">{t.aboutBody}</p>
@@ -468,7 +468,7 @@ export default async function HomePage() {
                   <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-brand-soft border border-brand-line text-brand mb-4">
                     <item.icon className="h-6 w-6" aria-hidden />
                   </div>
-                  <h3 className="font-display text-lg font-semibold text-ink mb-2">
+                  <h3 className="text-lg font-semibold text-ink mb-2">
                     {item.title}
                   </h3>
                   <p className="text-sm text-ink-muted text-pretty">{item.desc}</p>
@@ -511,7 +511,7 @@ export default async function HomePage() {
                 >
                   <item.icon className="h-6 w-6 flex-shrink-0 text-brand mt-0.5" aria-hidden />
                   <span>
-                    <span className="block font-display font-semibold text-ink group-hover:text-brand-strong transition-colors">
+                    <span className="block font-semibold text-ink group-hover:text-brand-strong transition-colors">
                       {item.title}
                     </span>
                     <span className="block text-sm text-ink-muted mt-0.5 text-pretty">
@@ -528,19 +528,19 @@ export default async function HomePage() {
         <section className="py-16 sm:py-20 bg-surface-muted">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="max-w-prose mx-auto text-center">
-              <h2 className="font-display text-display-sm text-ink mb-4 text-balance">
+              <h2 className="text-display-sm font-bold text-ink mb-4 text-balance">
                 {t.membershipHeading}
               </h2>
               <p className="text-prose text-ink-muted mb-8 text-pretty">{t.membershipBody}</p>
               <div className="flex flex-wrap justify-center gap-4 mb-9">
                 <div className="bg-surface-card rounded-2xl border border-line px-7 py-5 text-center">
-                  <p className="font-display text-3xl font-semibold text-brand-strong">
+                  <p className="text-3xl font-bold text-brand-strong">
                     {t.membershipJoiningFeeAmount}
                   </p>
                   <p className="text-sm text-ink-muted mt-1">{t.membershipJoiningFeeLabel}</p>
                 </div>
                 <div className="bg-surface-card rounded-2xl border border-line px-7 py-5 text-center">
-                  <p className="font-display text-3xl font-semibold text-brand-strong">
+                  <p className="text-3xl font-bold text-brand-strong">
                     {t.membershipAnnualFeeAmount}
                   </p>
                   <p className="text-sm text-ink-muted mt-1">{t.membershipAnnualFeeLabel}</p>

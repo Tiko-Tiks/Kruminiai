@@ -55,8 +55,8 @@ export function PublicHeader() {
               className="h-12 w-auto"
             />
             <div className="hidden sm:block leading-tight">
-              <div className="font-display font-semibold text-ink text-base leading-none">{t.header.communityLine1}</div>
-              <div className="font-display text-sm text-ink-muted">{t.header.communityLine2}</div>
+              <div className="font-semibold text-ink text-base leading-none">{t.header.communityLine1}</div>
+              <div className="text-sm text-ink-muted">{t.header.communityLine2}</div>
             </div>
           </Link>
 

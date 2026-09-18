@@ -11,7 +11,7 @@ export function PublicFooter() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
           <div>
-            <h3 className="font-display text-white text-lg font-semibold mb-3">{SITE_NAME}</h3>
+            <h3 className="text-white text-lg font-semibold mb-3">{SITE_NAME}</h3>
             <p className="text-sm leading-relaxed text-green-100/80 text-pretty">{t.tagline}</p>
           </div>
           <div>

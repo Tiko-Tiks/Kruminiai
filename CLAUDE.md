@@ -8,7 +8,8 @@
 - **TypeScript** strict mode
 - **Tailwind CSS** + custom UI komponentai (`src/components/ui/`); viešų puslapių
   spalvos – semantiniai tokenai (žr. „ARCHITEKTŪRA: Viešo puslapio dizaino tokenai")
-- **Šriftai:** Plus Jakarta Sans (tekstas) + Fraunces (antraštės, `font-display`)
+- **Šriftas:** Plus Jakarta Sans – **viena** šeima visam puslapiui, ir tekstui,
+  ir antraštėms (serif antraštėms buvo išbandytas ir atmestas)
 - **Supabase** (PostgreSQL + Storage + Auth) – projekto ID `tykdyxynaqwfbxtuqwih`
 - **Vercel** deployment, domenas `kruminiai.lt`
 - **Infobip** SMS siuntimui (tik SMS)
@@ -727,10 +728,15 @@ buvo naudojamas datoms 146 vietose.
 - Tamsi tema pridedama vienu `:root[data-theme="dark"]` bloku – puslapių
   perrašyti nereikės, nes jie spalvų nebežino.
 
-**Tipografija:** antraštės – `font-display` (**Fraunces**, latin-ext, tas pats
-serif jausmas kaip el. laiškų Georgia), tekstas – Plus Jakarta Sans. Fluid dydžiai
+**Tipografija:** viskas – Plus Jakarta Sans. Antraštėms atskiro (serif) šrifto
+NEDEDAM: Fraunces buvo išbandytas ir atmestas, todėl nauja antraštė rašoma
+paprastai su `font-bold`, be jokios `font-*` šeimos klasės. Fluid dydžiai
 `text-display-lg|md|sm` (clamp – be `md:text-5xl lg:text-6xl` kaskadų), skaitymo
 matas `max-w-prose` (~68 simbolių), kūno tekstas `text-prose` (17px).
+
+**Svarbu:** `text-display-*` NEturi savyje svorio – Tailwind preflight'as
+antraštėms nustato `font-weight: inherit`, todėl be `font-bold` h1 atsirenderintų
+400 svoriu.
 
 **Prieinamumas:** `.skip-link` (pirmas Tab viešame puslapyje, taikinys –
 `<main id="turinys">`, kurį privalo turėti kiekvienas viešas puslapis),

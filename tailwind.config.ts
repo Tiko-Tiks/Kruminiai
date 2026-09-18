@@ -47,11 +47,11 @@ const config: Config = {
         },
       },
       fontFamily: {
-        // --font-sans = Plus Jakarta Sans, --font-display = Fraunces
-        // (abu deklaruoti src/app/layout.tsx). Fraunces turi latin-ext, todėl
-        // ą/č/ę/ė/į/š/ų/ū/ž rodomi tuo pačiu šriftu, be fallback'o šuolio.
+        // --font-sans = Plus Jakarta Sans (deklaruota src/app/layout.tsx).
+        // Fallback'as – sistemos sans-serif šriftai (Tailwind default'as).
+        // Antraštėms ATSKIRO šrifto NEDEDAM – serif (Fraunces) buvo išbandytas
+        // ir atmestas; svetainė lieka vienos šriftų šeimos.
         sans: ["var(--font-sans)", ...defaultTheme.fontFamily.sans],
-        display: ["var(--font-display)", "Georgia", ...defaultTheme.fontFamily.serif],
       },
       fontSize: {
         // Fluid skalė – be `md:text-5xl lg:text-6xl` kaskadų kiekvienoje antraštėje

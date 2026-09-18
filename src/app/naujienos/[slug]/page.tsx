@@ -81,7 +81,7 @@ export default async function NewsArticlePage({ params }: Props) {
                 {article.published_at ? formatDateLong(article.published_at) : ""}
               </time>
             </div>
-            <h1 className="font-display text-display-md text-ink text-balance">
+            <h1 className="text-display-md font-bold text-ink text-balance">
               {article.title}
             </h1>
             {article.excerpt && (

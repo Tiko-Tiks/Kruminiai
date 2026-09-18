@@ -39,7 +39,7 @@ export default function AboutPage() {
 
       <main id="turinys" className="flex-1 bg-surface-muted">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
-          <h1 className="font-display text-display-md text-ink text-center mb-10 text-balance">
+          <h1 className="text-display-md font-bold text-ink text-center mb-10 text-balance">
             {t.pageTitle}
           </h1>
 
@@ -49,7 +49,7 @@ export default function AboutPage() {
               <div className="w-10 h-10 rounded-xl bg-brand-soft border border-brand-line flex items-center justify-center flex-shrink-0">
                 <Eye className="h-5 w-5 text-brand" aria-hidden />
               </div>
-              <h2 className="font-display text-xl font-semibold text-ink">{t.visionTitle}</h2>
+              <h2 className="text-xl font-bold text-ink">{t.visionTitle}</h2>
             </div>
             <p className="text-prose text-ink-muted text-pretty">{t.visionBody}</p>
           </section>
@@ -60,7 +60,7 @@ export default function AboutPage() {
               <div className="w-10 h-10 rounded-xl bg-brand-soft border border-brand-line flex items-center justify-center flex-shrink-0">
                 <MapPin className="h-5 w-5 text-brand" aria-hidden />
               </div>
-              <h2 className="font-display text-xl font-semibold text-ink">{t.missionTitle}</h2>
+              <h2 className="text-xl font-bold text-ink">{t.missionTitle}</h2>
             </div>
             <p className="text-prose text-ink-muted mb-4 text-pretty">{t.missionBody1}</p>
             <p className="text-prose text-ink-muted text-pretty">{t.missionBody2}</p>
@@ -72,7 +72,7 @@ export default function AboutPage() {
               <div className="w-10 h-10 rounded-xl bg-brand-soft border border-brand-line flex items-center justify-center flex-shrink-0">
                 <Briefcase className="h-5 w-5 text-brand" aria-hidden />
               </div>
-              <h2 className="font-display text-xl font-semibold text-ink">{t.fundingTitle}</h2>
+              <h2 className="text-xl font-bold text-ink">{t.fundingTitle}</h2>
             </div>
             <p className="text-prose text-ink-muted mb-6 text-pretty">{t.fundingIntro}</p>
 
@@ -98,7 +98,7 @@ export default function AboutPage() {
               <div className="w-10 h-10 rounded-xl bg-brand-soft border border-brand-line flex items-center justify-center flex-shrink-0">
                 <Users className="h-5 w-5 text-brand" aria-hidden />
               </div>
-              <h2 className="font-display text-xl font-semibold text-ink">{t.impactTitle}</h2>
+              <h2 className="text-xl font-bold text-ink">{t.impactTitle}</h2>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -124,7 +124,7 @@ export default function AboutPage() {
               <div className="w-10 h-10 rounded-xl bg-brand-soft border border-brand-line flex items-center justify-center flex-shrink-0">
                 <Mail className="h-5 w-5 text-brand" aria-hidden />
               </div>
-              <h2 className="font-display text-xl font-semibold text-ink">{t.contactsTitle}</h2>
+              <h2 className="text-xl font-bold text-ink">{t.contactsTitle}</h2>
             </div>
             <p className="text-prose text-ink-muted mb-6 text-pretty">{t.contactsIntro}</p>
 
@@ -192,7 +192,7 @@ export default function AboutPage() {
               <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0">
                 <Heart className="h-5 w-5 text-white" aria-hidden />
               </div>
-              <h2 className="font-display text-xl font-semibold text-white">{t.valuesTitle}</h2>
+              <h2 className="text-xl font-bold text-white">{t.valuesTitle}</h2>
             </div>
             <ul className="space-y-2.5">
               {[t.value1, t.value2, t.value3, t.value4, t.value5].map((value) => (

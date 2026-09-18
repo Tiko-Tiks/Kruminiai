@@ -24,13 +24,13 @@ export function MarkdownContent({ content }: { content: string }) {
         components={{
           p: ({ children }) => <p className="mb-5 text-pretty">{children}</p>,
           h1: ({ children }) => (
-            <h2 className="font-display text-2xl font-semibold text-ink mt-10 mb-3 text-balance">{children}</h2>
+            <h2 className="text-2xl font-bold text-ink mt-10 mb-3 text-balance">{children}</h2>
           ),
           h2: ({ children }) => (
-            <h2 className="font-display text-xl font-semibold text-ink mt-10 mb-3 text-balance">{children}</h2>
+            <h2 className="text-xl font-bold text-ink mt-10 mb-3 text-balance">{children}</h2>
           ),
           h3: ({ children }) => (
-            <h3 className="font-display text-lg font-semibold text-ink mt-8 mb-2">{children}</h3>
+            <h3 className="text-lg font-semibold text-ink mt-8 mb-2">{children}</h3>
           ),
           ul: ({ children }) => (
             <ul className="list-disc pl-6 mb-4 space-y-1">{children}</ul>

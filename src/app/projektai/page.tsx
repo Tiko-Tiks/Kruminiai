@@ -79,7 +79,7 @@ export default async function ProjectsPage() {
       <main id="turinys" className="flex-1 bg-surface-muted">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
           <header className="mb-10 max-w-prose">
-            <h1 className="font-display text-display-md text-ink text-balance">
+            <h1 className="text-display-md font-bold text-ink text-balance">
               {t.pageTitle}
             </h1>
             <p className="mt-3 text-prose text-ink-muted text-pretty">{t.pageIntro}</p>
@@ -112,7 +112,7 @@ export default async function ProjectsPage() {
                       </span>
                     </div>
 
-                    <h2 className="font-display text-xl sm:text-2xl font-semibold text-ink mb-2 text-balance group-hover:text-brand-strong transition-colors">
+                    <h2 className="text-xl sm:text-2xl font-bold text-ink mb-2 text-balance group-hover:text-brand-strong transition-colors">
                       {p.title}
                     </h2>
                     {p.short_desc && (
@@ -121,7 +121,7 @@ export default async function ProjectsPage() {
 
                     <div className="mt-auto space-y-2">
                       <div className="flex items-baseline justify-between gap-3">
-                        <span className="font-display text-2xl font-semibold text-brand-strong">
+                        <span className="text-2xl font-semibold text-brand-strong">
                           {(p.total_cents / 100).toFixed(0)} €
                           {p.goal_cents > 0 && (
                             <span className="text-sm font-sans font-normal text-ink-subtle">

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans, Fraunces } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { Toaster } from "sonner";
 import { cookies } from "next/headers";
 import { LocaleProvider } from "@/components/i18n/LocaleProvider";
@@ -10,17 +10,6 @@ const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin", "latin-ext"],
   variable: "--font-sans",
   display: "swap",
-});
-
-// Antraščių šriftas. El. laiškuose antraštės jau buvo serif (Georgia), o
-// svetainėje viskas – vienas sans, todėl brand'as atrodė kaip du skirtingi.
-// Fraunces turi latin-ext subsetą, tad lietuviškos raidės nenukrenta į fallback'ą.
-const fraunces = Fraunces({
-  subsets: ["latin", "latin-ext"],
-  variable: "--font-display",
-  display: "swap",
-  weight: ["600", "700"],
-  style: ["normal"],
 });
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://kruminiai.lt";
@@ -114,7 +103,7 @@ export default function RootLayout({
   const locale = normalizeLocale(cookies().get(LOCALE_COOKIE)?.value);
   return (
     <html lang={locale}>
-      <body className={`${jakarta.variable} ${fraunces.variable} font-sans antialiased`}>
+      <body className={`${jakarta.variable} font-sans antialiased`}>
         <LocaleProvider locale={locale}>
           {children}
           <Toaster position="top-right" richColors />

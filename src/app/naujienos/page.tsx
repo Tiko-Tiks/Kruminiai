@@ -31,7 +31,7 @@ export default async function NewsPage() {
       <main id="turinys" className="flex-1 bg-surface-muted">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
           <header className="mb-10 max-w-prose">
-            <h1 className="font-display text-display-md text-ink text-balance">{t.pageTitle}</h1>
+            <h1 className="text-display-md font-bold text-ink text-balance">{t.pageTitle}</h1>
             <p className="mt-3 text-prose text-ink-muted text-pretty">{t.pageIntro}</p>
           </header>
 
@@ -90,7 +90,7 @@ export default async function NewsPage() {
                         {article.published_at ? formatDateLong(article.published_at) : ""}
                       </span>
                     </div>
-                    <h2 className="font-display text-xl font-semibold text-ink mb-2 text-balance group-hover:text-brand-strong transition-colors">
+                    <h2 className="text-xl font-semibold text-ink mb-2 text-balance group-hover:text-brand-strong transition-colors">
                       {article.title}
                     </h2>
                     {article.excerpt && (

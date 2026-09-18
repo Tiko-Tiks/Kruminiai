@@ -191,7 +191,7 @@ export default async function ProjectPage({ params }: { params: { slug: string }
             <p className="text-sm uppercase tracking-widest text-green-200 mb-2 font-medium">
               {t.heroEyebrow.replace("{year}", String(new Date().getFullYear()))}
             </p>
-            <h1 className="font-display text-display-lg font-semibold text-balance mb-4">
+            <h1 className="text-display-lg font-bold text-balance mb-4">
               {projectTitle}
             </h1>
             <p className="text-lg md:text-xl text-green-100 leading-relaxed max-w-2xl">
@@ -295,7 +295,7 @@ export default async function ProjectPage({ params }: { params: { slug: string }
 
           {/* Statybų eiga (II etapas) */}
           <section className="bg-surface-card rounded-2xl border border-line p-6 sm:p-8 shadow-sm">
-            <h2 className="font-display text-2xl font-semibold text-ink mb-1 flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-ink mb-1 flex items-center gap-2">
               <Hammer className="h-6 w-6 text-amber-600" />
               {t.constructionHeading}
             </h2>
@@ -356,7 +356,7 @@ export default async function ProjectPage({ params }: { params: { slug: string }
 
           {/* Lėšų panaudojimas (išlaidos viešai) */}
           <section className="bg-surface-card rounded-2xl border border-line p-6 sm:p-8 shadow-sm">
-            <h2 className="font-display text-2xl font-semibold text-ink mb-1 flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-ink mb-1 flex items-center gap-2">
               <Wallet className="h-6 w-6 text-brand" />
               {t.spendingHeading}
             </h2>
@@ -431,7 +431,7 @@ export default async function ProjectPage({ params }: { params: { slug: string }
           {/* Aukojimas – tik projektams, kuriems dar renkama parama */}
           {acceptsDonations && qrSvg && (
             <section className="bg-surface-card rounded-2xl border border-line p-6 sm:p-8 shadow-sm">
-              <h2 className="font-display text-2xl font-semibold text-ink mb-1 flex items-center gap-2">
+              <h2 className="text-2xl font-bold text-ink mb-1 flex items-center gap-2">
                 <Heart className="h-6 w-6 text-red-500" />
                 {t.howToDonateHeading}
               </h2>
@@ -534,7 +534,7 @@ export default async function ProjectPage({ params }: { params: { slug: string }
 
           {/* Rėmėjų sąrašas */}
           <section className="bg-surface-card rounded-2xl border border-line p-6 sm:p-8 shadow-sm">
-            <h2 className="font-display text-xl font-semibold text-ink mb-1">
+            <h2 className="text-xl font-bold text-ink mb-1">
               {t.supportersHeading} ({donorCount})
             </h2>
             <p className="text-sm text-ink-subtle mb-5">{t.supportersTransparency}</p>
