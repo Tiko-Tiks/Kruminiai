@@ -6,10 +6,16 @@ import { logAudit } from "@/lib/audit";
 import { sendSms, normalizePhone } from "@/lib/infobip";
 import { sendEmail, renderBrandedEmail } from "@/lib/email";
 import { logNotification, logNotificationSystem } from "@/lib/notification-log";
-import { vocative } from "@/lib/utils";
+import { escapeHtml, vocative } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
+import {
+  formatMeetingDateLong,
+  formatMeetingDateTime,
+  votingReminderSmsText,
+  votingSmsText,
+} from "@/lib/notification-texts";
 
 function generateToken(): string {
   // 16 baitu = 32 hex simboliai = 128 bitu entropija (saugu, telpa i 1 SMS)
@@ -36,11 +42,19 @@ export async function generateAndSendVotingTokens(meetingId: string) {
   // Susirinkimas
   const { data: meeting, error: meetingErr } = await supabase
     .from("meetings")
-    .select("id, title, meeting_date")
+    .select("id, title, meeting_date, meeting_type")
     .eq("id", meetingId)
     .single();
 
   if (meetingErr || !meeting) return { success: false as const, error: "Susirinkimas nerastas" };
+
+  // Data ir pavadinimas SMS'ui imami iš susirinkimo įrašo; netinkamą datą
+  // pastebim prieš siunčiant, o ne viduryje partijos.
+  try {
+    formatMeetingDateTime(meeting.meeting_date);
+  } catch {
+    return { success: false as const, error: "Netinkama susirinkimo data" };
+  }
 
   // Visi balso teisę turintys nariai – aktyvūs, pasyvūs (balso teisę turi,
   // kol Taryba nepriima sprendimo dėl pašalinimo, įstatų 5.4.2 p.) ir garbės.
@@ -108,10 +122,12 @@ export async function generateAndSendVotingTokens(meetingId: string) {
 
     // SMS be lt diakritikos (GSM-7 = 160 simb./SMS), su trumpu tokenu telpa i 1 SMS.
     const url = `${baseUrl}/balsuoti/${token}`;
-    const text =
-      (m as { language?: string }).language === "en"
-        ? `General meeting 2026-05-23 18:00. Vote: ${url}`
-        : `Visuotinis susirinkimas 2026-05-23 18:00. Balsuokite: ${url}`;
+    const text = votingSmsText({
+      locale: (m as { language?: string }).language === "en" ? "en" : "lt",
+      meetingType: meeting.meeting_type,
+      meetingDateIso: meeting.meeting_date,
+      url,
+    });
 
     const result = await sendSms(m.phone, text);
     await logNotification(supabase, {
@@ -165,6 +181,17 @@ export async function resendVotingSms(meetingId: string) {
     return { success: false as const, error: auth.error, smsSent: 0, errors: [] as string[] };
   }
 
+  const { data: meeting } = await supabase
+    .from("meetings")
+    .select("meeting_date, meeting_type")
+    .eq("id", meetingId)
+    .single();
+
+  if (!meeting) {
+    const error = "Susirinkimas nerastas";
+    return { success: false as const, error, smsSent: 0, errors: [error] };
+  }
+
   const { data: tokens } = await supabase
     .from("meeting_voting_tokens")
     .select("token, member_id, expires_at, members(first_name, last_name, phone, language, status)")
@@ -175,6 +202,14 @@ export async function resendVotingSms(meetingId: string) {
 
   if (!tokens || tokens.length === 0) {
     return { success: true as const, smsSent: 0, errors: [] };
+  }
+
+  // Data ir pavadinimas – iš susirinkimo įrašo (žr. generateAndSendVotingTokens)
+  try {
+    formatMeetingDateTime(meeting.meeting_date);
+  } catch {
+    const error = "Netinkama susirinkimo data";
+    return { success: false as const, error, smsSent: 0, errors: [error] };
   }
 
   const baseUrl = getBaseUrl();
@@ -189,10 +224,12 @@ export async function resendVotingSms(meetingId: string) {
     if (!ACTIVE_MEMBER_STATUSES.includes((member as { status?: string }).status ?? "")) continue;
 
     const url = `${baseUrl}/balsuoti/${t.token}`;
-    const text =
-      (member as { language?: string }).language === "en"
-        ? `Reminder: voting 2026-05-23 18:00. Vote: ${url}`
-        : `Priminimas: balsavimas 2026-05-23 18:00. Balsuokite: ${url}`;
+    const text = votingReminderSmsText({
+      locale: (member as { language?: string }).language === "en" ? "en" : "lt",
+      meetingType: meeting.meeting_type,
+      meetingDateIso: meeting.meeting_date,
+      url,
+    });
 
     const result = await sendSms(member.phone, text);
     await logNotification(supabase, {
@@ -308,6 +345,19 @@ export async function castVotesByToken(
 ) {
   const supabase = createServerSupabaseClient();
 
+  // Susirinkimo duomenys patvirtinimo laiškui imami PAGAL TOKENĄ serveryje –
+  // endpoint'as anon, todėl kliento atsiųstu pavadinimu ar data pasitikėti
+  // negalima. RPC yra tik skaitymo, todėl papildomas kvietimas nieko nekeičia.
+  const { data: tokenData } = await supabase.rpc("get_voting_token_data", {
+    p_token: token,
+  });
+  const meetingInfo = (
+    tokenData as { meeting?: { title?: string; meeting_date?: string } } | null
+  )?.meeting;
+  const memberLanguage = (
+    tokenData as { member?: { language?: string } } | null
+  )?.member?.language;
+
   // RPC priima tik resolution_id ir vote – likę laukai naudojami tik email'ui
   const { data, error } = await supabase.rpc("cast_votes_with_token", {
     p_token: token,
@@ -328,9 +378,21 @@ export async function castVotesByToken(
     return { success: true };
   }
 
-  // Po balsavimo siųsti patvirtinimą su pilnais balsų rezultatais (kalba – pagal
-  // balsavimo puslapio svetainės kalbą; nario įrašas anon RPC sraute nepasiekiamas).
-  const en = locale === "en";
+  // Po balsavimo siųsti patvirtinimą su pilnais balsų rezultatais. Kalba –
+  // nario `members.language` (migr. 041 grąžina jį tokeno RPC); jei nežinoma,
+  // lieka balsavimo puslapio svetainės kalba.
+  const emailLocale: "lt" | "en" = (memberLanguage ?? locale) === "en" ? "en" : "lt";
+  const en = emailLocale === "en";
+
+  // Susirinkimo pavadinimas ir data – iš `meetings` įrašo, ne įrašyti ranka
+  const meetingTitle = meetingInfo?.title?.trim();
+  const meetingDate = meetingInfo?.meeting_date
+    ? formatMeetingDateLong(meetingInfo.meeting_date, emailLocale)
+    : null;
+  const quoted = (value: string) => (en ? `&ldquo;${value}&rdquo;` : `&bdquo;${value}&ldquo;`);
+  const meetingRef = meetingTitle
+    ? `${quoted(escapeHtml(meetingTitle))}${meetingDate ? ` (${meetingDate})` : ""}`
+    : meetingDate;
   const greeting = firstName
     ? en
       ? `Hello, ${firstName}!`
@@ -401,7 +463,9 @@ export async function castVotesByToken(
     ? `
     <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">${greeting}</h1>
     <p style="margin:0 0 20px;font-size:15px;line-height:1.7;color:#374151;">
-      Your vote on the items of the Krūminiai Village Community ordinary general members' meeting of <strong style="color:#111827;">23 May 2026</strong> has been successfully registered.
+      Your vote on the agenda items of the Krūminiai Village Community meeting${
+        meetingRef ? ` <strong style="color:#111827;">${meetingRef}</strong>` : ""
+      } has been successfully registered.
     </p>
 
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f0fdf4;border-left:3px solid #15803d;border-radius:4px;margin:24px 0;">
@@ -434,7 +498,9 @@ export async function castVotesByToken(
     : `
     <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">${greeting}</h1>
     <p style="margin:0 0 20px;font-size:15px;line-height:1.7;color:#374151;">
-      Jūsų balsas dėl <strong style="color:#111827;">2026 m. gegužės 23 d.</strong> Krūminių kaimo bendruomenės eilinio visuotinio narių susirinkimo klausimų sėkmingai užregistruotas.
+      Jūsų balsas dėl Krūminių kaimo bendruomenės susirinkimo${
+        meetingRef ? ` <strong style="color:#111827;">${meetingRef}</strong>` : ""
+      } klausimų sėkmingai užregistruotas.
     </p>
 
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f0fdf4;border-left:3px solid #15803d;border-radius:4px;margin:24px 0;">
@@ -466,10 +532,10 @@ export async function castVotesByToken(
   `;
 
   const html = renderBrandedEmail({
-    locale,
+    locale: emailLocale,
     preheader: en
-      ? `Your vote for the 23 May 2026 general meeting has been registered (${votes.length} items).`
-      : `Jūsų balsas dėl 2026-05-23 visuotinio susirinkimo užregistruotas (${votes.length} klausimai).`,
+      ? `Your vote${meetingDate ? ` for the meeting of ${meetingDate}` : ""} has been registered (${votes.length} items).`
+      : `Jūsų balsas${meetingDate ? ` dėl ${meetingDate} susirinkimo` : ""} užregistruotas (${votes.length} klausimai).`,
     body,
   });
 

@@ -2,11 +2,19 @@ import { getDeclarationStats } from "@/actions/declarations";
 import { DeclarationAdminPanel } from "./DeclarationAdminPanel";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { isoToVilniusLocal } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
+// Numatytoji kampanijos pabaiga – po 14 d. Skaičiuojama serveryje, kad
+// klientinis komponentas nesiskirtų nuo SSR rezultato.
+const DEFAULT_EXPIRY_DAYS = 14;
+
 export default async function DeclarationAdminPage() {
   const stats = await getDeclarationStats();
+  const defaultExpiresAt = isoToVilniusLocal(
+    new Date(Date.now() + DEFAULT_EXPIRY_DAYS * 24 * 60 * 60 * 1000)
+  ).slice(0, 10);
 
   return (
     <div>
@@ -21,11 +29,11 @@ export default async function DeclarationAdminPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Narystės deklaracija</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Prieš 2026-05-23 susirinkimą – nariai patvirtina ar tęs narystę
+          Prieš susirinkimą – nariai patvirtina, ar tęs narystę
         </p>
       </div>
 
-      <DeclarationAdminPanel stats={stats} />
+      <DeclarationAdminPanel stats={stats} defaultExpiresAt={defaultExpiresAt} />
     </div>
   );
 }
