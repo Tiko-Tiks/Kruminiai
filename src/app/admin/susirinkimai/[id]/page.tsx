@@ -149,6 +149,7 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
           meetingStatus={meeting.status}
           attendance={attendance}
           eligible={eligibleAttendees}
+          electorateRecorded={!!meeting.electorate_snapshot}
           totalMembersAtTime={meeting.total_members_at_time}
           quorumRequired={meeting.quorum_required}
           suggestion={quorumSuggestion}

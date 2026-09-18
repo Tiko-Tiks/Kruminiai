@@ -20,6 +20,8 @@ const meetingSchema = z.object({
   previous_meeting_id: z.string().optional(),
   repeat_notice_days: z.preprocess(v => v === '' || v === undefined ? undefined : Number(v), z.number().int().nonnegative().optional()),
   repeat_notice_reference: z.string().trim().max(1000).optional(),
+  convening_date: z.string().optional(),
+  convening_total_members: z.preprocess(v => v === '' || v === undefined ? undefined : Number(v), z.number().int().positive().optional()),
   convening_kind: z.enum(['', 'council', 'members']).optional(),
   convening_reference: z.string().trim().max(1000).optional(),
   convening_requesters: z.array(z.string().uuid()).optional(),
@@ -102,6 +104,8 @@ export async function createMeeting(formData: FormData) {
     previous_meeting_id: parsed.data.meeting_type === "pakartotinis" ? parsed.data.previous_meeting_id || null : null,
     repeat_notice_days: parsed.data.repeat_notice_days ?? null,
     repeat_notice_reference: parsed.data.repeat_notice_reference || null,
+    convening_date: parsed.data.convening_date || null,
+    convening_total_members: parsed.data.convening_total_members ?? null,
     convening_kind: parsed.data.convening_kind || null,
     convening_reference: parsed.data.convening_reference || null,
     convening_requesters: parsed.data.convening_requesters || [],
@@ -218,6 +222,8 @@ export async function updateMeeting(id: string, formData: FormData) {
     previous_meeting_id: parsed.data.meeting_type === "pakartotinis" ? parsed.data.previous_meeting_id || null : null,
     repeat_notice_days: parsed.data.repeat_notice_days ?? null,
     repeat_notice_reference: parsed.data.repeat_notice_reference || null,
+    convening_date: parsed.data.convening_date || null,
+    convening_total_members: parsed.data.convening_total_members ?? null,
     convening_kind: parsed.data.convening_kind || null,
     convening_reference: parsed.data.convening_reference || null,
     convening_requesters: parsed.data.convening_requesters || [],
@@ -550,7 +556,7 @@ export async function removeAttendance(meetingId: string, memberId: string) {
  */
 export async function updateMeetingQuorum(
   meetingId: string,
-  values: { total_members_at_time: number; quorum_required: number }
+  values: { total_members_at_time: number; quorum_required: number; electorate_reference?: string }
 ) {
   const supabase = createServerSupabaseClient();
   const auth = await requireAdmin(supabase);
@@ -560,6 +566,7 @@ export async function updateMeetingQuorum(
     .object({
       total_members_at_time: z.number().int().min(0).max(100000),
       quorum_required: z.number().int().min(0).max(100000),
+      electorate_reference: z.string().trim().max(1000).optional(),
     })
     .safeParse(values);
   if (!parsed.success) return { error: "Neteisingi kvorumo skaičiai" };
@@ -577,7 +584,10 @@ export async function updateMeetingQuorum(
   if (parsed.data.total_members_at_time <= 0 || parsed.data.quorum_required !== suggestedQuorum(oldData.meeting_type, parsed.data.total_members_at_time)) {
     return { error: "Kvorumas turi atitikti įstatų formulę: daugiau kaip pusė narių; pakartotinio susirinkimo išimtis tikrinama atskirai." };
   }
-  const { error } = await supabase.from("meetings").update(parsed.data).eq("id", meetingId);
+  const {electorate_reference, ...counts} = parsed.data;
+  const { error } = await supabase.from("meetings").update({...counts,
+    ...(electorate_reference ? {electorate_snapshot:{total:counts.total_members_at_time,reference:electorate_reference}} : {})
+  }).eq("id", meetingId);
   if (error) return { error: error.message };
 
   await logAudit(supabase, {
@@ -642,4 +652,15 @@ export async function updateMeetingEndedAt(meetingId: string, value: string) {
 
   revalidateMeetingPaths(meetingId);
   return { success: true };
+}
+
+/** Capture the register at the actual start, before testing whether quorum exists. */
+export async function captureMeetingElectorate(meetingId: string) {
+  const supabase=createServerSupabaseClient();
+  const auth=await requireAdmin(supabase);
+  if(auth.error) return {error:auth.error};
+  const {error}=await supabase.from("meetings").update({electorate_snapshot:{capture:true}}).eq("id",meetingId);
+  if(error) return {error:error.message};
+  await logAudit(supabase,{userId:auth.user?.id??null,action:"UPDATE",tableName:"meetings",recordId:meetingId,newData:{electorate_capture:true}});
+  revalidateMeetingPaths(meetingId);return {success:true};
 }

@@ -4,6 +4,8 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { logAudit } from "@/lib/audit";
 import { revalidateMeetingPaths } from "@/lib/revalidate";
 import { z } from "zod";
+import { vilniusLocalToIso } from "@/lib/utils";
+import { requireAdmin } from "@/lib/authz";
 
 const CHANNELS = ["web", "facebook", "email", "sms", "paper", "rc", "other"] as const;
 
@@ -11,7 +13,7 @@ const announcementSchema = z.object({
   meeting_id: z.string().uuid(),
   channel: z.enum(CHANNELS),
   url: z.string().url("Netinkamas URL formatas").optional().or(z.literal("")),
-  published_at: z.string().min(1, "Paskelbimo data privaloma"),
+  published_at: z.string().regex(/^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/, "Nurodykite Vilniaus datą ir laiką"),
   notes: z.string().optional().or(z.literal("")),
 });
 
@@ -41,10 +43,9 @@ export async function getMeetingAnnouncements(
 
 export async function createMeetingAnnouncement(formData: FormData) {
   const supabase = createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Neautorizuotas" };
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user!;
 
   const raw = Object.fromEntries(formData.entries());
   const parsed = announcementSchema.safeParse(raw);
@@ -56,7 +57,7 @@ export async function createMeetingAnnouncement(formData: FormData) {
     meeting_id: parsed.data.meeting_id,
     channel: parsed.data.channel,
     url: parsed.data.url || null,
-    published_at: new Date(parsed.data.published_at).toISOString(),
+    published_at: vilniusLocalToIso(parsed.data.published_at),
     notes: parsed.data.notes || null,
     created_by: user.id,
   };
@@ -82,10 +83,9 @@ export async function createMeetingAnnouncement(formData: FormData) {
 
 export async function deleteMeetingAnnouncement(id: string) {
   const supabase = createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Neautorizuotas" };
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user!;
 
   const { data: existing } = await supabase
     .from("meeting_announcements")

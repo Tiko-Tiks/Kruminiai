@@ -92,9 +92,27 @@ test('Narystės pabaiga: raštiškas išstojimas nereikalauja Tarybos sprendimo'
 test('Narystės pabaiga: Tarybos pašalinimas turi nurodyti teisę skųsti',()=>{
   assert.ok(terminationEvidenceError({termination_kind:'expulsion',termination_reference:'Tarybos 2',termination_date:'2026-09-18',expulsion_ground:'3.4.2'}));
 });
-test('Serveris perskaičiuoja naujai priimtus narius prieš uždarydamas nutarimą',async()=>{
-  const seed=votingFixture({attendees:6});seed.members.push({id:'new1',status:'aktyvus'},{id:'new2',status:'aktyvus'});
+test('Serveris nenaudoja nepatvirtintos sukūrimo dienos bazės',async()=>{
+  const seed=votingFixture({attendees:6});seed.members.push({id:'new1',status:'aktyvus'},{id:'new2',status:'aktyvus'});seed.meetings[0].electorate_snapshot=null;
   const h=actionHarness('src/actions/voting.ts',seed);
-  assert.match((await h.actions.setResolutionResults('resolution','meeting',{result_for:6,result_against:0,result_abstain:0},'patvirtintas')).error,/kvorumo/);
+  assert.match((await h.actions.setResolutionResults('resolution','meeting',{result_for:6,result_against:0,result_abstain:0},'patvirtintas')).error,/užfiksuokite/);
   assert.equal(h.writes.length,0);
+});
+
+for(const [local,expected] of [['2026-09-04T18:00','2026-09-04T15:00:00.000Z'],['2026-01-04T18:00','2026-01-04T16:00:00.000Z']]) test(`Skelbimo Vilniaus laikas saugomas teisingai: ${local}`,async()=>{
+  const h=actionHarness('src/actions/announcements.ts',{meeting_announcements:[]});
+  assert.equal((await h.actions.createMeetingAnnouncement(form({meeting_id:'00000000-0000-4000-8000-000000000100',channel:'web',published_at:local,url:'',notes:''}))).success,true);
+  assert.equal(h.tables.meeting_announcements[0].published_at,expected);
+});
+test('Skelbimas tiksliai prieš 14 dienų Vilniaus laiku priimamas',async()=>{
+  const h=actionHarness('src/actions/announcements.ts',{meeting_announcements:[]});
+  await h.actions.createMeetingAnnouncement(form({meeting_id:'00000000-0000-4000-8000-000000000100',channel:'web',published_at:'2026-09-04T18:00',url:'',notes:''}));
+  const {vilniusLocalToIso}=loadSource('src/lib/utils.ts');
+  assert.equal(summarizeAnnouncements(h.tables.meeting_announcements,new Date(vilniusLocalToIso('2026-09-18T18:00')),'visuotinis').compliant,true);
+});
+test('Buvusio nario archyvavimas saugo tą patį įrašą',async()=>{
+  const h=actionHarness('src/actions/members.ts',{members:[{id:'former',status:'išstojęs'}]});
+  assert.equal((await h.actions.deleteMember('former')).success,true);
+  assert.equal(h.tables.members.length,1);assert.ok(h.tables.members[0].archived_at);
+  assert.equal(h.writes[0].operation,'update');
 });

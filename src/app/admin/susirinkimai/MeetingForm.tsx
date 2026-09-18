@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createMeeting, updateMeeting, getMeetings, getEligibleAttendees } from "@/actions/meetings";
+import { createMeeting, updateMeeting, getMeetings } from "@/actions/meetings";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -12,6 +12,7 @@ import { DatePicker } from "@/components/ui/DatePicker";
 import { COMMUNITY_LEGAL } from "@/lib/constants";
 import { isoToVilniusLocal } from "@/lib/utils";
 import { Meeting } from "@/lib/types";
+import { getMembers } from "@/actions/members";
 import { toast } from "sonner";
 
 interface Props {
@@ -22,7 +23,7 @@ export function MeetingForm({ meeting }: Props) {
   const router = useRouter();
   const [meetingType, setMeetingType] = useState(meeting?.meeting_type || "visuotinis");
   const [eligibleMembers, setEligibleMembers] = useState<Array<{id:string;first_name:string;last_name:string}>>([]);
-  useEffect(() => { if (meetingType === "neeilinis") getEligibleAttendees("visuotinis").then(setEligibleMembers).catch(() => toast.error("Nepavyko gauti narių sąrašo")); }, [meetingType]);
+  useEffect(() => { if (meetingType === "neeilinis") getMembers("", "visi").then(setEligibleMembers).catch(() => toast.error("Nepavyko gauti narių sąrašo")); }, [meetingType]);
   const [previousMeetings, setPreviousMeetings] = useState<Meeting[]>([]);
   useEffect(() => { getMeetings().then(setPreviousMeetings).catch(() => toast.error("Nepavyko gauti susirinkimų sąrašo")); }, []);
   const [loading, setLoading] = useState(false);
@@ -113,7 +114,10 @@ export function MeetingForm({ meeting }: Props) {
           {meetingType === "neeilinis" && <fieldset className="space-y-3 border-t pt-4">
             <legend className="font-medium">Neeilinio susirinkimo sušaukimo pagrindas</legend>
             <Select name="convening_kind" label="Kas inicijavo susirinkimą" defaultValue={meeting?.convening_kind || ""} options={[{value:"",label:"Pasirinkite"},{value:"council",label:"Tarybos sprendimas"},{value:"members",label:"Bent 1/5 narių reikalavimas"}]} />
-            <Input name="convening_reference" label="Tarybos sprendimo arba narių pasirašyto reikalavimo nuoroda" defaultValue={meeting?.convening_reference || ""} />
+            <Input name="convening_reference" label="Tarybos sprendimo arba pasirašyto reikalavimo ir jo dienos narių registro išrašo nuoroda" defaultValue={meeting?.convening_reference || ""} />
+            <Input name="convening_date" type="date" label="Narių reikalavimo data" defaultValue={meeting?.convening_date || ""} />
+            <Input name="convening_total_members" type="number" min={1} step={1} label="Reikalavimo dieną buvęs narių skaičius pagal pridėtą registro išrašą (istoriniam reikalavimui)" defaultValue={meeting?.convening_total_members ?? ""} />
+            {meeting?.convening_snapshot && <p className="text-sm text-green-800">Reikalavimo dienos pagrindas užfiksuotas. Vėlesni narystės pokyčiai jo nekeičia.</p>}
             <p className="text-sm text-gray-600">Narių reikalavimo atveju pažymėkite jį pasirašiusius narius. Šiam keliui papildomo Tarybos sprendimo nereikia.</p>
             <div className="max-h-48 overflow-auto space-y-1">{eligibleMembers.map(member => <label key={member.id} className="flex gap-2 text-sm"><input type="checkbox" name="convening_requesters" value={member.id} defaultChecked={meeting?.convening_requesters?.includes(member.id)} />{member.first_name} {member.last_name}</label>)}</div>
           </fieldset>}

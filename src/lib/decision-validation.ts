@@ -20,6 +20,8 @@ export async function validateDecision(db: Client, resolutionId: string, meeting
       return "Nėra laiku paskelbto pranešimo įstatų 8.1 p. kanalu. Patikrinkite susirinkimo informavimo įrodymus.";
     }
   }
+  if (!m.electorate_snapshot?.total) return "Pirmiausia užfiksuokite susirinkimo laiko narių bazę.";
+  if (m.meeting_type === 'valdybos' && m.electorate_snapshot.total !== 6) return "Tarybos narių bazę sudaro šeši nariai (5.2 p.).";
   if (!['ordinary','statutes','transformation','liquidation'].includes(r.decision_type)) return "Pasirinkite sprendimo rūšį.";
   const { data: members, error: memberError } = await db.from('members').select('id').in('status', ['aktyvus','pasyvus','garbes_narys']);
   if (memberError || !members) return "Nepavyko patikrinti esamos narių bazės.";
@@ -35,7 +37,7 @@ export async function validateDecision(db: Client, resolutionId: string, meeting
   }
   if (m.meeting_type === 'neeilinis') {
     if (!['council','members'].includes(m.convening_kind) || !m.convening_reference?.trim()) return "Nurodykite neeilinio susirinkimo sušaukimo pagrindą (4.2 p.).";
-    if (m.convening_kind === 'members' && new Set((m.convening_requesters || []).filter((id: string) => eligibleIds.has(id))).size * 5 < eligibleIds.size) return "Susirinkimo turi reikalauti bent 1/5 narių.";
+    if (m.convening_kind === 'members' && !m.convening_snapshot) return "Reikia užfiksuoto bent 1/5 narių reikalavimo pagrindo.";
   }
   let repeatValidated = false;
   if (m.meeting_type === 'pakartotinis' && m.previous_meeting_id && r.source_resolution_id) {
@@ -52,7 +54,7 @@ export async function validateDecision(db: Client, resolutionId: string, meeting
       (!source.decision_type || source.decision_type === r.decision_type) && (!source.requires_qualified_majority || r.decision_type !== 'ordinary');
   }
   return decisionError({
-    participants: new Set(attendees.map(a => a.member_id)).size, totalMembers: eligibleIds.size,
+    participants: new Set(attendees.map(a => a.member_id)).size, totalMembers: m.electorate_snapshot.total,
     repeat: m.meeting_type === 'pakartotinis', repeatValidated, qualified: r.decision_type !== 'ordinary',
     council: m.meeting_type === 'valdybos', majorityRule: m.majority_rule, majorityReference: m.majority_reference,
     for: totals.result_for, against: totals.result_against, abstain: totals.result_abstain, status, chairVote,

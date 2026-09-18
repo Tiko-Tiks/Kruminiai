@@ -6,6 +6,7 @@ import {
   setAttendance,
   removeAttendance,
   updateMeetingQuorum,
+  captureMeetingElectorate,
   type EligibleAttendee,
 } from "@/actions/meetings";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
@@ -40,6 +41,7 @@ interface Props {
   eligible: EligibleAttendee[];
   totalMembersAtTime: number;
   quorumRequired: number;
+  electorateRecorded?: boolean;
   /** Siūlymas „dabar": kiek tinkamų dalyvauti ir koks kvorumas iš to išeina */
   suggestion: { eligibleCount: number; suggestedQuorum: number };
 }
@@ -84,6 +86,7 @@ export function AttendanceManager({
   eligible,
   totalMembersAtTime,
   quorumRequired,
+  electorateRecorded = false,
   suggestion,
 }: Props) {
   const router = useRouter();
@@ -170,7 +173,7 @@ export function AttendanceManager({
                 {counts.rastu > 0 && ` · ${ATTENDANCE_TYPE_LABELS.rastu}: ${counts.rastu}`}
               </p>
             </div>
-            <Button size="sm" variant="ghost" onClick={() => setShowQuorumEditor((v) => !v)}>
+            <Button disabled={electorateRecorded} size="sm" variant="ghost" onClick={() => setShowQuorumEditor((v) => !v)}>
               <Settings2 className="h-4 w-4" />
               Kvorumas
             </Button>
@@ -201,6 +204,10 @@ export function AttendanceManager({
           <p className="text-xs mt-0.5 opacity-70">Bazė: {quorumBasisLabel(meetingType)}.</p>
         </div>
 
+        {electorateRecorded ? <p className="mb-3 text-sm text-green-800">Susirinkimo laiko narių bazė užfiksuota ir vėlesnių narystės pokyčių nebekeičiama.</p> : <div className="mb-3 space-y-2 text-sm text-amber-900">
+          <p>Susirinkimo pradžioje užfiksuokite narių bazę, net jei nesusirinko kvorumas. Istoriniam susirinkimui skiltyje „Kvorumas“ įrašykite dokumentuotą to laiko skaičių ir šaltinį.</p>
+          {!isFinished && <Button size="sm" variant="outline" onClick={async()=>{const result=await captureMeetingElectorate(meetingId);if(result.error)toast.error(result.error);else router.refresh();}}>Fiksuoti dabartinę narių bazę</Button>}
+        </div>}
         {showQuorumEditor && (
           <QuorumEditor
             meetingId={meetingId}
@@ -361,6 +368,7 @@ function QuorumEditor({
 }) {
   const [total, setTotal] = useState(String(totalMembersAtTime));
   const [quorum, setQuorum] = useState(String(quorumRequired));
+  const [reference, setReference] = useState("");
   const [saving, setSaving] = useState(false);
 
   const differsFromSuggestion =
@@ -371,6 +379,7 @@ function QuorumEditor({
     const result = await updateMeetingQuorum(meetingId, {
       total_members_at_time: Number(total) || 0,
       quorum_required: Number(quorum) || 0,
+      electorate_reference: reference,
     });
     setSaving(false);
     if (result.error) {
@@ -385,9 +394,11 @@ function QuorumEditor({
     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
       <p className="text-sm font-semibold text-blue-900">Kvorumo duomenys</p>
       <p className="text-xs text-blue-800">
-        Skaičiai įšaldomi protokolui, todėl juos galima taisyti rankomis – automatinis
-        siūlymas remiasi ŠIANDIENOS sąrašu ir po posėdžio gali nebesutapti.
+        Istoriniam skaičiui nurodykite to susirinkimo narių registro išrašą ar kitą dokumentinį pagrindą. Išsaugojus su pagrindu bazė užfiksuojama. Šiandienos sąrašas gali nebeatitikti buvusio susirinkimo.
       </p>
+      <label className="block text-sm">Susirinkimo laiko narių skaičių pagrindžiančio dokumento nuoroda
+        <input value={reference} onChange={e=>setReference(e.target.value)} className="mt-1 w-full rounded border p-2" />
+      </label>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">

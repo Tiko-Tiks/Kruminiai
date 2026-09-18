@@ -16,16 +16,17 @@ for (const file of ['001_initial_schema.sql','002_voting_schema.sql','003_voting
 await db.exec(migration('20260918185337_bylaws_enforcement.sql'));
 await db.exec(`create trigger members_status_change_sync after update of status on members for each row execute function public.on_member_status_change();`);
 const uuid=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
-async function setup({members=10,attendees=10,type='visuotinis',qualified=true,notice=true}={}) {
+async function setup({members=10,attendees=10,type='visuotinis',qualified=true,notice=true,started=true}={}) {
   // Each case rolls back; the migration is applied only once.
   await db.exec('begin');
   for(let i=1;i<=members;i++) await db.query(`insert into members(id,first_name,last_name,application_reference,admission_reference,admission_date) values ($1,'Testas','Narys','Prašymas 1','Tarybos 1','2026-01-01')`,[uuid(i)]);
   await db.query(`insert into meetings(id,title,meeting_date,location,meeting_type,total_members_at_time,quorum_required,status,majority_rule,majority_reference,chairperson_name)
-    values ($1,'Testinis susirinkimas','2026-09-20 12:00Z','Testinė vieta',$2,$3,$4,'vyksta','for_against','Patvirtinta tvarka Nr. 1','Testas Narys')`,[uuid(100),type,members,type==='pakartotinis'?0:Math.floor(members/2)+1]);
+    values ($1,'Testinis susirinkimas','2026-09-20 12:00Z','Testinė vieta',$2,$3,$4,'planuojamas','for_against','Patvirtinta tvarka Nr. 1','Testas Narys')`,[uuid(100),type,members,type==='pakartotinis'?0:Math.floor(members/2)+1]);
   if(type==='neeilinis') await db.exec(`update meetings set convening_kind='council',convening_reference='Tarybos protokolas 1'`);
   if(type==='pakartotinis') await db.exec(`update meetings set repeat_notice_days=14,repeat_notice_reference='Patvirtinta informavimo tvarka'`);
   if(notice) await db.query(`insert into meeting_announcements(meeting_id,channel,published_at) select id,'web',meeting_date-interval '14 days' from meetings where id=$1`,[uuid(100)]);
   if(type==='valdybos') for(let i=1;i<=members;i++) await db.query(`insert into community_management(member_id,role) values ($1,'tarybos_narys')`,[uuid(i)]);
+  if(started) await db.exec("update meetings set status='vyksta'");
   for(let i=1;i<=attendees;i++) await db.query(`insert into meeting_attendance(meeting_id,member_id) values($1,$2)`,[uuid(100),uuid(i)]);
   await db.query(`insert into resolutions(id,meeting_id,title,decision_text,decision_type) values ($1,$2,'Įstatų projektas','Priimti pateiktą projektą',$3)`,[uuid(200),uuid(100),qualified?'statutes':'ordinary']);
 }
@@ -42,7 +43,7 @@ scenario('DB: neigiamų balsų negalima paslėpti teigiamoje sumoje',{},async()=
 scenario('DB: naujas narys be Tarybos sprendimo atmetamas',{},async()=>assert.rejects(db.exec(`insert into members(first_name,last_name) values ('Testas','Be sprendimo')`),/Tarybos/));
 scenario('DB: mokestis be Visuotinio sprendimo atmetamas',{},async()=>assert.rejects(db.exec(`insert into fee_periods(year,name,amount_cents) values(2027,'Testas',1200)`),/Visuotinio/));
 scenario('DB: patvirtintas mokesčio pagrindas priimamas',{},async()=>db.exec(`insert into fee_periods(year,name,amount_cents,decision_reference,decision_date) values(2027,'Testas',1200,'Visuotinio Nr. 3','2026-01-01')`));
-scenario('DB: kvorumo negalima sumažinti tiesiogine užklausa',{},async()=>assert.rejects(db.exec(`update meetings set quorum_required=5`),/Kvorumas/));
+scenario('DB: kvorumo negalima sumažinti tiesiogine užklausa',{started:false},async()=>assert.rejects(db.exec(`update meetings set quorum_required=5`),/Kvorumas/));
 scenario('DB: pakartotinio išimtis be ankstesnio susirinkimo atmetama',{type:'pakartotinis',attendees:1},async()=>assert.rejects(finish(1),/ankstesnio/));
 scenario('DB: naujas balsas po rezultato perskaitymo neleidžia išsaugoti pasenusios sumos',{},async()=>{
   await db.query(`insert into vote_ballots(resolution_id,member_id,vote) values($1,$2,'uz')`,[uuid(200),uuid(1)]);
@@ -192,8 +193,8 @@ scenario('DB: neeilinio neleidžiama uždaryti be sušaukimo pagrindo',{type:'ne
   await db.exec('update meetings set convening_kind=null,convening_reference=null');await assert.rejects(finish(7),/Neeiliniam/);
 });
 for(const requesters of [[1],[1,1],[1,2]]) scenario(`DB: 1/5 reikalavimo kelias be papildomo Tarybos sprendimo (${requesters})`,{type:'neeilinis'},async()=>{
-  await db.query("update meetings set convening_kind='members',convening_reference='Narių raštiškas reikalavimas',convening_requesters=$1",[requesters.map(uuid)]);
-  if(new Set(requesters).size===2) await finish(7);else await assert.rejects(finish(7),/1\/5/);
+  const register=()=>db.query("update meetings set convening_kind='members',convening_reference='Narių raštiškas reikalavimas ir registro išrašas',convening_date='2026-09-17',convening_total_members=10,convening_requesters=$1",[requesters.map(uuid)]);
+  if(new Set(requesters).size===2) { await register(); await finish(7); } else await assert.rejects(register(),/1\/5/);
 });
 scenario('DB: narystės neleidžiama nutraukti vien statusu',{},async()=>{
   await assert.rejects(db.query("update members set status='išstojęs' where id=$1",[uuid(1)]),/pabaigos/);
@@ -212,13 +213,68 @@ scenario('DB: gyvų balsų suvestinė negali dubliuoti vardinio fizinio balso',{
   await db.query("insert into vote_ballots(resolution_id,member_id,vote,vote_type) values($1,$2,'uz','fizinis')",[uuid(200),uuid(1)]);
   await assert.rejects(finish(7,0,0,'patvirtintas',{uz:1,pries:0,susilaike:0}),/maišyti/);
 });
-scenario('DB: po dviejų naujų priėmimų šeši iš dvylikos neturi kvorumo',{attendees:6},async()=>{
+scenario('DB: po dviejų naujų priėmimų prieš pradžią šeši iš dvylikos neturi kvorumo',{attendees:6,started:false},async()=>{
   for(let i=11;i<=12;i++) await db.query("insert into members(id,first_name,last_name,application_reference,admission_reference,admission_date) values($1,'Testas','Naujas','Prašymas','Taryba','2026-09-18')",[uuid(i)]);
+  await db.exec("update meetings set status='vyksta'");
   await assert.rejects(finish(6),/kvorumo/);
 });
-scenario('DB: uždarant neįvykusį susirinkimą išsaugoma tikroji narių bazė',{attendees:6},async()=>{
+scenario('DB: uždarant neįvykusį susirinkimą išsaugoma pradžioje buvusi narių bazė',{attendees:6,started:false},async()=>{
   for(let i=11;i<=12;i++) await db.query("insert into members(id,first_name,last_name,application_reference,admission_reference,admission_date) values($1,'Testas','Naujas','Prašymas','Taryba','2026-09-18')",[uuid(i)]);
+  await db.exec("update meetings set status='vyksta'");
   await db.exec("update meetings set status='baigtas'");
   assert.equal((await db.query('select total_members_at_time as n from meetings')).rows[0].n,12);
+});
+scenario('DB: penki iš dešimties lieka be kvorumo po dviejų vėlesnių išstojimų',{attendees:5},async()=>{
+  for(const id of [9,10]) await db.query("update members set status='išstojęs',termination_kind='withdrawal',termination_reference='Raštiškas prašymas',termination_date='2026-09-18' where id=$1",[uuid(id)]);
+  await db.exec("update meetings set status='baigtas'");
+  assert.equal((await db.query('select total_members_at_time as total from meetings')).rows[0].total,10);
+});
+scenario('DB: po pradžios priimtas narys neperrašo užfiksuoto vardiklio',{attendees:5},async()=>{
+  await db.query("insert into members(id,first_name,last_name,application_reference,admission_reference,admission_date) values($1,'Testas','Vėliau','Prašymas','Taryba','2026-09-18')",[uuid(11)]);
+  await db.exec("update meetings set status='baigtas'");
+  assert.equal((await db.query('select total_members_at_time as total from meetings')).rows[0].total,10);
+});
+scenario('DB: pradžios bazės negalima perrašyti nauju dabartiniu skaičiumi',{},async()=>{
+  await assert.rejects(db.exec(`update meetings set electorate_snapshot='{"capture":true}'`),/užfiksuota/);
+});
+scenario('DB: neužfiksuotas istorinis susirinkimas reikalauja dokumentuotos bazės',{started:false},async()=>{
+  await assert.rejects(db.exec("update meetings set status='baigtas'"),/užfiksuokite/);
+});
+scenario('DB: dokumentuota istorinė narių bazė įrašoma su šaltiniu',{started:false},async()=>{
+  await db.exec(`update meetings set electorate_snapshot='{"total":12,"reference":"Susirinkimo dienos narių registro išrašas Nr. 1"}'`);
+  await db.exec("update meetings set status='baigtas'");
+  assert.equal((await db.query('select total_members_at_time as total from meetings')).rows[0].total,12);
+});
+scenario('DB: galiojantis 1/5 reikalavimas išlieka pasirašiusiam nariui vėliau išstojus',{type:'neeilinis',attendees:8},async()=>{
+  await db.query("update meetings set convening_kind='members',convening_reference='Reikalavimas ir registro išrašas',convening_date='2026-09-17',convening_total_members=10,convening_requesters=$1",[[uuid(9),uuid(10)]]);
+  await db.query("update members set status='išstojęs',termination_kind='withdrawal',termination_reference='Vėlesnis prašymas',termination_date='2026-09-18' where id=$1",[uuid(9)]);
+  await finish(6);
+  const snapshot=(await db.query('select convening_snapshot from meetings')).rows[0].convening_snapshot;
+  assert.equal(snapshot.total,10);assert.equal(snapshot.requester_ids.length,2);
+});
+scenario('DB: vėliau priimtas narys neskaičiuojamas ankstesniame reikalavime',{type:'neeilinis'},async()=>{
+  await db.query("update members set admission_date='2026-09-18' where id=$1",[uuid(2)]);
+  await assert.rejects(db.query("update meetings set convening_kind='members',convening_reference='Reikalavimas',convening_date='2026-09-17',convening_total_members=10,convening_requesters=$1",[[uuid(1),uuid(2)]]),/narystė reikalavimo dieną/);
+});
+scenario('DB: užfiksuoto reikalavimo parašų negalima keisti atgaline data',{type:'neeilinis'},async()=>{
+  await db.query("update meetings set convening_kind='members',convening_reference='Reikalavimas',convening_date='2026-09-17',convening_total_members=10,convening_requesters=$1",[[uuid(1),uuid(2)]]);
+  await assert.rejects(db.query('update meetings set convening_requesters=$1',[[uuid(3),uuid(4)]]),/pagrindas užfiksuotas/);
+});
+scenario('DB: nepilna keturių asmenų Taryba nesumažina šešių narių bazės',{type:'valdybos',members:6,attendees:3,started:false},async()=>{
+  await db.query('update community_management set is_current=false where member_id=any($1)',[[uuid(5),uuid(6)]]);
+  await assert.rejects(db.exec("update meetings set status='vyksta'"),/šeši/);
+});
+scenario('DB: buvusio nario negalima fiziškai ištrinti',{},async()=>{
+  await db.query("update members set status='išstojęs',termination_kind='withdrawal',termination_reference='Prašymas',termination_date='2026-09-18' where id=$1",[uuid(10)]);
+  await assert.rejects(db.query('delete from members where id=$1',[uuid(10)]),/istorijos ištrinti/);
+});
+scenario('DB: archyvuojant buvusį narį jo mokėjimai išsaugomi',{},async()=>{
+  await db.exec("insert into fee_periods(year,name,amount_cents,decision_reference,decision_date) values(2026,'Testinis',1200,'Visuotinio 1','2026-01-01')");
+  await db.query('insert into payments(member_id,fee_period_id,amount_cents) select $1,id,1200 from fee_periods',[uuid(10)]);
+  await db.query("update members set status='išstojęs',termination_kind='withdrawal',termination_reference='Prašymas',termination_date='2026-09-18',archived_at=now() where id=$1",[uuid(10)]);
+  assert.equal((await db.query('select count(*)::int as n from payments')).rows[0].n,1);
+});
+scenario('DB: būsima narystės pabaiga šiandien neatima nario teisių',{},async()=>{
+  await assert.rejects(db.query("update members set status='išstojęs',termination_kind='withdrawal',termination_reference='Prašymas',termination_date='2099-01-01' where id=$1",[uuid(10)]),/data dar neatėjo/);
 });
 test.after(async()=>db.close());

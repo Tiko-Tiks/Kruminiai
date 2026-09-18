@@ -176,6 +176,7 @@ export async function updateMember(id: string, formData: FormData) {
 
   const values = {
     ...parsed.data,
+    ...(reactivating ? {archived_at:null} : {}),
     termination_kind: parsed.data.termination_kind || null,
     termination_date: parsed.data.termination_date || null,
     expulsion_ground: parsed.data.expulsion_ground || null,
@@ -211,15 +212,18 @@ export async function deleteMember(id: string) {
 
   const { data: oldData } = await supabase.from("members").select("*").eq("id", id).single();
 
-  const { error } = await supabase.from("members").delete().eq("id", id);
+  if (!oldData || ACTIVE_MEMBER_STATUSES.includes(oldData.status)) return {error:"Pirmiausia dokumentuokite narystės pabaigą. Nario istorija saugoma archyve."};
+  const archivedAt = new Date().toISOString();
+  const { error } = await supabase.from("members").update({archived_at:archivedAt}).eq("id", id);
   if (error) return { error: error.message };
 
   await logAudit(supabase, {
     userId: user?.id ?? null,
-    action: "DELETE",
+    action: "UPDATE",
     tableName: "members",
     recordId: id,
     oldData: oldData as Record<string, unknown>,
+    newData: {archived_at:archivedAt},
   });
 
   revalidatePath("/admin/nariai");

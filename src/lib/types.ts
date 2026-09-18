@@ -9,6 +9,7 @@ export interface Profile {
 export type MemberStatus = "aktyvus" | "pasyvus" | "išstojęs" | "garbes_narys";
 
 export interface Member {
+  archived_at?: string | null;
   termination_kind?: "withdrawal" | "expulsion" | null;
   termination_reference?: string | null;
   termination_date?: string | null;
@@ -125,6 +126,10 @@ export type MeetingType = "visuotinis" | "neeilinis" | "pakartotinis" | "valdybo
 export type MeetingStatus = "planuojamas" | "registracija" | "vyksta" | "baigtas" | "atšauktas";
 
 export interface Meeting {
+  electorate_snapshot?: {total:number;reference?:string;recorded_at?:string} | null;
+  convening_snapshot?: {total:number;requester_ids:string[];demand_date:string} | null;
+  convening_date?: string | null;
+  convening_total_members?: number | null;
   repeat_notice_days?: number | null;
   repeat_notice_reference?: string | null;
   convening_kind?: "council" | "members" | null;

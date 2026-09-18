@@ -19,6 +19,13 @@ CREATE INDEX meetings_previous_meeting_idx ON public.meetings(previous_meeting_i
 CREATE INDEX resolutions_source_resolution_idx ON public.resolutions(source_resolution_id) WHERE source_resolution_id IS NOT NULL;
 
 
+ALTER TABLE public.members ADD COLUMN archived_at timestamptz;
+ALTER TABLE public.meetings
+  ADD COLUMN electorate_snapshot jsonb,
+  ADD COLUMN convening_snapshot jsonb,
+  ADD COLUMN convening_date date,
+  ADD COLUMN convening_total_members integer CHECK (convening_total_members > 0);
+
 -- Evidence that cannot be inferred from an administrator's status checkbox.
 ALTER TABLE public.members
   ADD COLUMN termination_kind text CHECK (termination_kind IN ('withdrawal', 'expulsion')),
@@ -43,15 +50,16 @@ LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
 BEGIN
   PERFORM pg_advisory_xact_lock(hashtext('members_voting_eligibility'));
   IF TG_OP = 'DELETE' THEN
-    IF OLD.status IN ('aktyvus', 'pasyvus', 'garbes_narys') THEN
-      RAISE EXCEPTION 'Pirmiausia dokumentuokite narystės pabaigą; galiojančio nario ištrinti negalima';
-    END IF;
-    RETURN OLD;
+    RAISE EXCEPTION 'Nario istorijos ištrinti negalima; pasibaigusią narystę archyvuokite';
+  END IF;
+  IF NEW.archived_at IS NOT NULL AND NEW.status IN ('aktyvus','pasyvus','garbes_narys') THEN
+    RAISE EXCEPTION 'Pirmiausia dokumentuokite narystės pabaigą';
   END IF;
   IF TG_OP = 'UPDATE' AND OLD.status IN ('aktyvus', 'pasyvus', 'garbes_narys') AND NEW.status = 'išstojęs' THEN
     IF NEW.termination_kind IS NULL OR nullif(btrim(NEW.termination_reference), '') IS NULL OR NEW.termination_date IS NULL THEN
       RAISE EXCEPTION 'Būtinas narystės pabaigos būdas, raštiško išstojimo prašymo arba Tarybos sprendimo pagrindas ir taikymo data';
     END IF;
+    IF NEW.termination_date > (now() AT TIME ZONE 'Europe/Vilnius')::date THEN RAISE EXCEPTION 'Narystės pabaigos data dar neatėjo'; END IF;
     IF NEW.termination_kind = 'expulsion' AND (NEW.expulsion_ground IS NULL OR nullif(btrim(NEW.appeal_reference), '') IS NULL) THEN
       RAISE EXCEPTION 'Pašalinimui būtinas 3.4 p. pagrindas ir pranešimo apie teisę skųsti įrodymas (3.5 p.)';
     END IF;
@@ -93,16 +101,69 @@ FOR EACH ROW EXECUTE FUNCTION public.bylaws_fee_guard();
 
 CREATE FUNCTION public.bylaws_meeting_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
-DECLARE expected integer;
+DECLARE expected integer; ids uuid[]; signers uuid[]; total integer; capture boolean;
 BEGIN
   PERFORM pg_advisory_xact_lock(hashtext('members_voting_eligibility'));
-  IF TG_OP = 'UPDATE' AND NEW.status = 'baigtas' AND OLD.status <> 'baigtas' THEN
-    SELECT count(DISTINCT mb.id) INTO NEW.total_members_at_time FROM public.members mb
-      WHERE mb.status IN ('aktyvus', 'pasyvus', 'garbes_narys') AND
-        (NEW.meeting_type <> 'valdybos' OR (EXISTS (SELECT 1 FROM public.community_management cm
-          WHERE cm.member_id=mb.id AND cm.is_current AND cm.role IN ('pirmininkas','tarybos_narys'))
-          AND NOT EXISTS (SELECT 1 FROM public.community_management cm WHERE cm.member_id=mb.id AND cm.is_current AND cm.role='revizorius')));
-    NEW.quorum_required := CASE WHEN NEW.meeting_type='pakartotinis' OR NEW.total_members_at_time=0 THEN 0 ELSE NEW.total_members_at_time/2+1 END;
+  IF TG_OP='UPDATE' AND OLD.electorate_snapshot IS NOT NULL AND
+    (NEW.electorate_snapshot, NEW.total_members_at_time, NEW.quorum_required) IS DISTINCT FROM
+    (OLD.electorate_snapshot, OLD.total_members_at_time, OLD.quorum_required) THEN
+    RAISE EXCEPTION 'Susirinkimo laiko narių bazė užfiksuota; būtinas atskiras dokumentuotas taisymas';
+  END IF;
+  capture := NEW.electorate_snapshot IS NULL AND NEW.status='vyksta' AND (TG_OP='INSERT' OR OLD.status<>'vyksta');
+  IF capture OR ((TG_OP='INSERT' OR OLD.electorate_snapshot IS NULL) AND NEW.electorate_snapshot IS NOT NULL) THEN
+    IF capture OR NEW.electorate_snapshot = '{"capture":true}'::jsonb THEN
+      IF NEW.status='baigtas' THEN RAISE EXCEPTION 'Istoriniam susirinkimui reikia dokumentuoto to laiko narių skaičiaus'; END IF;
+      SELECT array_agg(DISTINCT mb.id) INTO ids FROM public.members mb
+        WHERE mb.status IN ('aktyvus','pasyvus','garbes_narys') AND
+          (NEW.meeting_type<>'valdybos' OR (EXISTS (SELECT 1 FROM public.community_management cm WHERE cm.member_id=mb.id AND cm.is_current AND cm.role IN ('pirmininkas','tarybos_narys'))
+            AND NOT EXISTS (SELECT 1 FROM public.community_management cm WHERE cm.member_id=mb.id AND cm.is_current AND cm.role='revizorius')));
+      total := coalesce(cardinality(ids),0);
+      NEW.electorate_snapshot := jsonb_build_object('total',total,'member_ids',ids,'basis','registry','recorded_at',now());
+    ELSE
+      IF nullif(btrim(NEW.electorate_snapshot->>'reference'),'') IS NULL OR jsonb_typeof(NEW.electorate_snapshot->'total')<>'number' THEN
+        RAISE EXCEPTION 'Istorinei narių bazei būtinas dokumento pagrindas ir narių skaičius';
+      END IF;
+      total := (NEW.electorate_snapshot->>'total')::integer;
+      NEW.electorate_snapshot := jsonb_build_object('total',total,'basis','document','reference',NEW.electorate_snapshot->>'reference','meeting_date',NEW.meeting_date,'recorded_at',now());
+    END IF;
+    IF total < 1 OR (NEW.meeting_type='valdybos' AND total<>6) THEN
+      RAISE EXCEPTION 'Patikrinkite narių bazę: Tarybos balso teisės bazę turi sudaryti šeši nariai (5.2 p.)';
+    END IF;
+    NEW.total_members_at_time := total;
+    NEW.quorum_required := CASE WHEN NEW.meeting_type='pakartotinis' THEN 0 ELSE total/2+1 END;
+  END IF;
+  IF TG_OP='UPDATE' AND NEW.status='baigtas' AND OLD.status<>'baigtas' AND NEW.electorate_snapshot IS NULL THEN
+    RAISE EXCEPTION 'Prieš uždarant užfiksuokite susirinkimo laiko narių bazę arba įrašykite dokumentuotą istorinį skaičių';
+  END IF;
+  NEW.convening_requesters := ARRAY(SELECT DISTINCT id FROM unnest(NEW.convening_requesters) id ORDER BY id);
+  -- A member demand is checked once, for the dated demand, and then preserved.
+  IF TG_OP='UPDATE' AND OLD.convening_snapshot IS NOT NULL AND
+    (NEW.convening_snapshot,NEW.convening_kind,NEW.convening_reference,NEW.convening_requesters,NEW.convening_date,NEW.convening_total_members)
+    IS DISTINCT FROM (OLD.convening_snapshot,OLD.convening_kind,OLD.convening_reference,OLD.convening_requesters,OLD.convening_date,OLD.convening_total_members) THEN
+    RAISE EXCEPTION 'Narių reikalavimo pagrindas užfiksuotas; jo pakeitimui registruokite naują reikalavimą';
+  END IF;
+  IF (TG_OP='INSERT' OR OLD.convening_snapshot IS NULL) THEN
+    IF NEW.convening_snapshot IS NOT NULL THEN RAISE EXCEPTION 'Reikalavimo patikros išvados tiesiogiai įrašyti negalima'; END IF;
+    IF NEW.convening_kind='members' AND nullif(btrim(NEW.convening_reference),'') IS NOT NULL AND NEW.convening_date IS NOT NULL THEN
+      IF NEW.convening_date > (now() AT TIME ZONE 'Europe/Vilnius')::date THEN RAISE EXCEPTION 'Reikalavimo data dar neatėjo'; END IF;
+      SELECT array_agg(DISTINCT mb.id) INTO signers FROM public.members mb
+        WHERE mb.id=ANY(NEW.convening_requesters) AND coalesce(mb.admission_date,mb.join_date)<=NEW.convening_date
+          AND (mb.status IN ('aktyvus','pasyvus','garbes_narys') OR mb.termination_date>NEW.convening_date);
+      IF coalesce(cardinality(signers),0) <> (SELECT count(DISTINCT id) FROM unnest(NEW.convening_requesters) id) THEN
+        RAISE EXCEPTION 'Pasirašiusio asmens narystė reikalavimo dieną nepatvirtinta registre';
+      END IF;
+      IF NEW.convening_date=(now() AT TIME ZONE 'Europe/Vilnius')::date THEN
+        SELECT count(*) INTO total FROM public.members WHERE status IN ('aktyvus','pasyvus','garbes_narys');
+      ELSE
+        -- No membership history is guessed retrospectively: the referenced demand
+        -- must include the register extract supporting this explicit denominator.
+        total := NEW.convening_total_members;
+      END IF;
+      IF total IS NULL OR total<1 OR coalesce(cardinality(signers),0)*5<total OR coalesce(cardinality(signers),0)>total THEN
+        RAISE EXCEPTION 'Reikia dokumentuotos reikalavimo dienos narių bazės ir bent 1/5 pasirašiusių narių';
+      END IF;
+      NEW.convening_snapshot := jsonb_build_object('total',total,'requester_ids',signers,'demand_date',NEW.convening_date,'reference',NEW.convening_reference,'recorded_at',now());
+    END IF;
   END IF;
   IF TG_OP = 'UPDATE' AND NEW.meeting_type IS DISTINCT FROM OLD.meeting_type THEN
     RAISE EXCEPTION 'Susirinkimo tipo keisti negalima; sukurkite naują susirinkimą';
@@ -226,20 +287,15 @@ BEGIN
   PERFORM pg_advisory_xact_lock(hashtext('members_voting_eligibility'));
   SELECT * INTO m FROM public.meetings WHERE id = NEW.meeting_id FOR UPDATE;
   IF NOT FOUND OR m.status IN ('baigtas', 'atšauktas') THEN RAISE EXCEPTION 'Susirinkimas nerastas arba uždarytas'; END IF;
-  SELECT count(DISTINCT mb.id) INTO m.total_members_at_time FROM public.members mb
-    WHERE mb.status IN ('aktyvus', 'pasyvus', 'garbes_narys') AND
-      (m.meeting_type <> 'valdybos' OR (EXISTS (SELECT 1 FROM public.community_management cm
-        WHERE cm.member_id=mb.id AND cm.is_current AND cm.role IN ('pirmininkas','tarybos_narys'))
-        AND NOT EXISTS (SELECT 1 FROM public.community_management cm WHERE cm.member_id=mb.id AND cm.is_current AND cm.role='revizorius')));
+  IF m.electorate_snapshot IS NULL THEN RAISE EXCEPTION 'Pirmiausia užfiksuokite susirinkimo laiko narių bazę'; END IF;
+  m.total_members_at_time := (m.electorate_snapshot->>'total')::integer;
+  IF m.meeting_type='valdybos' AND m.total_members_at_time<>6 THEN RAISE EXCEPTION 'Tarybos balso teisės bazę sudaro šeši nariai'; END IF;
   IF m.meeting_type='neeilinis' THEN
     IF m.convening_kind IS NULL OR nullif(btrim(m.convening_reference),'') IS NULL THEN
       RAISE EXCEPTION 'Neeiliniam susirinkimui būtinas Tarybos sprendimas arba bent 1/5 narių reikalavimas (4.2 p.)';
     END IF;
-    IF m.convening_kind='members' AND (
-      (SELECT count(DISTINCT mb.id)*5 FROM public.members mb WHERE mb.id=ANY(m.convening_requesters)
-        AND mb.status IN ('aktyvus','pasyvus','garbes_narys')) < m.total_members_at_time
-      OR m.total_members_at_time < 1) THEN
-      RAISE EXCEPTION 'Reikalavimą turi pagrįsti bent 1/5 narių; patikrinkite pasirašiusius narius';
+    IF m.convening_kind='members' AND m.convening_snapshot IS NULL THEN
+      RAISE EXCEPTION 'Reikia užfiksuoto bent 1/5 narių reikalavimo patikros pagrindo';
     END IF;
   END IF;
   IF EXISTS (SELECT 1 FROM public.meeting_attendance ma JOIN public.members mb ON mb.id = ma.member_id
@@ -341,7 +397,7 @@ BEGIN
     'notice', notice, 'notice_days', threshold, 'repeat_notice_reference', m.repeat_notice_reference,
     'decision_type', NEW.decision_type, 'chairperson_member_id', m.chairperson_member_id, 'chair_vote', chair_ballot,
     'convening_kind', m.convening_kind, 'convening_reference', m.convening_reference,
-    'convening_requesters', m.convening_requesters, 'recorded_at', now());
+    'convening_requesters', m.convening_requesters, 'convening_snapshot', m.convening_snapshot, 'electorate_snapshot', m.electorate_snapshot, 'recorded_at', now());
   NEW.early_voting_open := false;
   RETURN NEW;
 END; $$;
@@ -399,7 +455,7 @@ BEGIN
     LEFT JOIN public.members mb ON mb.status IN ('aktyvus', 'pasyvus', 'garbes_narys') AND
       (m.meeting_type <> 'valdybos' OR EXISTS (SELECT 1 FROM public.community_management cm
        WHERE cm.member_id = mb.id AND cm.is_current AND cm.role IN ('pirmininkas', 'tarybos_narys')))
-    WHERE m.status NOT IN ('baigtas', 'atšauktas') AND m.meeting_date > now()
+    WHERE m.status NOT IN ('baigtas', 'atšauktas') AND m.meeting_date > now() AND m.electorate_snapshot IS NULL
       AND NOT EXISTS (SELECT 1 FROM public.resolutions r WHERE r.meeting_id = m.id AND r.status IN ('patvirtintas', 'atmestas'))
     GROUP BY m.id
   )
