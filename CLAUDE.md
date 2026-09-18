@@ -2,6 +2,49 @@
 
 Šis failas yra orientyras AI asistentui, dirbant prie šio projekto. Skirtas tiek pirmam susipažinimui, tiek patikrinimui, kad nedubliuotumėt esamų sprendimų.
 
+## Darbo taisyklės (privalomos kiekvienam PR)
+
+Taisyklės numeruojamos ir tik papildomos – nauja taisyklė gauna kitą numerį, sena
+tyliai neperrašoma. Jei taisyklei reikia žingsnis po žingsnio procedūros, ji rašoma
+į `.claude/skills/steward/SKILL.md`; čia lieka pati taisyklė ir jos ribos.
+
+### Taisyklė Nr. 1 – Codex recenzija kiekvienam PR
+
+1. **Kiekvienas PR į `main` privalo gauti Codex recenziją** (GitHub botas
+   `chatgpt-codex-connector`, repo jau prijungtas). Recenziją paleidžia PR atidarymas
+   „ready for review", draft'o pažymėjimas „ready" arba komentaras `@codex review`.
+   **Draft PR automatiškai nerecenzuojamas**, todėl sukūrus draft PR iškart rašomas
+   komentaras `@codex review`.
+2. **Be Codex recenzijos PR nemerginamas.** Recenzija galioja TIK tam commit'ui, kurį
+   Codex nurodo savo „Codex Review Summary" komentare – kiekvienas naujas push'as ją
+   anuliuoja. Merginti galima tik kai PR **paskutinis** head commit'as turi baigtą
+   Codex recenziją **be pastabų** (Codex reakcija 👍, „Completed" tam commit'ui, nė
+   vieno neišspręsto Codex komentaro).
+3. **Kiekviena Codex pastaba taisoma**, ne ginčijama: pataisyti → lokalios patikros →
+   push → vėl `@codex review` → tol, kol pastabų nelieka. Visos pastabos, įskaitant
+   P3 / „nit", yra pastabos. Jei pastaba faktiškai klaidinga – atsakymas rašomas jos
+   gijoje su įrodymu (failas, eilutė, testas) ir paliekama Mindaugui nuspręsti; tokia
+   pastaba skaičiuojasi kaip **neišspręsta**, ne kaip „be pastabų".
+4. **Ratų stabdis – sustoti ir perduoti sprendimą Mindaugui**, kai bent viena:
+   - praėjo **3 pilni ratai** (recenzija → taisymas → recenzija), o pastabų vis dar yra;
+   - ta pati arba ankstesnei priešinga pastaba grįžta **antrą kartą** po pataisymo
+     (vaikštoma ratais);
+   - pastaba reikalauja sprendimo už PR apimties (architektūra, DB schema, verslo
+     taisyklė, saugumo modelis);
+   - Codex neatsako per ~30 min. po **dviejų** `@codex review` kvietimų.
+   Sustojus: PR lieka nemergintas; viename PR komentare – likusių pastabų sąrašas, kas
+   išbandyta ir koks sprendimas reikalingas; tas pats trumpai – žinute Mindaugui.
+   Tęsti tik jam nusprendus.
+5. **Merginimas ir approve – tik Mindaugo sprendimas.** AI asistentas PR nemergina,
+   netvirtina ir Codex gijų be pataisymo neuždaro.
+6. Codex pastabos, atėjusios kitu kanalu (pvz. Mindaugas įklijuoja Codex CLI recenziją
+   į pokalbį), yra tas pats Codex ratas – galioja tos pačios taisyklės ir tas pats
+   skaitiklis.
+
+Vercel preview ir Claude Code Review yra papildomi signalai; **vartai yra Codex**.
+Procedūra (kaip atpažinti Codex būseną, ratų skaitiklis, būsenos komentaras) –
+`.claude/skills/steward/SKILL.md`.
+
 ## Tech stack
 
 - **Next.js 14** (App Router, Server Components, Server Actions)
@@ -1076,3 +1119,8 @@ Esminiai punktai, į kuriuos verta atsižvelgti rašant naują logiką
 - **Patikrinti egzistuojančius RPC** per Supabase MCP `list_tables` arba `execute_sql`
 - **Darbotvarkę keičiant** – tikrai naudoti `revalidateMeetingPaths`, ne atskirus paths
 - **Iframe route'ams (api/veiklos-planai|salinami|rinkimai)** – tik per SECURITY DEFINER RPC, niekada tiesiogiai
+- **PR be Codex recenzijos nemerginamas** – žr. „Darbo taisyklės" Nr. 1 ir
+  `.claude/skills/steward/SKILL.md`; sukūrus draft PR iškart `@codex review`
+- **2026-09-18 Codex auditas** (19 radinių, P0–P2) yra artimiausių darbų eilė. Jis
+  saugomas **ne repo** (repo viešas, radiniai dar nepataisyti) – reikalingą skiltį
+  prašyti Mindaugo. Kiekvienas radinys – atskiras PR pagal Taisyklę Nr. 1
