@@ -23,6 +23,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { safeUrl } from "@/lib/html";
 
 interface Props {
   meetingId: string;
@@ -196,15 +197,12 @@ export function AnnouncementsPanel({
                       </span>
                     </div>
                     {a.url && (
-                      <a
-                        href={a.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-blue-700 hover:text-blue-900 hover:underline mt-1"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        {a.url.length > 60 ? a.url.slice(0, 60) + "..." : a.url}
-                      </a>
+                      // React tekstą koduoja pats, bet `href` reikšmės netikrina –
+                      // į DB įrašytas `javascript:` adresas taptų veikiančia
+                      // nuoroda. `safeUrl` praleidžia tik http(s)/mailto ir
+                      // santykinius adresus; kitaip nuorodos nerodom, o pats
+                      // tekstas lieka matomas.
+                      <AnnouncementUrl url={a.url} />
                     )}
                     {a.notes && (
                       <p className="text-xs text-gray-500 mt-1 italic">{a.notes}</p>
@@ -300,5 +298,38 @@ export function AnnouncementsPanel({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Skelbimo nuoroda su schemos filtru.
+ *
+ * URL įveda administratorius, todėl tai nėra anoniminis srautas – bet įrašas
+ * lieka DB ir rodomas kitiems administratoriams, o `javascript:` adresas
+ * paspaudus įvykdytų kodą jų sesijoje. Neleistiną adresą rodom kaip paprastą
+ * tekstą: informacija nedingsta, nuorodos nėra.
+ */
+function AnnouncementUrl({ url }: { url: string }) {
+  const href = safeUrl(url);
+  const label = url.length > 60 ? url.slice(0, 60) + "..." : url;
+
+  if (!href) {
+    return (
+      <p className="text-xs text-gray-500 mt-1 break-all" title="Neleistinas adreso formatas">
+        {label}
+      </p>
+    );
+  }
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1 text-xs text-blue-700 hover:text-blue-900 hover:underline mt-1"
+    >
+      <ExternalLink className="h-3 w-3" />
+      {label}
+    </a>
   );
 }
