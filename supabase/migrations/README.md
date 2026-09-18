@@ -7,8 +7,10 @@ toliau.
 
 ## Taisyklės naujoms migracijoms
 
-1. **Numeris unikalus.** Naujam failui – didžiausias esamas numeris + 1.
-   Tikrina `npm run check:migrations` (vykdoma ir CI).
+1. **Numeris unikalus ir didesnis už viską, kas sumerginta.** Naujam failui –
+   didžiausias `main` šakos numeris + 1. Tikrina `npm run check:migrations`
+   (vykdoma ir CI): dublikatai, tarpai sekoje ir tai, ar šiame PR pridėti failai
+   turi didesnį numerį nei `origin/main`.
 2. **Pavadinimas** – `NNN_ka_daro.sql`, mažosiomis raidėmis su pabraukimais.
 3. **Esamų failų nepervadinti ir neperrašyti.** Jie jau pritaikyti bazei;
    pervadinimas nieko neištaisytų, tik sugriautų sąsają su gyvu registru.
@@ -30,6 +32,24 @@ Trys numeriai turi po du failus – tai susidarė anksčiau ir paliekama kaip yr
 
 Jie įrašyti į `scripts/check-migrations.mjs` išimčių sąrašą. Naujų dublikatų
 patikra nepraleidžia.
+
+## Numerių rezervavimas lygiagretiems PR
+
+Kai vienu metu ruošiami keli PR, jų migracijų numeriai pasidalijami iš anksto ir
+surašomi į `RESERVED` sąrašą `scripts/check-migrations.mjs`. Rezervuotas numeris:
+
+- **nelaikomas tarpu** sekoje (kitaip po pirmo merge'o patikra kristų, nes
+  046–052 repo dar nebūtų);
+- **praeina** naujo failo patikrą net tada, kai yra mažesnis už `main`
+  maksimumą – kitaip po vieno PR merge'o kitiems tektų pernumeruoti savo jau
+  peržiūrėtas migracijas.
+
+Šiuo metu rezervuota **046–052** (046–049 – PR #16, 050–052 – PR #15). **Sumerginus
+tuos PR, įrašus iš `RESERVED` pašalinti** – nuo tada jų numeriai jau bus repo ir
+seką saugos įprasta patikra.
+
+Laukiamą kitą numerį visada parodo pati patikra: neatitikus ji rašo
+„laukiamas numeris N".
 
 ## Gyvas registras ↔ repo failai
 

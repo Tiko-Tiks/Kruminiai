@@ -49,6 +49,11 @@ jobs:
       - name: Asmens duomenų patikra
         run: node scripts/check-no-pii.mjs
 
+      # `main` reikalingas patikrai, ar naujos migracijos numeris didesnis už
+      # jau sumergintus. Užtenka vieno commit'o gylio – lyginami medžiai.
+      - name: Parsisiųsti main migracijų patikrai
+        run: git fetch --no-tags --depth=1 origin +refs/heads/main:refs/remotes/origin/main
+
       - name: Migracijų numeracija
         run: node scripts/check-migrations.mjs
 
