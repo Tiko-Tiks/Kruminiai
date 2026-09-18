@@ -11,7 +11,10 @@
  * segmentus, t. y. kainuotų dvigubai. Tai liečia ir nario vardą tekste.
  *
  * Tie patys tekstai naudojami ir admin peržiūrai prieš siuntimą, todėl tai,
- * ką administratorius mato, yra tiksliai tai, kas išsiunčiama.
+ * ką administratorius mato, yra tiksliai tai, kas išsiunčiama. Dėl tos pačios
+ * priežasties čia gyvena ir su siuntimu susijusios datų patikros
+ * (`isValidMeetingDate`, `isCalendarDate`) – grynos, todėl tinka ir server
+ * action'ui, ir admin formai, ir testams.
  *
  * Failas sąmoningai be importų – taip jį gali paleisti ir `node --test`
  * (tests/sms-length.test.mjs), ir Next.js.
