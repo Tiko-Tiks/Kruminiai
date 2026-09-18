@@ -6,9 +6,12 @@ import { logNotificationSystem } from "@/lib/notification-log";
 import { renderMembershipRequestEmail } from "@/lib/membership-emails";
 import { createAdminSupabaseClient, isAdminClientAvailable } from "@/lib/supabase-admin";
 
-// Šio (anon) endpoint'o laiškai žurnale žymimi taip – pagal tai skaičiuojamas
-// ir dažnio ribojimas, kad admin'o siunčiamos kampanijos jo neišnaudotų.
-const REQUEST_EMAIL_KIND = "other";
+// Šio (anon) endpoint'o laiškai žurnale žymimi atskira reikšme – pagal ją
+// skaičiuojamas ir dažnio ribojimas. Bendra „other" netiktų: ja žymimas ir
+// `approveUser` sveikinimo laiškas, todėl patvirtinimų serija uždarytų bendrą
+// valandinį limitą registracijoms. `notification_log.kind` CHECK apribojimo
+// neturi (migr. 009), todėl naujai reikšmei migracijos nereikia.
+const REQUEST_EMAIL_KIND = "membership_request";
 
 // Anti-bombardavimo apsauga: tam pačiam adresui – ne daugiau kaip 3 laiškai per
 // 10 min. (normali registracija siunčia 1); visiems adresams kartu – ne daugiau

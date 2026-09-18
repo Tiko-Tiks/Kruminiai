@@ -10,6 +10,7 @@ const KIND_LABELS: Record<string, string> = {
   voting_token: "Balsavimo nuoroda",
   voting_resend: "Pakartotinis balsavimo SMS",
   vote_confirmation: "Balsavimo patvirtinimas",
+  membership_request: "Narystės užklausa",
   other: "Kita",
 };
 
