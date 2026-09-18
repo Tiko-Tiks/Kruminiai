@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { revalidateMeetingPaths } from "@/lib/revalidate";
 import { z } from "zod";
+import { validateDecision } from "@/lib/decision-validation";
 import { getNutartaText, summarizeAnnouncements } from "@/lib/protocol-text";
 
 const resolutionSchema = z.object({
@@ -104,7 +105,8 @@ async function resolveDecisionText(
 
   const summary = summarizeAnnouncements(
     announcements as Array<{ channel: string; url: string | null; published_at: string }> | null,
-    new Date(meeting.meeting_date)
+    new Date(meeting.meeting_date),
+    meeting.meeting_type
   );
 
   const generated = getNutartaText(
@@ -261,7 +263,9 @@ export async function updateResolution(
   if (auth.error) return { error: auth.error };
   const user = auth.user;
 
-  const { error } = await supabase.from("resolutions").update(data).eq("id", id);
+  const parsed = z.object({ discussion_text: z.string().optional(), decision_text: z.string().optional(), title: z.string().min(1).optional(), description: z.string().optional() }).strict().safeParse(data);
+  if (!parsed.success) return { error: "Neleistini nutarimo laukai" };
+  const { error } = await supabase.from("resolutions").update(parsed.data).eq("id", id).eq("meeting_id", meetingId);
   if (error) return { error: error.message };
 
   await logAudit(supabase, {
@@ -300,6 +304,10 @@ export async function updateResolutionStatus(id: string, status: string, meeting
     updateData.decision_text = decision.decisionText;
     updateData.early_voting_open = false;
     const totals = await countVotes(id);
+    if (totals.error) return { error: totals.error };
+    const invalid = await validateDecision(supabase, id, meetingId, { result_for: totals.uz, result_against: totals.pries, result_abstain: totals.susilaike }, status);
+    if (invalid) return { error: invalid };
+    updateData.ballot_snapshot = { uz: totals.uz, pries: totals.pries, susilaike: totals.susilaike };
     updateData.result_for = totals.uz;
     updateData.result_against = totals.pries;
     updateData.result_abstain = totals.susilaike;
@@ -411,7 +419,7 @@ export async function countVotes(resolutionId: string) {
     .from("vote_ballots")
     .select("vote")
     .eq("resolution_id", resolutionId);
-  if (error) return { uz: 0, pries: 0, susilaike: 0 };
+  if (error) return { uz: 0, pries: 0, susilaike: 0, error: "Nepavyko perskaityti balsų. Bandykite dar kartą." };
 
   return {
     uz: data.filter((b) => b.vote === "uz").length,
@@ -450,6 +458,7 @@ export async function recordBallots(
 
   // Atnaujinti rezultatus
   const totals = await countVotes(resolutionId);
+  if (totals.error) return { error: totals.error };
   await supabase.from("resolutions").update({
     result_for: totals.uz,
     result_against: totals.pries,
@@ -481,7 +490,8 @@ export async function setResolutionResults(
   id: string,
   meetingId: string,
   liveResults: { result_for: number; result_against: number; result_abstain: number },
-  status: "patvirtintas" | "atmestas"
+  status: "patvirtintas" | "atmestas",
+  chairVote?: string
 ) {
   const supabase = createServerSupabaseClient();
   const auth = await requireAdmin(supabase);
@@ -494,7 +504,9 @@ export async function setResolutionResults(
   if (decision.error) return { error: decision.error };
 
   // Suskaičiuojam nuotoliu balsus iš vote_ballots
+  if (!Object.values(liveResults).every(n => Number.isSafeInteger(n) && n >= 0)) return { error: "Neteisingi balsų skaičiai" };
   const remote = await countVotes(id);
+  if (remote.error) return { error: remote.error };
 
   const totals = {
     result_for: liveResults.result_for + remote.uz,
@@ -502,8 +514,13 @@ export async function setResolutionResults(
     result_abstain: liveResults.result_abstain + remote.susilaike,
   };
 
+  const invalid = await validateDecision(supabase, id, meetingId, totals, status, chairVote);
+  if (invalid) return { error: invalid };
+
   const { error } = await supabase.from("resolutions").update({
     ...totals,
+    ballot_snapshot: { uz: remote.uz, pries: remote.pries, susilaike: remote.susilaike },
+    chair_vote: chairVote || null,
     status,
     decision_text: decision.decisionText,
     early_voting_open: false,
@@ -737,6 +754,7 @@ export async function castOnlineVote(resolutionId: string, memberId: string, vot
 
   // Atnaujinti rezultatus
   const totals = await countVotes(resolutionId);
+  if (totals.error) return { error: totals.error };
   await supabase.from("resolutions").update({
     result_for: totals.uz,
     result_against: totals.pries,

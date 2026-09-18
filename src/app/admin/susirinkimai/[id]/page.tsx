@@ -124,6 +124,7 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
         <AnnouncementsPanel
           meetingId={meeting.id}
           meetingDate={meeting.meeting_date}
+            meetingType={meeting.meeting_type}
           announcements={announcements}
         />
       </div>

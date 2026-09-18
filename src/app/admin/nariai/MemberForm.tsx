@@ -130,6 +130,13 @@ export function MemberForm({ member }: Props) {
               ]}
             />
           </div>
+          <fieldset className="space-y-3 border-t pt-4">
+            <legend className="font-medium">Priėmimo į bendruomenę pagrindas</legend>
+            <p className="text-sm text-gray-600">Nurodykite raštišką prašymą ir jau priimtą Tarybos sprendimą (įstatų 3.2 p.). Importuojant seną narį tinka istorinio sprendimo nuoroda.</p>
+            <Input name="application_reference" label="Raštiško prašymo data ir registracijos numeris / nuoroda" defaultValue={member?.application_reference || ""} />
+            <Input name="admission_reference" label="Tarybos protokolo numeris ir sprendimo punktas / nuoroda" defaultValue={member?.admission_reference || ""} />
+            <Input name="admission_date" label="Tarybos sprendimo data" type="date" defaultValue={member?.admission_date || ""} />
+          </fieldset>
           <Textarea
             id="notes"
             name="notes"

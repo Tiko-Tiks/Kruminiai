@@ -1,6 +1,9 @@
 "use server";
 
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { requireAdmin } from "@/lib/authz";
+import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
+import { admissionEvidenceError } from "@/lib/bylaws";
 import { logAudit } from "@/lib/audit";
 import { transliterateLt } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
@@ -28,6 +31,9 @@ const memberSchema = z.object({
   address: z.string().optional().or(z.literal("")),
   join_date: z.string().min(1, "Data privaloma"),
   status: z.enum(["aktyvus", "pasyvus", "išstojęs", "garbes_narys"]),
+  application_reference: z.string().trim().max(1000).optional(),
+  admission_reference: z.string().trim().max(1000).optional(),
+  admission_date: z.string().optional(),
   language: z.enum(["lt", "en"]).optional(),
   notes: z.string().optional().or(z.literal("")),
 });
@@ -90,7 +96,9 @@ export async function getMember(id: string) {
 
 export async function createMember(formData: FormData) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: { _form: [auth.error] } };
+  const user = auth.user;
 
   const raw = Object.fromEntries(formData.entries());
   const parsed = memberSchema.safeParse(raw);
@@ -98,8 +106,12 @@ export async function createMember(formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
+  const evidenceError = admissionEvidenceError(parsed.data);
+  if (evidenceError) return { error: { _form: [evidenceError] } };
+
   const values = {
     ...parsed.data,
+    admission_date: parsed.data.admission_date || null,
     email: parsed.data.email || null,
     phone: parsed.data.phone || null,
     address: parsed.data.address || null,
@@ -129,7 +141,9 @@ export async function createMember(formData: FormData) {
 
 export async function updateMember(id: string, formData: FormData) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: { _form: [auth.error] } };
+  const user = auth.user;
 
   const raw = Object.fromEntries(formData.entries());
   const parsed = memberSchema.safeParse(raw);
@@ -139,8 +153,14 @@ export async function updateMember(id: string, formData: FormData) {
 
   const { data: oldData } = await supabase.from("members").select("*").eq("id", id).single();
 
+  if (!oldData) return { error: { _form: ["Narys nerastas"] } };
+  const reactivating = !ACTIVE_MEMBER_STATUSES.includes(oldData.status) && ACTIVE_MEMBER_STATUSES.includes(parsed.data.status);
+  const evidenceError = reactivating ? admissionEvidenceError(parsed.data) : null;
+  if (evidenceError) return { error: { _form: [evidenceError] } };
+
   const values = {
     ...parsed.data,
+    admission_date: parsed.data.admission_date || null,
     email: parsed.data.email || null,
     phone: parsed.data.phone || null,
     address: parsed.data.address || null,
@@ -166,7 +186,9 @@ export async function updateMember(id: string, formData: FormData) {
 
 export async function deleteMember(id: string) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
 
   const { data: oldData } = await supabase.from("members").select("*").eq("id", id).single();
 

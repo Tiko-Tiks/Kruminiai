@@ -94,7 +94,8 @@ export async function GET(
   // (bendras helper'is – tą patį tekstą naudoja ir procedūrinis #2 NUTARTA)
   const announcementSummary = summarizeAnnouncements(
     announcements as Array<{ channel: string; url: string | null; published_at: string }> | null,
-    meetingDate
+    meetingDate,
+    meeting.meeting_type
   );
   const announcementParagraph = announcementSummary.paragraph;
 

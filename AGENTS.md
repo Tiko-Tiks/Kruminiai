@@ -5,7 +5,7 @@ Prieš darbus perskaityk `CLAUDE.md` aktualius skyrius ir patikrink esamą kodą
 - Įstatų testai: `npm run test:bylaws`. Jie vykdo tik vietinį kodą su fiktyviais duomenimis, be Supabase, SMS ar el. pašto ryšio.
 - Pirminė audito ataskaita: `docs/istatai/AUDITAS-2026-09-18.md`. Žinomi neatitikimai nėra išimtys iš taisyklių. Neversk raudono testo žaliu pakeisdamas įstatų reikalavimą.
 - Nepaleisk `scripts/test-sms*`, `scripts/test-email*` ar kitų siuntimo scenarijų kaip automatinių testų: jie gali kreiptis į tikrus gavėjus.
-- Duomenų bazės ar produkcijos pakeitimai nėra šio taisyklių ir testų paketo dalis. Auditas remiasi skaitymo operacijomis; testuose naudok izoliuotus duomenis.
+- Pataisų ir diegimo būsena: `docs/istatai/PATAISOS-2026-09-18.md`. Naują migraciją ir programą diek suderintai; vien migracija nesuderinama su senu nutarimų uždarymu. Testuose naudok izoliuotus duomenis.
 
 ## Bendruomenės veiklos reikalavimai
 

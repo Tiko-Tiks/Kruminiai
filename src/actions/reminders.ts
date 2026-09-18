@@ -404,7 +404,7 @@ function buildOverdueEmail(
           </table>
 
           <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#374151;">
-            Pagal Krūminių kaimo bendruomenės įstatų <strong>3.5 punktą</strong>, jei narys nustatytu laiku nesumoka nario mokesčio, narystė gali būti nutraukta Tarybos sprendimu.
+            Pagal Krūminių kaimo bendruomenės įstatų <strong>3.4.2 punktą</strong>, ilgiau nei 12 mėnesių nemokamas nustatytas nario mokestis gali būti pašalinimo Tarybos sprendimu pagrindas. Pašalintas narys turi teisę skųsti sprendimą artimiausiam Visuotiniam narių susirinkimui (3.5 p.).
           </p>
 
           <p style="margin:0 0 20px;font-size:14px;line-height:1.65;color:#4b5563;background:#fffbeb;border-left:3px solid #f59e0b;padding:12px 16px;border-radius:4px;">

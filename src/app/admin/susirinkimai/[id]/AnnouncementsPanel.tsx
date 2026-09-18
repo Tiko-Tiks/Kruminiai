@@ -22,11 +22,13 @@ import {
   AlertCircle,
   CheckCircle2,
 } from "lucide-react";
+import { summarizeAnnouncements } from "@/lib/protocol-text";
 import { toast } from "sonner";
 
 interface Props {
   meetingId: string;
   meetingDate: string;
+  meetingType: string;
   announcements: MeetingAnnouncement[];
 }
 
@@ -40,6 +42,7 @@ const CHANNEL_OPTIONS: Array<{
   { value: "email", label: "El. paštas nariams", icon: Mail },
   { value: "sms", label: "SMS nariams", icon: MessageSquare },
   { value: "paper", label: "Skelbimų lenta / paštas", icon: FileText },
+  { value: "rc", label: "Registrų centro vieši pranešimai", icon: FileText },
   { value: "other", label: "Kitas kanalas", icon: Megaphone },
 ];
 
@@ -55,21 +58,14 @@ const CHANNEL_BY_VALUE = Object.fromEntries(
 export function AnnouncementsPanel({
   meetingId,
   meetingDate,
+  meetingType,
   announcements,
 }: Props) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(announcements.length === 0);
   const [loading, setLoading] = useState(false);
 
-  // Apskaičiuojam, ar bent vienas skelbimas yra >=14 d. prieš susirinkimą
-  const meetingTime = new Date(meetingDate).getTime();
-  const earliest = announcements
-    .map((a) => new Date(a.published_at).getTime())
-    .sort((a, b) => a - b)[0];
-  const daysAdvance = earliest
-    ? Math.floor((meetingTime - earliest) / (1000 * 60 * 60 * 24))
-    : null;
-  const compliant = daysAdvance !== null && daysAdvance >= 14;
+  const { daysAdvance, compliant, requiredDays } = summarizeAnnouncements(announcements, new Date(meetingDate), meetingType);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -140,15 +136,14 @@ export function AnnouncementsPanel({
             <div className="text-sm">
               {compliant ? (
                 <p className="text-green-900">
-                  <strong>Atitinka reikalavimus</strong> – pirmasis skelbimas
+                  <strong>Atitinka informavimo terminą</strong> – pirmasis skelbimas
                   paskelbtas <strong>{daysAdvance} d.</strong> prieš susirinkimą
-                  (min. 14 d. reikalavimas).
+                  (min. {requiredDays} d. reikalavimas).
                 </p>
               ) : (
                 <p className="text-amber-900">
-                  <strong>Per vėlai paskelbta</strong> – pirmasis skelbimas tik{" "}
-                  <strong>{daysAdvance} d.</strong> prieš susirinkimą.
-                  Įstatuose reikalaujama min. 14 d. iš anksto.
+                  <strong>Termino atitiktis nepatvirtinta.</strong>{" "}
+                  {requiredDays === null ? "Šio posėdžio informavimo tvarka vertinama atskirai." : `Reikia bent vieno įstatų 8.1 p. kanalo ne vėliau kaip prieš ${requiredDays} d. SMS vienos nepakanka.`}
                 </p>
               )}
             </div>

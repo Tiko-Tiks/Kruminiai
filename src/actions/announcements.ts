@@ -5,7 +5,7 @@ import { logAudit } from "@/lib/audit";
 import { revalidateMeetingPaths } from "@/lib/revalidate";
 import { z } from "zod";
 
-const CHANNELS = ["web", "facebook", "email", "sms", "paper", "other"] as const;
+const CHANNELS = ["web", "facebook", "email", "sms", "paper", "rc", "other"] as const;
 
 const announcementSchema = z.object({
   meeting_id: z.string().uuid(),

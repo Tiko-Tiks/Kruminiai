@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createMeeting, updateMeeting } from "@/actions/meetings";
+import { createMeeting, updateMeeting, getMeetings } from "@/actions/meetings";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -20,6 +20,9 @@ interface Props {
 
 export function MeetingForm({ meeting }: Props) {
   const router = useRouter();
+  const [meetingType, setMeetingType] = useState(meeting?.meeting_type || "visuotinis");
+  const [previousMeetings, setPreviousMeetings] = useState<Meeting[]>([]);
+  useEffect(() => { getMeetings().then(setPreviousMeetings).catch(() => toast.error("Nepavyko gauti susirinkimų sąrašo")); }, []);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
 
@@ -76,11 +79,12 @@ export function MeetingForm({ meeting }: Props) {
             <Select
               label="Susirinkimo tipas"
               name="meeting_type"
-              defaultValue={meeting?.meeting_type || "visuotinis"}
+              value={meetingType}
+              onChange={e => setMeetingType(e.target.value as Meeting["meeting_type"])}
               options={[
                 { value: "visuotinis", label: "Visuotinis narių susirinkimas" },
                 { value: "neeilinis", label: "Neeilinis susirinkimas" },
-                { value: "pakartotinis", label: "Pakartotinis (be kvorumo)" },
+                { value: "pakartotinis", label: "Pakartotinis po neįvykusio susirinkimo" },
                 { value: "valdybos", label: "Tarybos posėdis" },
               ]}
             />
@@ -91,6 +95,18 @@ export function MeetingForm({ meeting }: Props) {
               placeholder="Pvz.: Nr. 3"
             />
           </div>
+
+          {meetingType === "pakartotinis" && (
+            <div className="space-y-2">
+              <Select name="previous_meeting_id" label="Dėl kvorumo neįvykęs susirinkimas" defaultValue={meeting?.previous_meeting_id || ""} required
+                options={[{ value: "", label: "Pasirinkite" }, ...previousMeetings.filter(m => m.id !== meeting?.id && ["visuotinis", "neeilinis"].includes(m.meeting_type) && m.status === "baigtas").map(m => ({ value: m.id, label: `${m.title} (${m.meeting_date.slice(0, 10)})` }))]} />
+              <p className="text-sm text-gray-600">Kuriant pakartotinį susirinkimą perkeliama ankstesnė darbotvarkė. Spręsti naujų klausimų pagal kvorumo išimtį negalima.</p>
+            </div>
+          )}
+          <Select name="majority_rule" label="Patvirtintoje balsavimo tvarkoje nustatyta paprasta dauguma" defaultValue={meeting?.majority_rule || ""}
+            options={[{ value: "", label: "Tvarka dar nenurodyta" }, { value: "for_against", label: "Daugiau už negu prieš" }, { value: "participants", label: "Daugiau nei pusė dalyvaujančių" }]} />
+          <Input name="majority_reference" label="Balsavimo tvarkos dokumentas / sprendimo nuoroda" defaultValue={meeting?.majority_reference || ""} />
+          <p className="text-sm text-gray-600">Įstatai išsamios paprastos daugumos formulės nenustato. Prieš tvirtinant įprastą nutarimą reikia nurodyti taikomą patvirtintą tvarką. Specialiems sprendimams taikoma 2/3 dalyvaujančių riba.</p>
 
           <div className="grid grid-cols-2 gap-4">
             <DatePicker

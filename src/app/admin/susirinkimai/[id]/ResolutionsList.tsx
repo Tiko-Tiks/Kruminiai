@@ -144,9 +144,7 @@ export function ResolutionsList({
         const needsDecisionText =
           !res.is_procedural && !(res.decision_text && res.decision_text.trim());
         const totalVotes = res.result_for + res.result_against + res.result_abstain;
-        const isPassed = res.requires_qualified_majority
-          ? res.result_for >= Math.ceil((totalVotes * 2) / 3)
-          : res.result_for > res.result_against;
+        const isPassed = res.status === "patvirtintas";
 
         return (
           <div
@@ -399,6 +397,7 @@ function QuickVoteForm({
   const [pries, setPries] = useState("0");
   const [susilaike, setSusilaike] = useState("0");
   const [saving, setSaving] = useState(false);
+  const [chairVote, setChairVote] = useState("");
 
   const handleSave = async (status: "patvirtintas" | "atmestas") => {
     setSaving(true);
@@ -406,7 +405,7 @@ function QuickVoteForm({
       result_for: parseInt(uz) || 0,
       result_against: parseInt(pries) || 0,
       result_abstain: parseInt(susilaike) || 0,
-    }, status);
+    }, status, chairVote || undefined);
 
     if (result.error) {
       toast.error(result.error);
@@ -419,6 +418,11 @@ function QuickVoteForm({
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
+      <label className="w-full text-xs text-gray-600">Tarybos posėdyje, balsams pasiskirsčius po lygiai: posėdžio pirmininko balsas (jau įskaičiuotas į bendrus balsus)
+        <select aria-label="Posėdžio pirmininko balsas" value={chairVote} onChange={e => setChairVote(e.target.value)} className="ml-2 rounded border p-1">
+          <option value="">Netaikoma / neįrašyta</option><option value="uz">Už</option><option value="pries">Prieš</option><option value="susilaike">Susilaikė</option>
+        </select>
+      </label>
       {needsDecisionText && (
         <div className="w-full bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-900 flex items-start gap-2">
           <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />

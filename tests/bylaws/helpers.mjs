@@ -7,7 +7,7 @@ import ts from 'typescript';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const require = createRequire(import.meta.url);
 const packages = new Set(['zod', 'clsx', 'tailwind-merge', 'date-fns', 'date-fns/locale']);
-const localLibraries = new Set(['authz', 'constants', 'quorum', 'protocol-text', 'utils', 'voting-window']);
+const localLibraries = new Set(['authz', 'constants', 'quorum', 'protocol-text', 'utils', 'voting-window', 'bylaws', 'decision-validation']);
 
 /** Execute the real TS implementation. All I/O modules must be explicitly replaced.
  * This is an application unit-test boundary, NOT an emulation of Postgres/RLS.

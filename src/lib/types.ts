@@ -9,6 +9,9 @@ export interface Profile {
 export type MemberStatus = "aktyvus" | "pasyvus" | "išstojęs" | "garbes_narys";
 
 export interface Member {
+  application_reference?: string | null;
+  admission_reference?: string | null;
+  admission_date?: string | null;
   id: string;
   first_name: string;
   last_name: string;
@@ -25,6 +28,8 @@ export interface Member {
 }
 
 export interface FeePeriod {
+  decision_reference?: string | null;
+  decision_date?: string | null;
   id: string;
   year: number;
   name: string;
@@ -115,6 +120,9 @@ export type MeetingType = "visuotinis" | "neeilinis" | "pakartotinis" | "valdybo
 export type MeetingStatus = "planuojamas" | "registracija" | "vyksta" | "baigtas" | "atšauktas";
 
 export interface Meeting {
+  previous_meeting_id?: string | null;
+  majority_rule?: "for_against" | "participants" | null;
+  majority_reference?: string | null;
   id: string;
   title: string;
   description: string | null;
@@ -140,6 +148,8 @@ export interface Meeting {
 export type ResolutionStatus = "projektas" | "svarstomas" | "balsuojamas" | "patvirtintas" | "atmestas";
 
 export interface Resolution {
+  source_resolution_id?: string | null;
+  chair_vote?: string | null;
   id: string;
   meeting_id: string;
   title: string;

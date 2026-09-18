@@ -32,7 +32,8 @@ export const ANNOUNCEMENT_CHANNEL_LT: Record<string, string> = {
   web: "bendruomenės svetainėje kruminiai.lt",
   facebook: "Facebook puslapyje",
   email: "el. paštu nariams",
-  sms: "SMS žinute nariams",
+  sms: "SMS žinute nariams (papildomas kanalas)",
+  rc: "Registrų centro leidinyje „Juridinių asmenų vieši pranešimai“",
   paper: "skelbimų lentoje",
   other: "kitame kanale",
 };
@@ -51,6 +52,7 @@ export interface AnnouncementSummary {
   list: ProtocolAnnouncement[];
   daysAdvance: number | null;
   compliant: boolean;
+  requiredDays: number | null;
   channelsText: string;
   /** Pastraipa protokolo įžangai (tuščia, jei skelbimų nefiksuota). */
   paragraph: string;
@@ -59,16 +61,19 @@ export interface AnnouncementSummary {
 /** Skelbimų suvestinė – kanalai, datos ir įstatų 4.3 p. (14 d.) atitikimas. */
 export function summarizeAnnouncements(
   announcements: ProtocolAnnouncement[] | null | undefined,
-  meetingDate: Date
+  meetingDate: Date,
+  meetingType = "visuotinis"
 ): AnnouncementSummary {
   const list = announcements || [];
+  const requiredDays = meetingType === "neeilinis" ? 7 : ["visuotinis", "pakartotinis"].includes(meetingType) ? 14 : null;
   const earliestMs = list
+    .filter(a => ["web", "facebook", "email", "paper", "rc"].includes(a.channel))
     .map((a) => new Date(a.published_at).getTime())
     .sort((a, b) => a - b)[0];
-  const daysAdvance = earliestMs
+  const daysAdvance = Number.isFinite(earliestMs)
     ? Math.floor((meetingDate.getTime() - earliestMs) / (1000 * 60 * 60 * 24))
     : null;
-  const compliant = daysAdvance !== null && daysAdvance >= 14;
+  const compliant = requiredDays !== null && daysAdvance !== null && daysAdvance >= requiredDays;
 
   const channelsText = list
     .map((a) => {
@@ -83,7 +88,7 @@ export function summarizeAnnouncements(
     .join("; ");
 
   const compliance = compliant
-    ? `Pranešimas paskelbtas ${daysAdvance} d. prieš susirinkimą ir atitinka įstatuose nurodytą min. 14 d. terminą.`
+    ? `Pranešimas paskelbtas ${daysAdvance} d. prieš susirinkimą ir atitinka įstatuose nurodytą min. ${requiredDays} d. terminą.`
     : daysAdvance !== null
       ? `Pranešimas paskelbtas ${daysAdvance} d. prieš susirinkimą.`
       : "";
@@ -93,7 +98,7 @@ export function summarizeAnnouncements(
       ? `Apie susirinkimą iš anksto pranešta: ${channelsText}. ${compliance}`.trim()
       : "";
 
-  return { list, daysAdvance, compliant, channelsText, paragraph };
+  return { list, daysAdvance, compliant, requiredDays, channelsText, paragraph };
 }
 
 /**
@@ -132,10 +137,10 @@ export function getNutartaText(
       return "Susirinkimo pranešimo tinkamumas nepatvirtintas.";
     }
     if (announcements.list.length === 0) {
-      return "Patvirtinta, kad susirinkimas paskelbtas tinkamai.";
+      return "Pranešimo paskelbimo įrodymas neužregistruotas.";
     }
     const compliancePart = announcements.compliant
-      ? `Pranešimas paskelbtas ${announcements.daysAdvance} d. prieš susirinkimą ir atitinka įstatuose nurodytą min. 14 d. terminą.`
+      ? `Pranešimas paskelbtas ${announcements.daysAdvance} d. prieš susirinkimą ir atitinka įstatuose nurodytą min. ${announcements.requiredDays} d. terminą.`
       : announcements.daysAdvance !== null
         ? `Pranešimas paskelbtas ${announcements.daysAdvance} d. prieš susirinkimą.`
         : "";

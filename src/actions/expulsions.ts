@@ -4,6 +4,8 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { revalidateMeetingPaths } from "@/lib/revalidate";
+import { requireAdmin } from "@/lib/authz";
+import { overdueMoreThanTwelveMonths } from "@/lib/bylaws";
 import { FEE_STATUSES } from "@/lib/constants";
 
 // =============================================================================
@@ -83,7 +85,7 @@ export async function getMeetingExpulsions(
 
   const { data: periods } = await supabase
     .from("fee_periods")
-    .select("id, year, amount_cents")
+    .select("id, year, amount_cents, due_date")
     .eq("fee_type", "metinis");
 
   const { data: payments } = await supabase
@@ -106,7 +108,8 @@ export async function getMeetingExpulsions(
     const unpaid = (periods || []).filter(
       (p) => p.year >= joinYear && !paidIds.has(p.id)
     );
-    if (unpaid.length === 0) continue;
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vilnius" });
+    if (!unpaid.some(p => overdueMoreThanTwelveMonths(p.due_date, today))) continue;
     candidates.push({
       member_id: m.id,
       first_name: m.first_name,
@@ -133,7 +136,9 @@ export async function addExpulsion(
   reason?: string
 ) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
 
   // Suskaičiuojam skolą
   const { data: member } = await supabase
@@ -146,21 +151,21 @@ export async function addExpulsion(
   const joinYear = member.join_date ? new Date(member.join_date).getFullYear() : 2012;
 
   const [{ data: periods }, { data: payments }] = await Promise.all([
-    supabase.from("fee_periods").select("id, year, amount_cents").eq("fee_type", "metinis"),
+    supabase.from("fee_periods").select("id, year, amount_cents, due_date").eq("fee_type", "metinis"),
     supabase.from("payments").select("fee_period_id").eq("member_id", memberId),
   ]);
 
   const paidIds = new Set((payments || []).map((p) => p.fee_period_id));
   const unpaid = (periods || []).filter((p) => p.year >= joinYear && !paidIds.has(p.id));
 
-  if (unpaid.length === 0) {
-    return { error: "Šis narys neturi skolos – į šalinamų sąrašą įtraukti negalima." };
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vilnius" });
+  if (!unpaid.some(p => overdueMoreThanTwelveMonths(p.due_date, today))) {
+    return { error: "Nėra pagrįsto ilgiau nei 12 mėnesių pradelsto mokesčio. Reikia patvirtintos mokėjimo tvarkos ir termino (3.4.2 p.)." };
   }
 
   const debtCents = unpaid.reduce((s, p) => s + p.amount_cents, 0);
   const debtYears = unpaid.map((p) => p.year).sort().join(", ");
-  const yearsLabel = unpaid.length === 1 ? "1 metus" : `${unpaid.length} metus iš eilės`;
-  const defaultReason = `Sistematinis nario mokesčio nemokėjimas ${yearsLabel} (įstatų 3.5 p.)`;
+  const defaultReason = "Siūloma Tarybai įvertinti ilgiau nei 12 mėnesių pradelstą nario mokestį (įstatų 3.4.2 p.). Šis sąrašas narystės nenutraukia; galutinį pagrindą tikrina Taryba.";
 
   // Naujam įrašui sort_order = max+1
   const { data: maxRow } = await supabase
@@ -210,7 +215,9 @@ export async function addExpulsion(
 // =============================================================================
 export async function removeExpulsion(expulsionId: string) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
 
   const { data: row } = await supabase
     .from("meeting_expulsions")
@@ -310,7 +317,7 @@ async function syncResolutionDescription(meetingId: string) {
       `Pridedamas **kandidatų į galimai šalinamų narių sąrašas** dėl sistematinio nario mokesčio nemokėjimo.\n\n` +
       `Iš viso kandidatų – **${list.length} narių**, bendra skola **${totalEur.toFixed(0)} EUR**. Pridedamame dokumente išvardinta kiekvieno nario skola, neapmokėti metai bei šių metų bendravimo istorija (kada ir kiek kartų buvo siųsti priminimai, ar buvo atsakyta).\n\n` +
       `Visuotinio susirinkimo balsavimas yra **patariamojo pobūdžio – nariai išreiškia nuomonę / pritarimą** dėl šių kandidatų šalinimo. Pagal įstatų **5.4.2 punktą** galutinį sprendimą dėl narystės nutraukimo priima Taryba.\n\n` +
-      `**Pasekmės šalinamiems nariams:** narystė bendruomenėje pasibaigia, prarandama teisė dalyvauti susirinkimuose ir balsuoti. Pagal įstatų **3.6 punktą** asmuo gali vėliau vėl tapti nariu sumokėjęs stojamąjį mokestį (20 EUR) ir einamųjų metų nario mokestį (12 EUR), padengus susikaupusią skolą.`;
+      `**Nario teisės:** sąrašas ir patariamasis balsavimas savaime narystės nenutraukia. Pašalintas narys turi teisę skųsti Tarybos sprendimą artimiausiam Visuotiniam narių susirinkimui (3.5 p.). Pakartotinis priėmimas vyksta pagal 3.2 p.: raštiškas prašymas ir Tarybos sprendimas. Mokesčiai nustatomi atskiru Visuotinio susirinkimo sprendimu.`;
   }
 
   await supabase
@@ -336,7 +343,9 @@ async function ensureExpulsionListDocAttached(meetingId: string, resolutionId: s
     .maybeSingle();
 
   if (!doc) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
     const { data: newDoc, error } = await supabase
       .from("documents")
       .insert({

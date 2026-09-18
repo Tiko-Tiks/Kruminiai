@@ -17,6 +17,9 @@ const meetingSchema = z.object({
   meeting_time: z.string().min(1, "Laikas privalomas"),
   location: z.string().min(1, "Vieta privaloma"),
   meeting_type: z.enum(["visuotinis", "neeilinis", "pakartotinis", "valdybos"]),
+  previous_meeting_id: z.string().optional(),
+  majority_rule: z.enum(["", "for_against", "participants"]).optional(),
+  majority_reference: z.string().trim().max(1000).optional(),
   protocol_number: z.string().optional().or(z.literal("")),
   early_voting_start: z.string().optional().or(z.literal("")),
   early_voting_end: z.string().optional().or(z.literal("")),
@@ -45,7 +48,9 @@ export async function getMeeting(id: string) {
 
 export async function createMeeting(formData: FormData) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: { _form: [auth.error] } };
+  const user = auth.user;
 
   const raw = Object.fromEntries(formData.entries());
   const parsed = meetingSchema.safeParse(raw);
@@ -60,6 +65,21 @@ export async function createMeeting(formData: FormData) {
     `${parsed.data.meeting_date}T${parsed.data.meeting_time}`
   );
   const isRepeat = parsed.data.meeting_type === "pakartotinis";
+  let inheritedAgenda: Array<{ id: string; title: string; description: string | null; resolution_number: number; is_procedural: boolean; procedural_type: string | null; requires_qualified_majority: boolean }> = [];
+  if (isRepeat) {
+    if (!parsed.data.previous_meeting_id) return { error: { _form: ["Pasirinkite dėl kvorumo neįvykusį susirinkimą."] } };
+    const { data: previous, error: previousError } = await supabase.from("meetings").select("*").eq("id", parsed.data.previous_meeting_id).single();
+    const { data: priorAttendance, error: attendanceError } = await supabase.from("meeting_attendance").select("member_id").eq("meeting_id", parsed.data.previous_meeting_id);
+    if (previousError || attendanceError || !previous || !priorAttendance || previous.status !== "baigtas" ||
+        !["visuotinis", "neeilinis"].includes(previous.meeting_type) || previous.total_members_at_time <= 0 ||
+        new Set(priorAttendance.map(a => a.member_id)).size > previous.total_members_at_time / 2 ||
+        new Date(previous.meeting_date) >= new Date(meetingDateTime)) {
+      return { error: { _form: ["Pakartotinio pagrindas turi būti anksčiau pasibaigęs, kvorumo nesurinkęs Visuotinis susirinkimas."] } };
+    }
+    const { data: agenda, error: agendaError } = await supabase.from("resolutions").select("id, title, description, resolution_number, is_procedural, procedural_type, requires_qualified_majority").eq("meeting_id", previous.id);
+    if (agendaError || !agenda?.length) return { error: { _form: ["Nepavyko perskaityti ankstesnės darbotvarkės."] } };
+    inheritedAgenda = agenda;
+  }
 
   // Kvorumo bazė priklauso nuo organo (žr. `src/lib/quorum.ts`):
   //   • Tarybos posėdis  – dabartiniai Tarybos nariai (5.5 p.)
@@ -74,6 +94,9 @@ export async function createMeeting(formData: FormData) {
     location: parsed.data.location,
     meeting_type: parsed.data.meeting_type,
     protocol_number: parsed.data.protocol_number || null,
+    previous_meeting_id: parsed.data.meeting_type === "pakartotinis" ? parsed.data.previous_meeting_id || null : null,
+    majority_rule: parsed.data.majority_rule || null,
+    majority_reference: parsed.data.majority_reference || null,
     total_members_at_time: totalMembers,
     quorum_required: quorumRequired,
     is_repeat: isRepeat,
@@ -127,7 +150,15 @@ export async function createMeeting(formData: FormData) {
     },
   ];
 
-  await supabase.from("resolutions").insert(proceduralItems);
+  const agendaItems = isRepeat ? inheritedAgenda.map(({ id, ...item }) => ({
+    ...item, meeting_id: data.id, source_resolution_id: id, created_by: user?.id ?? null,
+  })) : proceduralItems;
+  const { error: agendaError } = await supabase.from("resolutions").insert(agendaItems);
+  if (agendaError) {
+    // Compensate the new draft; an incomplete repeat agenda must never look complete.
+    await supabase.from("meetings").delete().eq("id", data.id);
+    return { error: { _form: [agendaError.message] } };
+  }
 
   await logAudit(supabase, {
     userId: user?.id ?? null,
@@ -143,7 +174,9 @@ export async function createMeeting(formData: FormData) {
 
 export async function updateMeeting(id: string, formData: FormData) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: { _form: [auth.error] } };
+  const user = auth.user;
 
   const raw = Object.fromEntries(formData.entries());
   const parsed = meetingSchema.safeParse(raw);
@@ -156,13 +189,19 @@ export async function updateMeeting(id: string, formData: FormData) {
     `${parsed.data.meeting_date}T${parsed.data.meeting_time}`
   );
 
+  if (!oldData) return { error: { _form: ["Susirinkimas nerastas"] } };
   const values = {
+    is_repeat: parsed.data.meeting_type === "pakartotinis",
+    quorum_required: suggestedQuorum(parsed.data.meeting_type, oldData.total_members_at_time),
     title: parsed.data.title,
     description: parsed.data.description || null,
     meeting_date: meetingDateTime,
     location: parsed.data.location,
     meeting_type: parsed.data.meeting_type,
     protocol_number: parsed.data.protocol_number || null,
+    previous_meeting_id: parsed.data.meeting_type === "pakartotinis" ? parsed.data.previous_meeting_id || null : null,
+    majority_rule: parsed.data.majority_rule || null,
+    majority_reference: parsed.data.majority_reference || null,
     early_voting_start: parsed.data.early_voting_start
       ? vilniusLocalToIso(parsed.data.early_voting_start)
       : null,
@@ -189,7 +228,9 @@ export async function updateMeeting(id: string, formData: FormData) {
 
 export async function updateMeetingStatus(id: string, status: string) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
 
   const updateData: Record<string, unknown> = { status };
 
@@ -218,7 +259,9 @@ export async function updateMeetingProtocolInfo(
   data: { chairperson_name?: string; secretary_name?: string; agenda_approved?: boolean }
 ) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
 
   const { error } = await supabase.from("meetings").update(data).eq("id", id);
   if (error) return { error: error.message };
@@ -237,7 +280,9 @@ export async function updateMeetingProtocolInfo(
 
 export async function deleteMeeting(id: string) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
 
   const { data: oldData } = await supabase.from("meetings").select("*").eq("id", id).single();
 
@@ -295,6 +340,7 @@ async function fetchEligibleAttendees(meetingType: string): Promise<EligibleAtte
       .from("community_management")
       .select("role, sort_order, member:members(id, first_name, last_name, status)")
       .eq("is_current", true)
+      .in("role", ["pirmininkas", "tarybos_narys"])
       .order("sort_order", { ascending: true });
     if (error) throw error;
 
@@ -492,10 +538,14 @@ export async function updateMeetingQuorum(
 
   const { data: oldData } = await supabase
     .from("meetings")
-    .select("total_members_at_time, quorum_required")
+    .select("meeting_type, total_members_at_time, quorum_required")
     .eq("id", meetingId)
     .single();
 
+  if (!oldData) return { error: "Susirinkimas nerastas" };
+  if (parsed.data.total_members_at_time <= 0 || parsed.data.quorum_required !== suggestedQuorum(oldData.meeting_type, parsed.data.total_members_at_time)) {
+    return { error: "Kvorumas turi atitikti įstatų formulę: daugiau kaip pusė narių; pakartotinio susirinkimo išimtis tikrinama atskirai." };
+  }
   const { error } = await supabase.from("meetings").update(parsed.data).eq("id", meetingId);
   if (error) return { error: error.message };
 
