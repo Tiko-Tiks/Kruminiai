@@ -25,6 +25,17 @@
 --
 -- Čia pat šios trys funkcijos gauna ir migr. 048 patvirtinimo vartus
 -- (`not_approved`), kad ta pati funkcija nebūtų apibrėžta dukart iš eilės.
+--
+-- PAPILDYTA (Codex recenzija):
+--   * `council_only` patikra stabdo tik NAUJUS balsus. Jei Tarybos narys
+--     balsavo iš anksto, o paskui iki posėdžio neteko Tarybos nario statuso,
+--     jo balsas liktų suskaičiuotas. Todėl pridėta
+--     `_purge_council_ineligible_votes()` + trigger'is ant
+--     `community_management` ir vienkartinis valymas migracijos pabaigoje
+--     (senasis RPC ne Tarybos narių balsus leido).
+--   * `get_member_voting_history` filtruoja tik pagal `is_published` – organo
+--     patikra istorijoje pašalindavo pasibaigusios kadencijos nario paties
+--     Tarybos posėdžius.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
@@ -115,6 +126,174 @@ END;
 $function$;
 
 REVOKE ALL ON FUNCTION public._member_can_vote(uuid, uuid) FROM PUBLIC, anon, authenticated;
+
+-- ----------------------------------------------------------------------------
+-- Jau įrašytų balsų valymas, kai narys nebėra Tarybos narys
+-- ----------------------------------------------------------------------------
+-- `_member_can_vote` stabdo tik NAUJĄ balsą. Jei narys balsavo iš anksto, o
+-- paskui iki posėdžio neteko Tarybos nario statuso, jo `vote_ballots` ir
+-- `resolutions.result_*` liktų suskaičiuoti. Tai tas pats scenarijus, kurį
+-- narystės statusui tvarko `on_member_status_change` (migr. 038–040), todėl
+-- elgiamės lygiai taip pat – tik apimtis siauresnė: BŪSIMI Tarybos posėdžiai.
+--
+-- KVORUMO (`total_members_at_time`, `quorum_required`) šis valymas NELIEČIA:
+-- Tarybos posėdžio kvorumo bazė yra Tarybos nariai, o `on_member_status_change`
+-- perskaičiuoja bendruomenės narių bazę. Tarybos posėdžio kvorumą administratorius
+-- redaguoja rankomis posėdžio ekrane (CLAUDE.md „Posėdžio dalyvių registracija
+-- ir kvorumas" – tai posėdžio momento faktas, ne formulė).
+CREATE OR REPLACE FUNCTION public._purge_council_ineligible_votes(p_member_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_res_ids UUID[];
+  v_ballots_deleted INT := 0;
+  v_att_deleted INT := 0;
+BEGIN
+  IF p_member_id IS NULL THEN
+    RETURN;
+  END IF;
+
+  -- UŽRAKTŲ TVARKA: `members` eilutė → advisory → `meeting_voting_tokens` →
+  -- `vote_ballots`. Būtent tokia, o ne atvirkščiai, nes `members_status_change_sync`
+  -- yra AFTER UPDATE trigger'is: kai jis ima advisory užraktą (migr. 041),
+  -- `members` eilutė jau užrakinta pačios UPDATE komandos. Jei čia advisory
+  -- imtume pirmas, dvi lygiagrečios operacijos (nario statuso keitimas ir
+  -- Tarybos sudėties keitimas tam pačiam nariui) sudarytų deadlock ciklą.
+  --
+  -- `members` eilutės užraktas yra tas pats, kurį PRIEŠ patikras ima abu
+  -- balsavimo RPC (migr. 040), todėl valymas ir balso įrašymas serializuojasi:
+  -- balsas negali „prasprūsti" tarp patikros ir valymo.
+  PERFORM 1 FROM members WHERE id = p_member_id FOR UPDATE;
+  IF NOT FOUND THEN
+    -- Nario įrašo nebėra (ištrintas) – susietas eilutes jau sutvarkė FK.
+    RETURN;
+  END IF;
+
+  PERFORM pg_advisory_xact_lock(hashtext('members_voting_eligibility'));
+
+  -- Sprendimas priimamas TIK po užraktų – kitaip tarp patikros ir valymo
+  -- galėtų įsiterpti Tarybos sudėties pakeitimas.
+  IF public._is_current_council_member(p_member_id) THEN
+    RETURN;
+  END IF;
+
+  UPDATE meeting_voting_tokens t
+  SET expires_at = NOW()
+  FROM meetings m
+  WHERE m.id = t.meeting_id
+    AND t.member_id = p_member_id
+    AND t.voted_at IS NULL
+    AND t.expires_at > NOW()
+    AND m.meeting_type = 'valdybos'
+    AND m.status NOT IN ('baigtas', 'atšauktas')
+    AND m.meeting_date > NOW();
+
+  SELECT array_agg(vb.resolution_id) INTO v_res_ids
+  FROM vote_ballots vb
+  JOIN resolutions r ON r.id = vb.resolution_id
+  JOIN meetings m ON m.id = r.meeting_id
+  WHERE vb.member_id = p_member_id
+    AND m.meeting_type = 'valdybos'
+    AND m.status NOT IN ('baigtas', 'atšauktas')
+    AND m.meeting_date > NOW();
+
+  IF v_res_ids IS NOT NULL THEN
+    DELETE FROM vote_ballots
+    WHERE member_id = p_member_id AND resolution_id = ANY (v_res_ids);
+    GET DIAGNOSTICS v_ballots_deleted = ROW_COUNT;
+
+    UPDATE resolutions r
+    SET
+      result_for = (SELECT count(*) FROM vote_ballots WHERE resolution_id = r.id AND vote = 'uz'),
+      result_against = (SELECT count(*) FROM vote_ballots WHERE resolution_id = r.id AND vote = 'pries'),
+      result_abstain = (SELECT count(*) FROM vote_ballots WHERE resolution_id = r.id AND vote = 'susilaike')
+    WHERE r.id = ANY (v_res_ids);
+  END IF;
+
+  DELETE FROM meeting_attendance ma
+  USING meetings m
+  WHERE ma.meeting_id = m.id
+    AND ma.member_id = p_member_id
+    AND m.meeting_type = 'valdybos'
+    AND m.status NOT IN ('baigtas', 'atšauktas')
+    AND m.meeting_date > NOW();
+  GET DIAGNOSTICS v_att_deleted = ROW_COUNT;
+
+  -- Panaudotas tokenas grąžinamas į „nebalsuotą-anuliuotą" būseną – lygiai
+  -- kaip migr. 039, kad jo nebūtų galima panaudoti dar kartą.
+  UPDATE meeting_voting_tokens t
+  SET voted_at = NULL, expires_at = NOW()
+  FROM meetings m
+  WHERE m.id = t.meeting_id
+    AND t.member_id = p_member_id
+    AND t.voted_at IS NOT NULL
+    AND m.meeting_type = 'valdybos'
+    AND m.status NOT IN ('baigtas', 'atšauktas')
+    AND m.meeting_date > NOW();
+
+  IF v_ballots_deleted > 0 OR v_att_deleted > 0 THEN
+    INSERT INTO audit_log (user_id, action, table_name, record_id, old_data)
+    VALUES (
+      NULL, 'DELETE', 'vote_ballots', p_member_id,
+      jsonb_build_object(
+        'reason', 'member_not_council_anymore',
+        'ballots_deleted', v_ballots_deleted,
+        'attendance_deleted', v_att_deleted
+      )
+    );
+  END IF;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public._purge_council_ineligible_votes(uuid) FROM PUBLIC, anon, authenticated;
+
+-- Trigger'is: bet koks `community_management` pasikeitimas gali atimti balso
+-- teisę Tarybos posėdyje. AFTER – kad `_is_current_council_member` jau matytų
+-- naują būseną.
+--
+-- Atvirkštinės pusės (narys TAPO Tarybos nariu) atstatyti nereikia: Tarybos
+-- posėdžiui SMS tokenai išvis negeneruojami (`RemoteVotingPanel` jame
+-- nerodomas), todėl nėra ko grąžinti.
+CREATE OR REPLACE FUNCTION public.on_council_membership_change()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_old UUID := NULL;
+  v_new UUID := NULL;
+BEGIN
+  -- OLD/NEW imami TIK ten, kur jie priskirti: DELETE atveju `NEW` neegzistuoja,
+  -- INSERT atveju – `OLD`. Todėl jokių CASE išraiškų su abiem įrašais.
+  IF TG_OP IN ('UPDATE', 'DELETE') THEN
+    v_old := OLD.member_id;
+  END IF;
+  IF TG_OP IN ('INSERT', 'UPDATE') THEN
+    v_new := NEW.member_id;
+  END IF;
+
+  IF v_old IS NOT NULL THEN
+    PERFORM public._purge_council_ineligible_votes(v_old);
+  END IF;
+  IF v_new IS NOT NULL AND v_new IS DISTINCT FROM v_old THEN
+    PERFORM public._purge_council_ineligible_votes(v_new);
+  END IF;
+
+  RETURN NULL; -- AFTER trigger'io grąžinama reikšmė nenaudojama
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.on_council_membership_change() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS council_membership_change_sync ON public.community_management;
+CREATE TRIGGER council_membership_change_sync
+  AFTER INSERT OR UPDATE OR DELETE ON public.community_management
+  FOR EACH ROW
+  EXECUTE FUNCTION public.on_council_membership_change();
 
 -- ----------------------------------------------------------------------------
 -- Balsavimas iš portalo
@@ -452,7 +631,12 @@ BEGIN
     ) ORDER BY m.meeting_date DESC
   ) INTO v_result
   FROM meetings m
-  WHERE public._member_meeting_visible(v_member_id, m.id)
+  -- ISTORIJOJE tikrinam TIK `is_published` (migr. 045 vartai lieka), o NE
+  -- `_member_meeting_visible`. Organo patikra čia netinka: pasibaigus kadencijai
+  -- narys nustoja būti Tarybos nariu, ir visi jo praėję Tarybos posėdžiai
+  -- dingtų iš jo paties istorijos. Teisę dalyvauti TUOMET įrodo pats faktas,
+  -- kurį žemiau ir tikrinam – jo balsas arba dalyvavimo įrašas.
+  WHERE m.is_published
     AND (
       -- arba balsavo per portalą/SMS
       EXISTS (
@@ -474,3 +658,39 @@ $function$;
 
 REVOKE ALL ON FUNCTION public.get_member_voting_history() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_member_voting_history() TO authenticated;
+
+-- ----------------------------------------------------------------------------
+-- Vienkartinis valymas
+-- ----------------------------------------------------------------------------
+-- Senasis RPC ne Tarybos nariams balsuoti Tarybos posėdyje leido, todėl vien
+-- naujos taisyklės nepakanka – jau įrašyti balsai lieka. Praeinam per visus
+-- narius, kurie turi balsą arba dalyvavimo įrašą BŪSIMAME Tarybos posėdyje;
+-- pats helper'is dabartinius Tarybos narius praleidžia.
+--
+-- ĮVYKUSIŲ (baigtų) posėdžių NELIEČIAM: protokolas pasirašytas, rezultatai
+-- paskelbti – tai istorinis faktas, o ne taisytini duomenys. Jei ten būtų
+-- klaida, ji sprendžiama Tarybos sprendimu, ne migracija.
+DO $$
+DECLARE
+  v_member_id UUID;
+BEGIN
+  FOR v_member_id IN
+    SELECT vb.member_id
+    FROM public.vote_ballots vb
+    JOIN public.resolutions r ON r.id = vb.resolution_id
+    JOIN public.meetings m ON m.id = r.meeting_id
+    WHERE m.meeting_type = 'valdybos'
+      AND m.status NOT IN ('baigtas', 'atšauktas')
+      AND m.meeting_date > NOW()
+    UNION
+    SELECT ma.member_id
+    FROM public.meeting_attendance ma
+    JOIN public.meetings m ON m.id = ma.meeting_id
+    WHERE m.meeting_type = 'valdybos'
+      AND m.status NOT IN ('baigtas', 'atšauktas')
+      AND m.meeting_date > NOW()
+  LOOP
+    PERFORM public._purge_council_ineligible_votes(v_member_id);
+  END LOOP;
+END
+$$;
