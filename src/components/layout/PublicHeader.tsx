@@ -54,7 +54,12 @@ export function PublicHeader() {
               priority
               className="h-12 w-auto"
             />
-            <div className="hidden sm:block leading-tight">
+            {/* xl, ne sm/md – nuo `md` rodomas pilnas nav (4 nuorodos + kalbos
+                perjungiklis + prisijungimo/registracijos mygtukai), ir kartu
+                su pavadinimo tekstu portretinio planšetės pločio (~768–900px)
+                lange nebetelpa, o `overflow-x-hidden` (globals.css) tiesiog
+                nukerpa dešinę pusę (Codex peržiūra, PR #17, antras radinys). */}
+            <div className="hidden xl:block leading-tight">
               <div className="font-semibold text-ink text-base leading-none">{t.header.communityLine1}</div>
               <div className="text-sm text-ink-muted">{t.header.communityLine2}</div>
             </div>

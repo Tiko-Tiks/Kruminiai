@@ -39,24 +39,34 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-// Šešios – kad po prisegtųjų atmetimo „Naujausios naujienos" turėtų iš ko
-// sudėti tris. Anksčiau buvo `limit(3)` ir tos pačios trys naujienos ėjo
-// ir į „Svarbu" bloką, ir į „Naujausios naujienos" – lankytojas matydavo
-// identišką turinį du kartus iš eilės.
-const NEWS_FETCH_LIMIT = 6;
 const PINNED_LIMIT = 2;
 const LATEST_LIMIT = 3;
 
+// Pinned ir latest – DVI atskiros užklausos, ne viena bendra su `limit`.
+// Anksčiau vienas `limit(6)` su `order(is_pinned)` reiškė, kad esant 4+
+// prisegtų įrašų, „Naujausios naujienos" likdavo su mažiau nei
+// LATEST_LIMIT arba visai tuščias, nors DB turėjo daugiau neprisegtų
+// straipsnių – jie tiesiog nepatekdavo į pirmų šešių eilučių langą
+// (Codex peržiūra, PR #17, antras radinys).
 async function getLatestNews() {
   const supabase = createServerSupabaseClient();
-  const { data } = await supabase
-    .from("news")
-    .select("id, title, slug, excerpt, published_at, is_pinned")
-    .eq("is_published", true)
-    .order("is_pinned", { ascending: false })
-    .order("published_at", { ascending: false })
-    .limit(NEWS_FETCH_LIMIT);
-  return data || [];
+  const [{ data: pinned }, { data: latest }] = await Promise.all([
+    supabase
+      .from("news")
+      .select("id, title, slug, excerpt, published_at, is_pinned")
+      .eq("is_published", true)
+      .eq("is_pinned", true)
+      .order("published_at", { ascending: false })
+      .limit(PINNED_LIMIT),
+    supabase
+      .from("news")
+      .select("id, title, slug, excerpt, published_at, is_pinned")
+      .eq("is_published", true)
+      .eq("is_pinned", false)
+      .order("published_at", { ascending: false })
+      .limit(LATEST_LIMIT),
+  ]);
+  return { pinned: pinned || [], latest: latest || [] };
 }
 
 async function getUpcomingMeeting() {
@@ -123,24 +133,12 @@ async function getFundraisingProjects() {
 }
 
 export default async function HomePage() {
-  const [news, upcomingMeeting, projects] = await Promise.all([
+  const [{ pinned, latest }, upcomingMeeting, projects] = await Promise.all([
     getLatestNews(),
     getUpcomingMeeting(),
     getFundraisingProjects(),
   ]);
   const t = getDict().home;
-
-  // Prisegtos naujienos rodomos „Svarbu" juostoje, VISOS kitos – žemiau.
-  // Vienas įrašas niekada nepatenka į abu blokus.
-  //
-  // SVARBU: „latest" atmeta VISUS `is_pinned` įrašus, ne tik tuos du, kurie
-  // rodomi „Svarbu" juostoje (`pinned`, apkarpyta iki PINNED_LIMIT). Kai
-  // prisegtų yra daugiau nei PINNED_LIMIT, trečias ir tolesni anksčiau
-  // nukeliaudavo į „Naujausios naujienos" bloką – ten pasirodydavo prisegtas
-  // straipsnis be „Svarbu" žymos, ir dar užimdavo vietą, skirtą tikrai
-  // naujai, neprisegtai naujienai (Codex peržiūra, PR #17).
-  const pinned = news.filter((n) => n.is_pinned).slice(0, PINNED_LIMIT);
-  const latest = news.filter((n) => !n.is_pinned).slice(0, LATEST_LIMIT);
 
   const organizationLd = {
     "@context": "https://schema.org",
