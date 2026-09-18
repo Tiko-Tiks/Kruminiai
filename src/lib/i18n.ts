@@ -34,6 +34,7 @@ export interface Dictionary {
     communityLine1: string;
     communityLine2: string;
     language: string;
+    skipToContent: string;
   };
   home: {
     upcomingMeetingBadge: string;
@@ -61,8 +62,6 @@ export interface Dictionary {
     quickLinkProjectsDesc: string;
     quickLinkAboutTitle: string;
     quickLinkAboutDesc: string;
-    quickLinkContactsTitle: string;
-    quickLinkContactsDesc: string;
     latestNewsHeading: string;
     allNewsLink: string;
     aboutHeading: string;
@@ -110,6 +109,7 @@ export interface Dictionary {
     communityAddress: string;
     supportersHeading: string;
     supportersTransparency: string;
+    supportersShowAll: string;
     anonymousDonor: string;
     noDonorsTitle: string;
     noDonorsSubtitle: string;
@@ -287,12 +287,11 @@ export interface Dictionary {
     tagline: string;
     linksHeading: string;
     linkNews: string;
+    linkProjects: string;
     linkDocuments: string;
     linkContacts: string;
     contactsHeading: string;
     companyCodeLabel: string;
-    emailLabel: string;
-    phoneLabel: string;
     rightsReserved: string;
   };
   about: {
@@ -329,6 +328,13 @@ export interface Dictionary {
     value3: string;
     value4: string;
     value5: string;
+    contactsTitle: string;
+    contactsIntro: string;
+    contactAddressLabel: string;
+    contactEmailLabel: string;
+    contactPhoneLabel: string;
+    contactCodeLabel: string;
+    contactMapLink: string;
   };
   auth: {
     emailLabel: string;
@@ -402,8 +408,14 @@ export interface Dictionary {
   };
   news: {
     pageTitle: string;
+    pageIntro: string;
     emptyState: string;
     coverAlt: string;
+    backToList: string;
+    pinnedLabel: string;
+    categoryBendra: string;
+    categoryProjektas: string;
+    categorySusirinkimas: string;
   };
   documents: {
     pageHeading: string;
@@ -566,6 +578,7 @@ const lt: Dictionary = {
     communityLine1: "Krūminių kaimo",
     communityLine2: "bendruomenė",
     language: "Kalba",
+    skipToContent: "Praleisti į turinį",
   },
   home: {
     upcomingMeetingBadge: "Artėjantis susirinkimas",
@@ -594,8 +607,6 @@ const lt: Dictionary = {
     quickLinkProjectsDesc: "Aukų rinkimo projektai su skaidria lėšų istorija",
     quickLinkAboutTitle: "Apie mus",
     quickLinkAboutDesc: "Vizija, misija ir bendruomenės veiklos modelis",
-    quickLinkContactsTitle: "Kontaktai",
-    quickLinkContactsDesc: "Susisiekite su bendruomenės valdyba",
     latestNewsHeading: "Naujausios naujienos",
     allNewsLink: "Visos naujienos",
     aboutHeading: "Apie bendruomenę",
@@ -650,6 +661,7 @@ const lt: Dictionary = {
     cashDonationHeading: "Norite paaukoti grynais?",
     communityAddress: "Beržų g. 8, Krūminių k., Varėnos r.",
     supportersHeading: "Mūsų rėmėjai",
+    supportersShowAll: "Rodyti visus rėmėjus ({count})",
     supportersTransparency:
       "Skaidrumas – kiekvienas įnašas užregistruotas viešai. Anoniminiai rėmėjai parodyti kaip „Anonimas\".",
     anonymousDonor: "Anonimas",
@@ -871,12 +883,11 @@ const lt: Dictionary = {
     tagline: "Kartu kuriame savo kaimą. Geresnę ateitį mūsų bendruomenei ir žmonėms.",
     linksHeading: "Nuorodos",
     linkNews: "Naujienos",
+    linkProjects: "Projektai",
     linkDocuments: "Dokumentai",
     linkContacts: "Kontaktai",
     contactsHeading: "Kontaktai",
     companyCodeLabel: "Įmonės kodas:",
-    emailLabel: "El. paštas:",
-    phoneLabel: "Tel.:",
     rightsReserved: "Visos teisės saugomos.",
   },
   about: {
@@ -926,6 +937,14 @@ const lt: Dictionary = {
     value3: "Socialinė atsakomybė ir įtraukimas",
     value4: "Pagarba aplinkai ir tradicijoms",
     value5: "Lygios galimybės visiems",
+    contactsTitle: "Kontaktai",
+    contactsIntro:
+      "Klausimai dėl narystės, projektų ar bendruomenės veiklos – rašykite arba skambinkite.",
+    contactAddressLabel: "Adresas",
+    contactEmailLabel: "El. paštas",
+    contactPhoneLabel: "Telefonas",
+    contactCodeLabel: "Įmonės kodas",
+    contactMapLink: "Atidaryti žemėlapyje",
   },
   auth: {
     emailLabel: "El. paštas",
@@ -1004,8 +1023,15 @@ const lt: Dictionary = {
   },
   news: {
     pageTitle: "Naujienos",
+    pageIntro:
+      "Pranešimai apie susirinkimus, projektų eigą ir bendruomenės gyvenimą.",
     emptyState: "Kol kas naujienų nėra",
     coverAlt: "Naujienos nuotrauka",
+    backToList: "Visos naujienos",
+    pinnedLabel: "Svarbu",
+    categoryBendra: "Bendruomenė",
+    categoryProjektas: "Projektai",
+    categorySusirinkimas: "Susirinkimai",
   },
   documents: {
     pageHeading: "Dokumentai",
@@ -1179,6 +1205,7 @@ const en: Dictionary = {
     communityLine1: "Krūminiai village",
     communityLine2: "community",
     language: "Language",
+    skipToContent: "Skip to content",
   },
   home: {
     upcomingMeetingBadge: "Upcoming meeting",
@@ -1207,8 +1234,6 @@ const en: Dictionary = {
     quickLinkProjectsDesc: "Fundraising projects with a transparent record of funds",
     quickLinkAboutTitle: "About us",
     quickLinkAboutDesc: "Our vision, mission and the way the community operates",
-    quickLinkContactsTitle: "Contacts",
-    quickLinkContactsDesc: "Get in touch with the community board",
     latestNewsHeading: "Latest news",
     allNewsLink: "All news",
     aboutHeading: "About the community",
@@ -1263,6 +1288,7 @@ const en: Dictionary = {
     cashDonationHeading: "Would you like to donate in cash?",
     communityAddress: "Beržų g. 8, Krūminiai village, Varėna district",
     supportersHeading: "Our supporters",
+    supportersShowAll: "Show all supporters ({count})",
     supportersTransparency:
       "Transparency – every contribution is recorded publicly. Anonymous supporters are shown as \"Anonymous\".",
     anonymousDonor: "Anonymous",
@@ -1484,12 +1510,11 @@ const en: Dictionary = {
     tagline: "Together we build our village. A better future for our community and its people.",
     linksHeading: "Links",
     linkNews: "News",
+    linkProjects: "Projects",
     linkDocuments: "Documents",
     linkContacts: "Contacts",
     contactsHeading: "Contacts",
     companyCodeLabel: "Company code:",
-    emailLabel: "Email:",
-    phoneLabel: "Phone:",
     rightsReserved: "All rights reserved.",
   },
   about: {
@@ -1539,6 +1564,14 @@ const en: Dictionary = {
     value3: "Social responsibility and inclusion",
     value4: "Respect for the environment and traditions",
     value5: "Equal opportunities for all",
+    contactsTitle: "Contacts",
+    contactsIntro:
+      "Questions about membership, projects or community activities – write or call us.",
+    contactAddressLabel: "Address",
+    contactEmailLabel: "Email",
+    contactPhoneLabel: "Phone",
+    contactCodeLabel: "Company code",
+    contactMapLink: "Open in maps",
   },
   auth: {
     emailLabel: "Email",
@@ -1617,8 +1650,15 @@ const en: Dictionary = {
   },
   news: {
     pageTitle: "News",
+    pageIntro:
+      "Announcements about meetings, project progress and community life.",
     emptyState: "No news yet",
     coverAlt: "News photo",
+    backToList: "All news",
+    pinnedLabel: "Important",
+    categoryBendra: "Community",
+    categoryProjektas: "Projects",
+    categorySusirinkimas: "Meetings",
   },
   documents: {
     pageHeading: "Documents",

@@ -6,7 +6,9 @@
 
 - **Next.js 14** (App Router, Server Components, Server Actions)
 - **TypeScript** strict mode
-- **Tailwind CSS** + custom UI komponentai (`src/components/ui/`)
+- **Tailwind CSS** + custom UI komponentai (`src/components/ui/`); viešų puslapių
+  spalvos – semantiniai tokenai (žr. „ARCHITEKTŪRA: Viešo puslapio dizaino tokenai")
+- **Šriftai:** Plus Jakarta Sans (tekstas) + Fraunces (antraštės, `font-display`)
 - **Supabase** (PostgreSQL + Storage + Auth) – projekto ID `tykdyxynaqwfbxtuqwih`
 - **Vercel** deployment, domenas `kruminiai.lt`
 - **Infobip** SMS siuntimui (tik SMS)
@@ -696,6 +698,52 @@ marketinginis turinys (`title`, `short_desc`, `story_md`) turi pasirinktinius
 **Cookie efektas:** `cookies()` šakniniame layout'e → visi puslapiai tampa
 dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
 
+## ARCHITEKTŪRA: Viešo puslapio dizaino tokenai
+
+**Problema, kuri buvo išspręsta:** `globals.css` deklaravo `--primary: #2563eb`
+(mėlyna) ir dar ~15 kintamųjų, kurių kodas NEnaudojo nė karto (0 nuorodų), o
+viešas puslapis tuo metu buvo žalias. „Brand" spalva realiai gyveno išbarstyta
+po ~150 `bg-green-*` / `text-gray-*` klasių, todėl kiekvienas naujas puslapis ją
+atspėdavo iš naujo, o `text-gray-400` (kontrastas **2,5:1** – neatitinka WCAG AA)
+buvo naudojamas datoms 146 vietose.
+
+**Sprendimas – semantiniai tokenai** (`src/app/globals.css` + `tailwind.config.ts`):
+
+| Tokenas | Klasės | Kam |
+|---|---|---|
+| `--surface`, `--surface-muted`, `--surface-card` | `bg-surface`, `bg-surface-muted`, `bg-surface-card` | Paviršiai (šilti pilkumai) |
+| `--line`, `--line-strong` | `border-line`, `divide-line` | Rėmeliai |
+| `--ink`, `--ink-muted`, `--ink-subtle` | `text-ink`, `text-ink-muted`, `text-ink-subtle` | Tekstas – visi trys atitinka AA |
+| `--brand*` | `bg-brand`, `text-brand-strong`, `border-brand-line`, `bg-brand-soft` | Bendruomenės žalia |
+| `--accent*` | `bg-accent`, `text-accent-strong`, `bg-accent-soft` | **Tik skuba** (artėjantis susirinkimas, prisegta naujiena) |
+
+**Taisyklės naujam kodui:**
+- Viešuose puslapiuose naudoti **tokenus**, ne `green-700` / `gray-400` atspalvių
+  numerius. Admin ir portalo ekranai kol kas lieka su Tailwind pilkais – jie nėra
+  šio sluoksnio dalis.
+- **Gintaro (accent) spalva rezervuota skubai.** Kai ja dažomi ir projektai, ir
+  prisegtos naujienos, ir „pasidalink" blokas, ekrane lieka penki vienodai
+  rėkiantys blokai ir svarbos ženklas nustoja veikti.
+- Tamsi tema pridedama vienu `:root[data-theme="dark"]` bloku – puslapių
+  perrašyti nereikės, nes jie spalvų nebežino.
+
+**Tipografija:** antraštės – `font-display` (**Fraunces**, latin-ext, tas pats
+serif jausmas kaip el. laiškų Georgia), tekstas – Plus Jakarta Sans. Fluid dydžiai
+`text-display-lg|md|sm` (clamp – be `md:text-5xl lg:text-6xl` kaskadų), skaitymo
+matas `max-w-prose` (~68 simbolių), kūno tekstas `text-prose` (17px).
+
+**Prieinamumas:** `.skip-link` (pirmas Tab viešame puslapyje, taikinys –
+`<main id="turinys">`, kurį privalo turėti kiekvienas viešas puslapis),
+`:focus-visible` kontūras visiems interaktyviems elementams (iki tol `focus:ring`
+turėjo tik `<Button>`, o viešas puslapis susideda beveik vien iš `<Link>`),
+`prefers-reduced-motion` blokas.
+
+**Nuotraukos:** `getImagePublicUrl(path, { width })` grąžina Supabase
+transformacijų URL (`/render/image/`) – helperis pats padvigubina pločį Retina
+ekranams. Miniatiūroms **visada** paduoti `width` + `width`/`height` atributus:
+be jų į 176 px lauką keliaudavo originalus 0,5 MB telefono JPEG ir šokinėdavo
+maketas (CLS).
+
 ## Konvencijos
 
 ### Bendros
@@ -951,6 +999,13 @@ Naudoja `node scripts/X.mjs` su .env.local skaitymu.
 - **Konkrečių narių mokėjimai `/finansai`** – tai asmens duomenys. Puslapis `payments` lentelės neliečia, tik `get_community_fee_summary()` agregatus.
 - **Numatytasis mokėjimo būdas formoje** – būtent dėl jo 4 pavedimai buvo įrašyti kaip grynieji. `payment_method` visur renkamas rankomis.
 - **Išlaidos be `funding_source`** – tada nesimato, iš kurios „kišenės" pinigai, ir projektų likučiai nustoja sueiti.
+- **`green-700` / `gray-400` klasės viešuose puslapiuose** – naudoti tokenus
+  (`text-ink-muted`, `bg-brand`…). `text-gray-400` ant balto yra 2,5:1 ir
+  neatitinka WCAG AA.
+- **Gintaro spalva „šiaip gražumui"** – ji reiškia skubą. Viskas, kas ja nudažyta
+  be reikalo, atima dėmesį nuo artėjančio susirinkimo.
+- **Nuotrauka be `width` `getImagePublicUrl()` kvietime** – į miniatiūrą
+  nusiųsi originalų 0,5 MB failą.
 
 ## Mokesčių sistema
 
