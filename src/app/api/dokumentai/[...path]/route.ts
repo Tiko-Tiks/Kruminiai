@@ -277,13 +277,20 @@ export async function GET(
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("is_approved, role")
+      .select("is_approved")
       .eq("id", user.id)
       .maybeSingle();
 
-    const allowed =
-      !!profile &&
-      (profile.is_approved || profile.role === "admin" || profile.role === "super_admin");
+    // Vienintelis vartas – `is_approved`, be rolės išimties. `revokeUser()`
+    // atima prieigą būtent šia vėliavėle, o middleware tokį vartotoją iš
+    // apsaugotų puslapių atjungia; šis route'as yra už middleware matcher ribų
+    // ir failą skaito apeidamas RLS (repo failas arba service-role nuoroda),
+    // todėl tą pačią taisyklę turi taikyti pats. Rolės išimtis praleisdavo
+    // atšauktą administratorių su dar gyva sesija, o naudos neduodavo:
+    // administratorius visada turi `is_approved = true` (žr. `approveUser`).
+    // Tas pats kontraktas derinamas ir `requireAdmin()` / `public.is_admin()`
+    // pusėje – prieiga visur remiasi patvirtinta paskyra.
+    const allowed = !!profile && profile.is_approved === true;
     if (!allowed) return errorPage("denied", 403, locale);
 
     // Storage objektą atiduodam TIK tada, kai jis užregistruotas `documents`
