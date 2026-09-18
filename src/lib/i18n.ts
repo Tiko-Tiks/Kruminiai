@@ -894,7 +894,7 @@ const lt: Dictionary = {
     pageTitle: "Apie mus",
     visionTitle: "Mūsų vizija",
     visionBody:
-      "Krūminių bendruomenė siekia tapti pavyzdžiu kaimo bendruomenės modeliui Lietuvoje – aktyvi, moderni ir socialiai atsakinga bendruomenė, kurioje kiekvienas narys jaučiasi vertinamas ir turi galimybę prisidėti prie bendro gėrio kūrimo. Mes tikime, kad kaimo gyvensena gali būti patraukli ir moderni, derinant tradicinės kaimo kultūros privalumus su šiuolaikinėmis galimybėmis.",
+      "Krūminių bendruomenė siekia tapti pavyzdžiu kaimo bendruomenėms Lietuvoje – aktyvi, moderni ir socialiai atsakinga bendruomenė, kurioje kiekvienas narys jaučiasi vertinamas ir turi galimybę prisidėti prie bendro gėrio kūrimo. Mes tikime, kad kaimo gyvensena gali būti patraukli ir moderni, derinant tradicinės kaimo kultūros privalumus su šiuolaikinėmis galimybėmis.",
     missionTitle: "Mūsų misija",
     missionBody1:
       "Telkiame Krūminių ir aplinkinių kaimų – Valkininkų, Užuperkasio, Bucivonių, Urkionių, Jakėnų, Paversekio – gyventojus bendriems projektams ir iniciatyvoms, kurios pagerina gyvenimo kokybę regione. Skatiname kaimynystę, savanoriškumą ir tarpusavio pagarbą.",
@@ -908,10 +908,10 @@ const lt: Dictionary = {
       "Stojamasis mokestis (20 €) ir metinis nario mokestis (12 €) sudaro bazinį finansavimą bendruomenės administraciniam darbui ir renginių organizavimui.",
     fundingGroundsTitle: "Teritorijos priežiūra",
     fundingGroundsDesc:
-      "Lėšos skiriamos paplūdimio (smėlio užvežimas), žaidimų aikštelės remontui ir bendrosios teritorijos priežiūrai (žolės pjovimas, kuras, elektra).",
+      "Lėšos skiriamos paplūdimio priežiūrai (smėlio užvežimas), žaidimų aikštelės remontui ir bendrosios teritorijos priežiūrai (žolės pjovimas, kuras, elektra).",
     fundingBridgeTitle: "Paplūdimio liepto atnaujinimas",
     fundingBridgeDesc:
-      "Liepto laikas atsinaujinti. Tikslas 4 000 EUR – renkamos iš bendruomenės narių ir kaimo svečių aukų atskirai nuo nario mokesčio biudžeto.",
+      "Liepto laikas atsinaujinti. Tikslas – 4 000 EUR. Lėšos renkamos iš bendruomenės narių ir kaimo svečių aukų, atskirai nuo nario mokesčio biudžeto.",
     fundingEventsTitle: "Renginiai",
     fundingEventsDesc:
       "Mindauginės (liepos 6 d.) ir Eglutės puošimas (gruodis) – tradicinės kasmetinės bendruomenės šventės. Papildomi renginiai pagal narių iniciatyvą.",
