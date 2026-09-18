@@ -26,8 +26,8 @@ Privalomos įstatų ir peržiūros taisyklės yra `AGENTS.md`; tekstinis šaltin
 /lieptas                                   Viešas (aukų rinkimo projektas, SEPA QR, gyvas progresas)
 /lieptas/spausdinti                        Viešas (A4 plakatas su QR kodu)
 /kontaktai                                 Viešas (apie mus / kontaktai)
-/susirinkimai                              Auth + status='aktyvus' (arba admin)
-/susirinkimai/[id]                         Auth + status='aktyvus' – pilna darbotvarkė + dokumentai
+/susirinkimai                              Auth + esama narystė (arba admin)
+/susirinkimai/[id]                         Auth + esama narystė – pilna darbotvarkė + dokumentai
 /dokumentai                                Auth required (apsaugotas middleware)
 /skaidrumas                                Auth required
 /finansai                                  Auth required – pilnas bendruomenės finansų vaizdas nariams
@@ -50,7 +50,7 @@ neprisijungusį → `/prisijungimas?from=`; prisijungusį, bet **nepatvirtintą*
 (`is_approved=false`) → `signOut()` + `/prisijungimas?error=not_approved`
 (galioja VISIEMS 6 prefiksams); narį, bandantį `/admin` → `/portalas`
 (vienkryptis – admin'as `/portalas` pasiekia laisvai); `/susirinkimai` – tik
-admin arba `members.status='aktyvus'` narys, kitaip `/portalas?error=members_only`.
+admin arba `members.status IN ('aktyvus', 'pasyvus', 'garbes_narys')` narys, kitaip `/portalas?error=members_only`.
 
 `PublicHeader` (`src/components/layout/PublicHeader.tsx`) yra **auth-aware**: neprisijungusiems lankytojams paslepiami tabai, kurie reikalauja auth (`requiresAuth: true` PUBLIC_NAV punktuose – Susirinkimai / Dokumentai / Skaidrumas). Prisijungusiems – vietoj „Prisijungti/Tapti nariu" mygtukų rodomas „Mano paskyra" link'as į `/portalas`.
 
@@ -145,7 +145,7 @@ export function revalidateMeetingPaths(meetingId: string) {
 2. **#2 Pranešimo tinkamumas** (`procedural_type=pranesimas`) – pirmininkas
    patvirtina, kad susirinkimas buvo paskelbtas tinkamai pagal įstatus.
    NUTARTA tekstas auto-generuojamas iš `meeting_announcements` lentelės
-   (kanalai, datos, compliance status su 14 d. terminu).
+   (kanalai, datos, informavimo terminas: eiliniam 14 d., neeiliniam 7 d.; SMS papildoma).
 3. **#3 Darbotvarkės tvirtinimas** (`procedural_type=darbotvarke`)
 
 Procedūriniai klausimai į balsavimo srautą (SMS / portalas) neįtraukiami –
@@ -621,16 +621,16 @@ pilnaverčiu nariu tik kai admin'as patvirtina (po apmokėjimo).
 
 **`approveUser()` (`src/actions/users.ts`, NE tiesioginis kliento UPDATE):**
 - `requireAdmin()` + `logAudit()`
-- nustato `is_approved=true` IR, jei `member_id` tuščias, **sukuria arba prisieja**
-  `members` įrašą (dedup pagal el. paštą; naujam – `status='aktyvus'`,
-  `join_date=CURRENT_DATE` = patvirtinimo data)
+- nustato `is_approved=true` ir susieja jau priimtą narį pagal el. paštą.
+  Pats `members` įrašo nekuria. Naujas narys pirma įrašomas narių formoje su
+  raštiško prašymo ir Tarybos sprendimo pagrindu (įstatų 3.2 p.).
 - **patvirtina el. paštą** admin teisėmis (`admin.auth.admin.updateUserById(id,
   { email_confirm: true })`) – kitaip narys, nepaspaudęs Supabase „Confirm email"
   nuorodos, NEGALĖTŲ prisijungti net po patvirtinimo
 - siunčia **laišką #2** (`renderMemberWelcomeEmail`) – pasveikinimas + supažindinimas
   su portalu. Tik pirmą kartą patvirtinant (`!wasApproved`)
 - `revokeUser()` atima tik portalo prieigą (`is_approved=false`), **nario neliečia** –
-  narystės pabaiga yra Tarybos kompetencija (įstatai 5.4.2)
+  pašalinimas reikalauja Tarybos sprendimo (5.4.2), išstojimas – nario raštiško prašymo (3.3).
 
 **Vartai:** tikrasis barjeras – `is_approved`, enforce'inamas ir `/prisijungimas`
 puslapyje, ir `middleware.ts` (visiems 5 apsaugotiems prefiksams). `/prisijungimas`
