@@ -604,7 +604,7 @@ export async function removeAttendance(meetingId: string, memberId: string) {
  */
 export async function updateMeetingQuorum(
   meetingId: string,
-  values: { total_members_at_time: number; quorum_required: number; electorate_reference?: string; electorate_member_ids?: string[] }
+  values: { total_members_at_time: number; quorum_required: number; electorate_reference?: string; electorate_member_ids?: string[]; council_reference?: string }
 ) {
   const supabase = createServerSupabaseClient();
   const auth = await requireAdmin(supabase);
@@ -614,6 +614,7 @@ export async function updateMeetingQuorum(
     .object({
       total_members_at_time: z.number().int().min(0).max(100000),
       quorum_required: z.number().int().min(0).max(100000),
+      council_reference: z.string().trim().max(1000).optional(),
       electorate_reference: z.string().trim().max(1000).optional(),
       electorate_member_ids: z.array(z.string().uuid()).optional(),
     })
@@ -633,12 +634,12 @@ export async function updateMeetingQuorum(
   if (parsed.data.total_members_at_time <= 0 || parsed.data.quorum_required !== suggestedQuorum(oldData.meeting_type, parsed.data.total_members_at_time)) {
     return { error: "Kvorumas turi atitikti įstatų formulę: daugiau kaip pusė narių; pakartotinio susirinkimo išimtis tikrinama atskirai." };
   }
-  const {electorate_reference, electorate_member_ids, ...counts} = parsed.data;
+  const {electorate_reference, electorate_member_ids, council_reference, ...counts} = parsed.data;
   if (electorate_reference && isoToVilniusLocal(oldData.meeting_date).slice(0,10) >= isoToVilniusLocal(new Date()).slice(0,10)) {
     return {error:"Dokumentinis narių skaičius leidžiamas tik istoriniam susirinkimui. Susirinkimo dieną užfiksuokite registrą."};
   }
   const { error } = await supabase.from("meetings").update({...counts,
-    ...(electorate_reference ? {electorate_snapshot:{total:counts.total_members_at_time,reference:electorate_reference,member_ids:electorate_member_ids || []}} : {})
+    ...(electorate_reference ? {electorate_snapshot:{total:counts.total_members_at_time,reference:electorate_reference,council_reference:council_reference || null,member_ids:electorate_member_ids || []}} : {})
   }).eq("id", meetingId);
   if (error) return { error: error.message };
 

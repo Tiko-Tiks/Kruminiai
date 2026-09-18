@@ -211,6 +211,7 @@ export function AttendanceManager({
         </div>}
         {showQuorumEditor && (
           <QuorumEditor
+            meetingType={meetingType}
             meetingId={meetingId}
             totalMembersAtTime={totalMembersAtTime}
             quorumRequired={quorumRequired}
@@ -355,6 +356,7 @@ export function AttendanceManager({
 }
 
 function QuorumEditor({
+  meetingType,
   meetingId,
   totalMembersAtTime,
   quorumRequired,
@@ -365,6 +367,7 @@ function QuorumEditor({
   totalMembersAtTime: number;
   quorumRequired: number;
   suggestion: { eligibleCount: number; suggestedQuorum: number };
+  meetingType: string;
   onSaved: () => void;
 }) {
   const [historicalMembers,setHistoricalMembers]=useState<Array<{id:string;first_name:string;last_name:string}>>([]);
@@ -373,6 +376,7 @@ function QuorumEditor({
   const [total, setTotal] = useState(String(totalMembersAtTime));
   const [quorum, setQuorum] = useState(String(quorumRequired));
   const [reference, setReference] = useState("");
+  const [councilReference,setCouncilReference]=useState("");
   const [saving, setSaving] = useState(false);
 
   const differsFromSuggestion =
@@ -384,6 +388,7 @@ function QuorumEditor({
       total_members_at_time: Number(total) || 0,
       quorum_required: Number(quorum) || 0,
       electorate_reference: reference,
+      council_reference: councilReference,
       electorate_member_ids: selectedIds,
     });
     setSaving(false);
@@ -404,6 +409,10 @@ function QuorumEditor({
       <label className="block text-sm">Susirinkimo laiko narių skaičių pagrindžiančio dokumento nuoroda
         <input value={reference} onChange={e=>setReference(e.target.value)} className="mt-1 w-full rounded border p-2" />
       </label>
+      {meetingType==='valdybos' && <label className="block text-sm">To posėdžio Tarybos sudėties ir pareigų pagrindas
+        <input value={councilReference} onChange={e=>setCouncilReference(e.target.value)} className="mt-1 w-full rounded border p-2" />
+        <span className="block text-xs">Pažymėkite šešis Tarybos narius pagal šį dokumentą. Pareigų registre turi būti jų Tarybos arba Pirmininko pareigos su pradžios data. Kadencijos pabaiga savaime nepanaikina 5.7 p. tęstinumo.</span>
+      </label>}
       <p className="text-sm">Pagal to laiko registro išrašą pažymėkite visus balso teisę turėjusius narius (ne vien dalyvius). Pažymėta: {selectedIds.length}.</p>
       <div className="max-h-48 overflow-auto">{historicalMembers.map(member=><label key={member.id} className="flex gap-2 text-sm"><input type="checkbox" checked={selectedIds.includes(member.id)} onChange={e=>setSelectedIds(ids=>e.target.checked?[...ids,member.id]:ids.filter(id=>id!==member.id))} />{member.first_name} {member.last_name}</label>)}</div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

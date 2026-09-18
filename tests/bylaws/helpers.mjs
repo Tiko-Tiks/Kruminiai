@@ -7,7 +7,7 @@ import ts from 'typescript';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const require = createRequire(import.meta.url);
 const packages = new Set(['zod', 'clsx', 'tailwind-merge', 'date-fns', 'date-fns/locale']);
-const localLibraries = new Set(['authz', 'constants', 'quorum', 'protocol-text', 'utils', 'voting-window', 'bylaws', 'decision-validation', 'portal-approval-email']);
+const localLibraries = new Set(['authz', 'constants', 'quorum', 'protocol-text', 'utils', 'voting-window', 'bylaws', 'decision-validation', 'portal-approval-email', 'payment-info']);
 
 /** Execute the real TS implementation. All I/O modules must be explicitly replaced.
  * This is an application unit-test boundary, NOT an emulation of Postgres/RLS.
@@ -110,6 +110,8 @@ export function actionHarness(file, seed = {}, options = {}) {
     'next/cache': { revalidatePath: () => {} },
     '@/lib/email': { renderBrandedEmail: ({preheader,body}) => preheader + body, sendEmail: async (...args) => { notifications.push(args); return { success: true }; } },
     '@/lib/notification-log': { logNotification: async () => {} },
+    '@/lib/infobip': { normalizePhone: value=>value, sendSms: async()=>{throw new Error('SMS network blocked in tests');} },
+    'crypto': {randomUUID:()=> 'isolated-test-batch'},
     '@/lib/membership-emails': { renderMemberWelcomeEmail: () => 'test email' },
   };
   return { ...db, notifications, actions: loadSource(file, mocks) };

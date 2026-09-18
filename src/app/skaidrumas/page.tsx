@@ -51,6 +51,7 @@ async function getFinansaiData(locale: Locale) {
   // o RPC grąžina tik statistikai būtinus laukus be asmens duomenų.
   const { data: feeStats } = await supabase.rpc("get_transparency_fee_stats");
   const members = ((feeStats?.members ?? []) as { join_date: string | null; status: string }[]);
+  const paidCounts=new Map<string,number>((feeStats?.paid_counts || []).map((p:{fee_period_id:string;count:number})=>[p.fee_period_id,p.count]));
   const payments = ((feeStats?.payments ?? []) as { fee_period_id: string; amount_cents: number }[]);
 
   // Grupuojam payments pagal metus, atskirai metinius ir kitus (stojamieji,
@@ -100,8 +101,8 @@ async function getFinansaiData(locale: Locale) {
       collected_cents: paid.metinis_cents + paid.kita_cents, // metinis + stojamieji
       metinis_collected_cents: paid.metinis_cents, // tik metinis – naudojam skolai
       potential_cents: eligible.length * (fp.amount_cents as number),
-      paid_count: paid.metinis_count,
-      unpaid_count: eligible.length - paid.metinis_count,
+      paid_count: paidCounts.get(fp.id) || 0,
+      unpaid_count: Math.max(0,eligible.length - (paidCounts.get(fp.id) || 0)),
     };
   });
 

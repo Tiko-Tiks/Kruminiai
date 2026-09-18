@@ -130,9 +130,6 @@ export async function createPayment(formData: FormData) {
     .single();
 
   if (error) {
-    if (error.code === "23505") {
-      return { error: { _form: ["Šis narys jau sumokėjo už šį laikotarpį"] } };
-    }
     return { error: { _form: [error.message] } };
   }
 
@@ -189,7 +186,7 @@ export async function getFeeReport(feePeriodId: string) {
     ...m,
     paid: paidMap.get(m.id) || 0,
     owed: periodRes.data.amount_cents,
-    hasPaid: paidMap.has(m.id),
+    hasPaid: (paidMap.get(m.id) || 0) >= periodRes.data.amount_cents,
   }));
 
   return {
@@ -197,7 +194,7 @@ export async function getFeeReport(feePeriodId: string) {
     members: report,
     totalCollected: paymentsRes.data.reduce((s, p) => s + p.amount_cents, 0),
     totalOwed: membersRes.data.length * periodRes.data.amount_cents,
-    paidCount: paidMap.size,
-    unpaidCount: membersRes.data.length - paidMap.size,
+    paidCount: report.filter(m=>m.hasPaid).length,
+    unpaidCount: report.filter(m=>!m.hasPaid).length,
   };
 }

@@ -7,7 +7,7 @@ import { sendSms, normalizePhone } from "@/lib/infobip";
 import { sendEmail, renderBrandedEmail } from "@/lib/email";
 import { logNotification } from "@/lib/notification-log";
 import { vocative } from "@/lib/utils";
-import { BANK_ACCOUNT, BANK_RECIPIENT, ENTRY_FEE_EUR, renderPaymentDetailsBlock } from "@/lib/payment-info";
+import { BANK_ACCOUNT, BANK_RECIPIENT, renderPaymentDetailsBlock } from "@/lib/payment-info";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import { FEE_STATUSES } from "@/lib/constants";
@@ -56,24 +56,24 @@ export async function getMembersWithDebts() {
 
   const { data: payments } = await supabase
     .from("payments")
-    .select("member_id, fee_period_id");
+    .select("member_id, fee_period_id, amount_cents");
 
   if (!members || !periods || !payments) {
     return { members: [] as MemberWithDebt[] };
   }
 
-  const paidByMember = new Map<string, Set<string>>();
+  const paidByMember = new Map<string, Map<string,number>>();
   for (const p of payments) {
-    const set = paidByMember.get(p.member_id) || new Set<string>();
-    set.add(p.fee_period_id);
-    paidByMember.set(p.member_id, set);
+    const sums = paidByMember.get(p.member_id) || new Map<string,number>();
+    sums.set(p.fee_period_id,(sums.get(p.fee_period_id)||0)+p.amount_cents);
+    paidByMember.set(p.member_id, sums);
   }
 
   const result: MemberWithDebt[] = [];
   for (const m of members) {
     const joinYear = m.join_date ? new Date(m.join_date).getFullYear() : 2012;
-    const paidIds = paidByMember.get(m.id) || new Set<string>();
-    const unpaid = periods.filter((p) => p.year >= joinYear && !paidIds.has(p.id));
+    const paid = paidByMember.get(m.id) || new Map<string,number>();
+    const unpaid = periods.filter(p=>p.year>=joinYear).map(p=>({...p,amount_cents:Math.max(0,p.amount_cents-(paid.get(p.id)||0))})).filter(p=>p.amount_cents>0);
     if (unpaid.length === 0) continue;
 
     result.push({
@@ -342,11 +342,11 @@ function buildOverdueEmail(
           </table>
 
           <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#374151;">
-            Under <strong>clause 3.5</strong> of the Krūminiai Village Community statutes, if a member does not pay the membership fee on time, membership may be terminated by a decision of the Board.
+            Under <strong>clause 3.4.2</strong>, failure to pay an established membership fee for more than 12 months may be grounds for a Council expulsion decision. A member may appeal that decision to the next General Meeting (3.5).
           </p>
 
           <p style="margin:0 0 20px;font-size:14px;line-height:1.65;color:#4b5563;background:#fffbeb;border-left:3px solid #f59e0b;padding:12px 16px;border-radius:4px;">
-            <strong style="color:#92400e;">Please note:</strong> if membership is terminated, rejoining later will require paying a <strong>${ENTRY_FEE_EUR} EUR joining fee</strong> plus the current year's membership fee.
+            <strong style="color:#92400e;">Please note:</strong> re-admission requires a new written application and a Council admission decision. Any fees must be based on the applicable General Meeting decision.
           </p>
 
           ${paymentBlock}
@@ -384,7 +384,7 @@ function buildOverdueEmail(
     .join("");
   const html = renderBrandedEmail({
     locale: "lt",
-    preheader: `SVARBU: pradelsta ${d.totalEur} EUR (${d.yearsCount} m.). Skubiai sumokėkite arba būsite šalinami.`,
+    preheader: `SVARBU: pradelsta ${d.totalEur} EUR (${d.yearsCount} m.). Patikrinkite mokėjimų duomenis ir likutį.`,
     body: `
           <h1 style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#0f3d20;line-height:1.3;">Sveiki, ${vocative(d.firstName)}!</h1>
 
@@ -408,7 +408,7 @@ function buildOverdueEmail(
           </p>
 
           <p style="margin:0 0 20px;font-size:14px;line-height:1.65;color:#4b5563;background:#fffbeb;border-left:3px solid #f59e0b;padding:12px 16px;border-radius:4px;">
-            <strong style="color:#92400e;">Įsidėmėkit:</strong> jei narystė nutraukiama, vėliau norint vėl tapti nariu, reikės sumokėti <strong>${ENTRY_FEE_EUR} EUR stojamąjį mokestį</strong> bei einamųjų metų nario mokestį.
+            <strong style="color:#92400e;">Įsidėmėkit:</strong> pakartotiniam priėmimui būtinas naujas raštiškas prašymas ir Tarybos sprendimas. Mokesčiai taikomi pagal galiojantį Visuotinio susirinkimo sprendimą.
           </p>
 
           ${paymentBlock}
@@ -442,8 +442,8 @@ function buildOverdueSms(
   const yearsCsv = d.unpaidPeriods.map((p) => p.year).join(",");
   if (locale === "en") {
     const yearsLabel = d.yearsCount === 1 ? `${d.unpaidPeriods[0].year}` : `${d.yearsCount}yr (${yearsCsv})`;
-    return `KKB: OVERDUE membership fee ${yearsLabel} ${d.totalEur} EUR. Pay to ${BANK_ACCOUNT}. Unpaid may end membership; rejoining +${ENTRY_FEE_EUR}EUR.`;
+    return `KKB: OVERDUE membership fee ${yearsLabel} ${d.totalEur} EUR. Pay to ${BANK_ACCOUNT}. Check payment history in the member portal.`;
   }
   const yearsLabel = d.yearsCount === 1 ? `${d.unpaidPeriods[0].year}m.` : `${d.yearsCount}m. (${yearsCsv})`;
-  return `KKB: PRADELSTAS nario mokestis ${yearsLabel} ${d.totalEur} EUR. Sumokekite ${BANK_ACCOUNT}. Nesumokejus busite salinami; naujam istojimui +${ENTRY_FEE_EUR}EUR.`;
+  return `KKB: PRADELSTAS nario mokestis ${yearsLabel} ${d.totalEur} EUR. Sumokekite ${BANK_ACCOUNT}. Mokejimu istorija rasite nario portale.`;
 }

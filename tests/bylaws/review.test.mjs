@@ -228,3 +228,28 @@ test('Peržiūra: projekto pašalinimas nepakeičia likusių protokolo numerių'
   assert.equal((await h.actions.deleteResolution('draft','meeting')).success,true);
   assert.deepEqual(h.tables.resolutions.map(r=>r.resolution_number),[1,3]);
 });
+
+for(const amounts of [[500],[500,700],[500,800]]) test(`Peržiūra: įmokų ataskaita skiria dalinį ir pilną apmokėjimą ${amounts}`,async()=>{
+  const h=actionHarness('src/actions/payments.ts',{members:[{id:'member',status:'aktyvus'}],fee_periods:[{id:'fee',amount_cents:1200}],payments:amounts.map(amount_cents=>({member_id:'member',fee_period_id:'fee',amount_cents}))});
+  const result=await h.actions.getFeeReport('fee');
+  assert.equal(result.paidCount,amounts.reduce((a,b)=>a+b,0)>=1200?1:0);
+});
+test('Peržiūra: dvi įmokos išsaugo atskirus kvitus',async()=>{
+  const h=actionHarness('src/actions/payments.ts',{payments:[]});
+  for(const amount of [500,700]) assert.equal((await h.actions.createPayment(form({member_id:'00000000-0000-4000-8000-000000000001',fee_period_id:'00000000-0000-4000-8000-000000000002',amount_cents:amount,paid_date:'2026-09-19',payment_method:'grynieji',receipt_number:`Kvitas-${amount}`}))).success,true);
+  assert.equal(h.tables.payments.length,2);assert.deepEqual(h.tables.payments.map(p=>p.receipt_number),['Kvitas-500','Kvitas-700']);
+});
+for(const amounts of [[500],[500,700],[500,800]]) test(`Peržiūra: priminime lieka tik neapmokėta suma ${amounts}`,async()=>{
+  const h=actionHarness('src/actions/reminders.ts',debtSeed(amounts));
+  const {members}=await h.actions.getMembersWithDebts();
+  const remaining=Math.max(0,1200-amounts.reduce((a,b)=>a+b,0));
+  assert.equal(members.length,remaining?1:0);if(remaining) assert.equal(members[0].totalCents,remaining);
+});
+for(const locale of ['lt','en']) test(`Peržiūra: priminimo tekstas nežada automatinio pašalinimo ar priėmimo ${locale}`,async()=>{
+  const seed=debtSeed([500]);Object.assign(seed.members[0],{first_name:'Testas',last_name:'Narys',language:locale,email:'test@example.invalid'});
+  const h=actionHarness('src/actions/reminders.ts',seed);
+  // sendEmail is an in-memory spy; all real network modules are blocked.
+  await h.actions.sendOverdueReminders('email');
+  assert.equal(h.notifications.length,1);
+  const html=h.notifications[0][2];assert.match(html,/3\.4\.2/);assert.match(html,/7\.00/);assert.doesNotMatch(html,/būsite šalinami|20 EUR joining fee|clause 3\.5/);
+});

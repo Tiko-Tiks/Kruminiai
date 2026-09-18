@@ -49,8 +49,24 @@ ALTER TABLE public.resolutions ADD COLUMN decision_type text
 CREATE INDEX meetings_chairperson_member_idx ON public.meetings(chairperson_member_id) WHERE chairperson_member_id IS NOT NULL;
 
 -- Keep the already stored history; require evidence for new admissions and re-admissions.
+-- Closed membership periods are evidence, inaccessible through the Data API.
+CREATE TABLE public.bylaws_membership_periods (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  member_id uuid NOT NULL REFERENCES public.members(id) ON DELETE RESTRICT,
+  started_on date,
+  ended_on date NOT NULL,
+  application_reference text,
+  admission_reference text,
+  termination_reference text,
+  termination_kind text,
+  recorded_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX bylaws_membership_periods_member_idx ON public.bylaws_membership_periods(member_id,started_on,ended_on);
+ALTER TABLE public.bylaws_membership_periods ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.bylaws_membership_periods FROM PUBLIC,anon,authenticated;
+
 CREATE FUNCTION public.bylaws_admission_guard() RETURNS trigger
-LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 BEGIN
   PERFORM pg_advisory_xact_lock(hashtext('members_voting_eligibility'));
   IF TG_OP = 'DELETE' THEN
@@ -94,6 +110,14 @@ BEGIN
       RAISE EXCEPTION 'Narystei būtinas raštiško prašymo ir Tarybos sprendimo pagrindas bei data (3.2 p.)';
     END IF;
   END IF;
+  IF TG_OP='UPDATE' AND OLD.status='išstojęs' AND NEW.status IN ('aktyvus','pasyvus','garbes_narys') THEN
+    INSERT INTO public.bylaws_membership_periods(member_id,started_on,ended_on,application_reference,admission_reference,termination_reference,termination_kind)
+      VALUES(OLD.id,coalesce(OLD.admission_date,OLD.join_date),OLD.termination_date,OLD.application_reference,OLD.admission_reference,OLD.termination_reference,OLD.termination_kind);
+    INSERT INTO public.audit_log(user_id,action,table_name,record_id,old_data,new_data)
+      VALUES(auth.uid(),'UPDATE','members',OLD.id,to_jsonb(OLD),to_jsonb(NEW)||jsonb_build_object('reason','readmission'));
+  ELSIF TG_OP='UPDATE' AND (NEW.application_reference,NEW.admission_reference,NEW.admission_date) IS DISTINCT FROM (OLD.application_reference,OLD.admission_reference,OLD.admission_date) THEN
+    INSERT INTO public.audit_log(user_id,action,table_name,record_id,old_data,new_data) VALUES(auth.uid(),'UPDATE','members',OLD.id,to_jsonb(OLD),to_jsonb(NEW)||jsonb_build_object('reason','admission_evidence_correction'));
+  END IF;
   IF NEW.status IN ('aktyvus','pasyvus','garbes_narys') AND NEW.admission_date > (now() AT TIME ZONE 'Europe/Vilnius')::date THEN
     RAISE EXCEPTION 'Priėmimo sprendimo data dar neatėjo';
   END IF;
@@ -119,7 +143,7 @@ CREATE TRIGGER bylaws_fee BEFORE INSERT OR UPDATE ON public.fee_periods
 FOR EACH ROW EXECUTE FUNCTION public.bylaws_fee_guard();
 
 CREATE FUNCTION public.bylaws_meeting_guard() RETURNS trigger
-LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE expected integer; ids uuid[]; signers uuid[]; total integer; capture boolean;
 BEGIN
   PERFORM pg_advisory_xact_lock(hashtext('members_voting_eligibility'));
@@ -160,10 +184,20 @@ BEGIN
       IF EXISTS(SELECT 1 FROM public.members mb WHERE mb.id=ANY(ids) AND
         (coalesce(mb.admission_date,mb.join_date) > (NEW.meeting_date AT TIME ZONE 'Europe/Vilnius')::date
          OR mb.termination_date < (NEW.meeting_date AT TIME ZONE 'Europe/Vilnius')::date
-            AND (mb.admission_date IS NULL OR mb.admission_date <= mb.termination_date))) THEN
+            AND (mb.admission_date IS NULL OR mb.admission_date <= mb.termination_date))
+        AND NOT EXISTS(SELECT 1 FROM public.bylaws_membership_periods mp WHERE mp.member_id=mb.id
+          AND mp.started_on <= (NEW.meeting_date AT TIME ZONE 'Europe/Vilnius')::date AND mp.ended_on >= (NEW.meeting_date AT TIME ZONE 'Europe/Vilnius')::date)) THEN
         RAISE EXCEPTION 'Istorinio sąrašo narystės datos neatitinka susirinkimo datos';
       END IF;
-      NEW.electorate_snapshot := jsonb_build_object('total',total,'member_ids',ids,'basis','document','reference',NEW.electorate_snapshot->>'reference','meeting_date',NEW.meeting_date,'recorded_at',now());
+      IF NEW.meeting_type='valdybos' THEN
+        IF nullif(btrim(NEW.electorate_snapshot->>'council_reference'),'') IS NULL OR EXISTS(
+          SELECT 1 FROM unnest(ids) memberid WHERE NOT EXISTS(SELECT 1 FROM public.community_management cm
+            WHERE cm.member_id=memberid AND cm.role IN ('pirmininkas','tarybos_narys')
+              AND cm.term_start <= (NEW.meeting_date AT TIME ZONE 'Europe/Vilnius')::date)) THEN
+          RAISE EXCEPTION 'Istorinei Tarybai būtinas sudėties dokumentas ir iki posėdžio pradėti Tarybos pareigų įrašai';
+        END IF;
+      END IF;
+      NEW.electorate_snapshot := jsonb_build_object('council_reference',NEW.electorate_snapshot->>'council_reference','total',total,'member_ids',ids,'basis','document' ,'reference',NEW.electorate_snapshot->>'reference','meeting_date',NEW.meeting_date,'recorded_at',now());
     END IF;
     IF total < 1 OR (NEW.meeting_type='valdybos' AND total<>6) THEN
       RAISE EXCEPTION 'Patikrinkite narių bazę: Tarybos balso teisės bazę turi sudaryti šeši nariai (5.2 p.)';
@@ -194,8 +228,10 @@ BEGIN
     IF NEW.convening_kind='members' AND nullif(btrim(NEW.convening_reference),'') IS NOT NULL AND NEW.convening_date IS NOT NULL THEN
       IF NEW.convening_date > (now() AT TIME ZONE 'Europe/Vilnius')::date THEN RAISE EXCEPTION 'Reikalavimo data dar neatėjo'; END IF;
       SELECT array_agg(DISTINCT mb.id) INTO signers FROM public.members mb
-        WHERE mb.id=ANY(NEW.convening_requesters) AND coalesce(mb.admission_date,mb.join_date)<=NEW.convening_date
-          AND (mb.status IN ('aktyvus','pasyvus','garbes_narys') OR mb.termination_date>NEW.convening_date);
+        WHERE mb.id=ANY(NEW.convening_requesters) AND (
+          (coalesce(mb.admission_date,mb.join_date)<=NEW.convening_date
+            AND (mb.status IN ('aktyvus','pasyvus','garbes_narys') OR mb.termination_date>NEW.convening_date))
+          OR EXISTS(SELECT 1 FROM public.bylaws_membership_periods mp WHERE mp.member_id=mb.id AND mp.started_on<=NEW.convening_date AND mp.ended_on>=NEW.convening_date));
       IF coalesce(cardinality(signers),0) <> (SELECT count(DISTINCT id) FROM unnest(NEW.convening_requesters) id) THEN
         RAISE EXCEPTION 'Pasirašiusio asmens narystė reikalavimo dieną nepatvirtinta registre';
       END IF;
@@ -547,11 +583,16 @@ BEGIN
       AND ((NEW.role='revizorius' AND cm.role IN ('pirmininkas','tarybos_narys'))
         OR (NEW.role IN ('pirmininkas','tarybos_narys') AND cm.role='revizorius'))
   ) THEN RAISE EXCEPTION 'Revizorius negali būti Tarybos nariu ar Pirmininku (6.2 p.)'; END IF;
+  IF NEW.is_current AND NEW.role IN ('pirmininkas','revizorius') AND EXISTS(SELECT 1 FROM public.community_management cm WHERE cm.is_current AND cm.role=NEW.role AND cm.id<>NEW.id) THEN
+    RAISE EXCEPTION 'Vienu metu gali būti tik vienas Pirmininkas ir vienas Revizorius';
+  END IF;
   RETURN NEW;
 END; $$;
 CREATE TRIGGER bylaws_council_lock BEFORE INSERT OR UPDATE OR DELETE ON public.community_management
 FOR EACH ROW EXECUTE FUNCTION public.bylaws_council_lock();
 REVOKE ALL ON FUNCTION public.bylaws_council_lock() FROM PUBLIC, anon, authenticated;
+
+CREATE UNIQUE INDEX bylaws_single_current_officer_idx ON public.community_management(role) WHERE is_current AND role IN ('pirmininkas','revizorius');
 
 CREATE FUNCTION public.bylaws_document_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
@@ -892,22 +933,26 @@ BEGIN
   FROM members
   WHERE public.is_voting_status(status);
 
-  SELECT COALESCE(SUM(p.amount_cents), 0), COUNT(*)
+  SELECT COALESCE(SUM(p.amount_cents), 0), COUNT(DISTINCT p.member_id)
   INTO v_collected_cents, v_paid_count
   FROM payments p
   JOIN fee_periods fp ON fp.id = p.fee_period_id
   WHERE fp.fee_type = 'metinis' AND fp.year = v_year;
 
+  SELECT count(DISTINCT paid.member_id) INTO v_paid_count FROM (
+    SELECT p.member_id,p.fee_period_id FROM public.payments p JOIN public.fee_periods fp ON fp.id=p.fee_period_id
+    WHERE fp.fee_type='metinis' AND fp.year=v_year GROUP BY p.member_id,p.fee_period_id
+    HAVING sum(p.amount_cents)>=max(fp.amount_cents)
+  ) paid;
+
   WITH metiniai AS (SELECT id, year, amount_cents FROM fee_periods WHERE fee_type='metinis'),
   unpaid AS (
-    SELECT fp.year, m.id, fp.amount_cents
+    SELECT fp.year, m.id, greatest(fp.amount_cents-coalesce((SELECT sum(p.amount_cents) FROM public.payments p WHERE p.member_id=m.id AND p.fee_period_id=fp.id),0),0) AS amount_cents
     FROM members m
     CROSS JOIN metiniai fp
     WHERE m.status IN ('aktyvus','pasyvus')
       AND fp.year >= EXTRACT(YEAR FROM COALESCE(m.join_date,'2012-01-01'::date))
-      AND NOT EXISTS (
-        SELECT 1 FROM payments p WHERE p.member_id = m.id AND p.fee_period_id = fp.id
-      )
+      AND greatest(fp.amount_cents-coalesce((SELECT sum(p.amount_cents) FROM public.payments p WHERE p.member_id=m.id AND p.fee_period_id=fp.id),0),0)>0
   )
   SELECT
     COALESCE(jsonb_agg(jsonb_build_object(
@@ -934,3 +979,212 @@ BEGIN
 END;
 $function$
 ;
+
+
+-- Installments retain separate dates, receipts and audit entries.
+ALTER TABLE public.payments DROP CONSTRAINT payments_member_id_fee_period_id_key;
+CREATE INDEX bylaws_payments_member_period_idx ON public.payments(member_id,fee_period_id);
+ALTER TABLE public.payments ADD CONSTRAINT bylaws_payment_positive CHECK(amount_cents>0) NOT VALID;
+
+-- Preserve deployed authentication and grants; account for every installment.
+CREATE OR REPLACE FUNCTION public.get_declaration_token_data(p_token text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_decl membership_declarations%ROWTYPE;
+  v_member members%ROWTYPE;
+  v_unpaid JSONB;
+  v_total_cents INT;
+  v_join_year INT;
+BEGIN
+  SELECT * INTO v_decl FROM membership_declarations WHERE token = p_token;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('error', 'invalid_token');
+  END IF;
+
+  IF v_decl.expires_at < NOW() THEN
+    RETURN jsonb_build_object('error', 'expired');
+  END IF;
+
+  -- View tracking: fiksuojam pirmą peržiūrą + didinam counter'į.
+  -- Skaičiuojam net jei jau pateikė atsakymą – paskutinis viewed_at parodys
+  -- pakartotines peržiūras (pvz., jei narys grįžta apžiūrėti savo atsakymo).
+  UPDATE membership_declarations
+    SET viewed_at = COALESCE(viewed_at, NOW()),
+        view_count = view_count + 1
+    WHERE id = v_decl.id;
+
+  SELECT * INTO v_member FROM members WHERE id = v_decl.member_id;
+  v_join_year := COALESCE(EXTRACT(YEAR FROM v_member.join_date)::INT, 2012);
+
+  SELECT
+    jsonb_agg(
+      jsonb_build_object(
+        'fee_period_id', fp.id,
+        'year', fp.year,
+        'amount_cents', greatest(fp.amount_cents-coalesce((SELECT sum(px.amount_cents) FROM public.payments px WHERE px.fee_period_id=fp.id AND px.member_id=v_decl.member_id),0),0)
+      ) ORDER BY fp.year ASC
+    ),
+    COALESCE(SUM(greatest(fp.amount_cents-coalesce((SELECT sum(px.amount_cents) FROM public.payments px WHERE px.fee_period_id=fp.id AND px.member_id=v_decl.member_id),0),0)), 0)
+  INTO v_unpaid, v_total_cents
+  FROM fee_periods fp
+  WHERE fp.fee_type = 'metinis'
+    AND fp.year >= v_join_year
+    AND greatest(fp.amount_cents-coalesce((SELECT sum(px.amount_cents) FROM public.payments px WHERE px.fee_period_id=fp.id AND px.member_id=v_decl.member_id),0),0)>0;
+
+  RETURN jsonb_build_object(
+    'member', jsonb_build_object(
+      'id', v_member.id,
+      'first_name', v_member.first_name,
+      'last_name', v_member.last_name,
+      'email', v_member.email,
+      'phone', v_member.phone
+    ),
+    'declaration', jsonb_build_object(
+      'submitted_at', v_decl.submitted_at,
+      'intent', v_decl.intent,
+      'email', v_decl.email,
+      'notes', v_decl.notes,
+      'viewed_at', v_decl.viewed_at,
+      'view_count', v_decl.view_count + 1
+    ),
+    'debt', jsonb_build_object(
+      'unpaid_periods', COALESCE(v_unpaid, '[]'::jsonb),
+      'total_cents', v_total_cents
+    ),
+    'expires_at', v_decl.expires_at
+  );
+END;
+$function$
+;
+
+-- Preserve deployed authentication and grants; account for every installment.
+CREATE OR REPLACE FUNCTION public.get_member_financial_status()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_user_id UUID;
+  v_member_id UUID;
+  v_member_join_date DATE;
+  v_member_status TEXT;
+  v_unpaid JSONB;
+  v_paid JSONB;
+  v_total_debt INT := 0;
+BEGIN
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    RETURN jsonb_build_object('error', 'not_authenticated');
+  END IF;
+
+  SELECT p.member_id, m.join_date, m.status
+    INTO v_member_id, v_member_join_date, v_member_status
+  FROM profiles p
+  LEFT JOIN members m ON m.id = p.member_id
+  WHERE p.id = v_user_id;
+
+  IF v_member_id IS NULL THEN
+    RETURN jsonb_build_object('error', 'no_member_link');
+  END IF;
+
+  IF v_member_status IS DISTINCT FROM 'garbes_narys' THEN
+    SELECT jsonb_agg(
+      jsonb_build_object(
+        'fee_period_id', fp.id,
+        'year', fp.year,
+        'name', fp.name,
+        'amount_cents', greatest(fp.amount_cents-coalesce((SELECT sum(px.amount_cents) FROM public.payments px WHERE px.fee_period_id=fp.id AND px.member_id=v_member_id),0),0),
+        'fee_type', fp.fee_type,
+        'due_date', fp.due_date,
+        'is_overdue', fp.due_date IS NOT NULL AND fp.due_date < CURRENT_DATE
+      ) ORDER BY fp.year DESC, fp.due_date ASC
+    ) INTO v_unpaid
+    FROM fee_periods fp
+    WHERE fp.fee_type = 'metinis'
+      AND fp.year >= COALESCE(EXTRACT(YEAR FROM v_member_join_date)::INT, 2012)
+      AND greatest(fp.amount_cents-coalesce((SELECT sum(px.amount_cents) FROM public.payments px WHERE px.fee_period_id=fp.id AND px.member_id=v_member_id),0),0)>0;
+
+    SELECT COALESCE(SUM(greatest(fp.amount_cents-coalesce((SELECT sum(px.amount_cents) FROM public.payments px WHERE px.fee_period_id=fp.id AND px.member_id=v_member_id),0),0)), 0) INTO v_total_debt
+    FROM fee_periods fp
+    WHERE fp.fee_type = 'metinis'
+      AND fp.year >= COALESCE(EXTRACT(YEAR FROM v_member_join_date)::INT, 2012)
+      AND greatest(fp.amount_cents-coalesce((SELECT sum(px.amount_cents) FROM public.payments px WHERE px.fee_period_id=fp.id AND px.member_id=v_member_id),0),0)>0;
+  END IF;
+
+  SELECT jsonb_agg(
+    jsonb_build_object(
+      'id', p.id,
+      'amount_cents', p.amount_cents,
+      'paid_date', p.paid_date,
+      'payment_method', p.payment_method,
+      'receipt_number', p.receipt_number,
+      'fee_period', jsonb_build_object(
+        'year', fp.year,
+        'name', fp.name,
+        'fee_type', fp.fee_type
+      )
+    ) ORDER BY p.paid_date DESC
+  ) INTO v_paid
+  FROM payments p
+  JOIN fee_periods fp ON fp.id = p.fee_period_id
+  WHERE p.member_id = v_member_id;
+
+  RETURN jsonb_build_object(
+    'unpaid', COALESCE(v_unpaid, '[]'::jsonb),
+    'paid', COALESCE(v_paid, '[]'::jsonb),
+    'total_debt_cents', v_total_debt
+  );
+END;
+$function$
+;
+
+-- Preserve deployed authentication and grants; account for every installment.
+CREATE OR REPLACE FUNCTION public.get_transparency_fee_stats()
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT jsonb_build_object(
+    'paid_counts', COALESCE((SELECT jsonb_agg(jsonb_build_object('fee_period_id',t.fee_period_id,'count',t.n)) FROM (
+      SELECT paid.fee_period_id,count(*) as n FROM (
+        SELECT p.fee_period_id,p.member_id FROM public.payments p JOIN public.fee_periods fp ON fp.id=p.fee_period_id
+        GROUP BY p.fee_period_id,p.member_id HAVING sum(p.amount_cents)>=max(fp.amount_cents)
+      ) paid GROUP BY paid.fee_period_id) t),'[]'::jsonb),
+    'members', COALESCE(
+      (SELECT jsonb_agg(jsonb_build_object('join_date', m.join_date, 'status', m.status))
+       FROM public.members m
+       WHERE m.status IN ('aktyvus', 'pasyvus')),
+      '[]'::jsonb
+    ),
+    'payments', COALESCE(
+      (SELECT jsonb_agg(jsonb_build_object('fee_period_id', p.fee_period_id, 'amount_cents', p.amount_cents))
+       FROM public.payments p),
+      '[]'::jsonb
+    )
+  );
+$function$
+;
+
+
+-- A missing/expired token returns NULL, which must never bypass IF NOT access.
+CREATE OR REPLACE FUNCTION public._can_view_meeting_doc(p_meeting_id uuid,p_token text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path='public' AS $$
+  SELECT coalesce(public.is_admin(),false) OR coalesce(public.is_approved_member(),false)
+    OR (p_token IS NOT NULL AND p_meeting_id IS NOT NULL
+        AND coalesce(public.voting_token_meeting(p_token)=p_meeting_id,false));
+$$;
+REVOKE ALL ON FUNCTION public._can_view_meeting_doc(uuid,text) FROM PUBLIC,anon,authenticated;
+
+-- Match deployed RPC grants explicitly, including a fresh migration chain.
+REVOKE ALL ON FUNCTION public.get_member_financial_status() FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.get_member_financial_status() TO authenticated;
+REVOKE ALL ON FUNCTION public.get_transparency_fee_stats() FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.get_transparency_fee_stats() TO authenticated;
+REVOKE ALL ON FUNCTION public.get_declaration_token_data(text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.get_declaration_token_data(text) TO anon,authenticated;
