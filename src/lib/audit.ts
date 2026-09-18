@@ -1,17 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * Audito įrašas.
- *
- * Nuo migr. 048 `audit_log` INSERT politika reikalauja administratoriaus –
- * eilinio nario srautai į šią lentelę nerašo, o sisteminius įrašus (pvz.
- * narystės statuso trigger'is) daro SECURITY DEFINER funkcijos, kurioms RLS
- * negalioja.
- *
- * Klaida čia NEnutraukia mutacijos (ji jau įvykdyta), bet ir NEnutylima:
- * tylus audito praradimas yra blogesnis už triukšmą žurnale.
- */
-/**
  * Žurnalo eilutei skirta reikšmė be eilučių lūžių ir valdymo simbolių: iš
  * parametrų (pvz. įrašo ID iš formos) atėjęs tekstas negali suformuoti
  * netikros atskiros žurnalo eilutės. Ilgis ribojamas, kad viena klaida
@@ -23,6 +12,17 @@ function logSafe(value: unknown): string {
     .slice(0, 200);
 }
 
+/**
+ * Audito įrašas.
+ *
+ * Nuo migr. 048 `audit_log` INSERT politika reikalauja administratoriaus –
+ * eilinio nario srautai į šią lentelę nerašo, o sisteminius įrašus (pvz.
+ * narystės statuso trigger'is) daro SECURITY DEFINER funkcijos, kurioms RLS
+ * negalioja.
+ *
+ * Klaida čia NEnutraukia mutacijos (ji jau įvykdyta), bet ir NEnutylima:
+ * tylus audito praradimas yra blogesnis už triukšmą žurnale.
+ */
 export async function logAudit(
   supabase: SupabaseClient,
   params: {
