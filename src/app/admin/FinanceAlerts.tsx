@@ -18,10 +18,29 @@ export async function FinanceAlerts() {
   const supabase = createServerSupabaseClient();
   const year = new Date().getFullYear();
 
-  const [data, unpaidRes] = await Promise.all([
+  const [result, unpaidRes] = await Promise.all([
     loadCommunityFinance(),
     supabase.rpc("get_members_without_current_fee", { p_year: year }),
   ]);
+
+  // Nepilno rinkinio neskaičiuojam: likutis iš dalies duomenų būtų klaidinantis
+  // būtent tame skydelyje, kuris turi pastebėti neatitikimus.
+  if (!result.ok) {
+    return (
+      <div className="mb-8">
+        <h2 className="font-semibold text-gray-900 mb-3">Finansų būklė</h2>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-amber-900">
+            Finansų duomenų nepavyko užkrauti, todėl likutis ir įspėjimai
+            nerodomi. Pabandykite perkrauti puslapį vėliau.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const data = result.data;
 
   const balanceInput = {
     openingBalance: data.openingBalance,

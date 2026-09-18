@@ -36,24 +36,32 @@ function projectTitle(project: FinanceProject | undefined, locale: "lt" | "en"):
 export default async function FinansaiPage() {
   const locale = getLocale();
   const t = getDict().finance;
-  const data = await loadCommunityFinance();
+  const result = await loadCommunityFinance();
 
-  // Antras apsaugos sluoksnis po middleware: jei RLS duomenų neatidavė,
-  // rodom aiškią žinutę, o ne suklastotus nulius.
-  if (data.accessDenied) {
+  // Antras apsaugos sluoksnis po middleware. Skiriam du atvejus:
+  //   forbidden   – vartotojas nepatvirtintas (RLS jam viską filtruotų);
+  //   unavailable – bent viena užklausa nepavyko, todėl rinkinys nepilnas.
+  // Nei vienu atveju likučio NEskaičiuojam – nuliai atrodytų kaip tiesa.
+  if (!result.ok) {
     return (
       <div className="min-h-screen flex flex-col bg-amber-50/50">
         <PublicHeader />
         <main className="flex-1">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 py-16">
             <h1 className="text-2xl font-bold text-green-800 mb-2">{t.pageHeading}</h1>
-            <p className="text-gray-600">{getDict().auth.errNotApproved}</p>
+            <p className="text-gray-600">
+              {result.reason === "forbidden"
+                ? getDict().auth.errNotApproved
+                : getDict().common.dataUnavailable}
+            </p>
           </div>
         </main>
         <PublicFooter />
       </div>
     );
   }
+
+  const data = result.data;
 
   const balanceInput = {
     openingBalance: data.openingBalance,
