@@ -206,7 +206,7 @@ npm run dev        # http://localhost:3000
 npm run build      # Production build
 npm run lint       # ESLint tikrinimas
 
-# Patikros (tas pačias vykdo CI)
+# Patikros (tas pačias vykdo CI; testams reikia Node 22)
 npx tsc --noEmit         # TypeScript tipai
 npm test                 # Unit testai (node --test)
 npm run check:pii        # Ar į repo medį nepateko duomenų failų
