@@ -3,6 +3,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { sendSms } from "@/lib/infobip";
 import { logAudit } from "@/lib/audit";
+import { requireAdmin } from "@/lib/authz";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import crypto from "crypto";
@@ -97,19 +98,12 @@ export async function sendContactUpdateSmsBatch(memberIds: string[]): Promise<{
   if (!parsed.success) return { error: "Netinkami narių ID" };
 
   const supabase = createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Neautorizuotas" };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (!profile || !["admin", "super_admin"].includes(profile.role)) {
-    return { error: "Trūksta teisių" };
-  }
+  // SMS siuntimas – ne vien DB mutacija, todėl vien RLS neapsaugo (CLAUDE.md
+  // „RLS modelis"). `requireAdmin` tikrina rolę IR `is_approved` – tas pats
+  // kontraktas kaip `public.is_admin()` (migr. 048).
+  const auth = await requireAdmin(supabase);
+  if (!auth.user) return { error: auth.error };
+  const user = auth.user;
 
   // Gaunam narių duomenis – tik tuos, kurie turi telefoną
   const { data: members } = await supabase
