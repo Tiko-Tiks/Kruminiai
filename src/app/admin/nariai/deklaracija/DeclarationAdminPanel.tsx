@@ -92,12 +92,13 @@ function skippedSuffix(skipped: number, expiryFailed: number): string {
 
 export function DeclarationAdminPanel({
   stats,
-  defaultExpiresAt,
+  expiry,
   recipients,
   pendingDebtors,
 }: {
   stats: Stats;
-  defaultExpiresAt: string;
+  /** Galiojimo ribos iš `declarationExpiryBounds` – ta pati logika kaip serverio validacijoje. */
+  expiry: { min: string; default: string; responseDays: number };
   recipients: { total: number; withPhone: number };
   /** Neatsakiusieji, kurie DABAR yra skolingi ir turi telefoną – tik jiems eina priminimas. */
   pendingDebtors: number;
@@ -115,8 +116,9 @@ export function DeclarationAdminPanel({
   }
 
   /**
-   * Ta pati patikra kaip server action'e – kad patvirtinimo lange nebūtų
-   * rodoma diena, kurios kalendoriuje nėra (pvz. vasario 30).
+   * Tos pačios patikros kaip server action'e – kad patvirtinimo lange nebūtų
+   * rodoma diena, kurios kalendoriuje nėra (pvz. vasario 30), nei terminas,
+   * trumpesnis už gavėjui žadamą atsakymo langą.
    */
   function checkedExpiresAt(): string | null {
     const value = readExpiresAt();
@@ -126,6 +128,13 @@ export function DeclarationAdminPanel({
     }
     if (!isCalendarDate(value)) {
       toast.error("Tokios datos kalendoriuje nėra");
+      return null;
+    }
+    if (value < expiry.min) {
+      toast.error(
+        `Galiojimo data turi būti bent ${expiry.responseDays} dienos nuo šiandien ` +
+          `(anksčiausia – ${expiry.min})`
+      );
       return null;
     }
     return value;
@@ -273,12 +282,13 @@ export function DeclarationAdminPanel({
               <DatePicker
                 name="expires_at"
                 label="Nuoroda galioja iki (imtinai)"
-                defaultValue={defaultExpiresAt}
+                defaultValue={expiry.default}
                 required
               />
               <p className="text-xs text-gray-500 mt-1">
                 Galiojimas įrašomas kiekvienam šios kampanijos tokenui – ir naujam, ir
-                pakartotinai siunčiamam.
+                pakartotinai siunčiamam. Anksčiausia galima data – <strong>{expiry.min}</strong>,
+                nes gavėjui žadame {expiry.responseDays} d. atsakymo langą.
               </p>
             </div>
 

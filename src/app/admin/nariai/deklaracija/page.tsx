@@ -4,18 +4,17 @@ import { DeclarationAdminPanel } from "./DeclarationAdminPanel";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { isoToVilniusLocal } from "@/lib/utils";
+import { declarationExpiryBounds } from "@/lib/notification-texts";
 
 export const dynamic = "force-dynamic";
 
-// Numatytoji kampanijos pabaiga – po 14 d. Skaičiuojama serveryje, kad
-// klientinis komponentas nesiskirtų nuo SSR rezultato.
-const DEFAULT_EXPIRY_DAYS = 14;
-
 export default async function DeclarationAdminPage() {
   const stats = await getDeclarationStats();
-  const defaultExpiresAt = isoToVilniusLocal(
-    new Date(Date.now() + DEFAULT_EXPIRY_DAYS * 24 * 60 * 60 * 1000)
-  ).slice(0, 10);
+
+  // Numatytoji ir anksčiausia galiojimo data – iš to paties šaltinio kaip
+  // server action'o validacija, kad forma nepriimtų to, ką serveris atmes.
+  // Skaičiuojama serveryje, kad klientas nesiskirtų nuo SSR rezultato.
+  const expiry = declarationExpiryBounds(isoToVilniusLocal(new Date()).slice(0, 10));
 
   // Gavėjai matomi PRIEŠ siuntimą: deklaracija siunčiama tik skolingiems, o SMS
   // pasiekia tik tuos, kurie turi telefono numerį.
@@ -54,7 +53,7 @@ export default async function DeclarationAdminPage() {
 
       <DeclarationAdminPanel
         stats={stats}
-        defaultExpiresAt={defaultExpiresAt}
+        expiry={expiry}
         recipients={recipients}
         pendingDebtors={pendingDebtors}
       />

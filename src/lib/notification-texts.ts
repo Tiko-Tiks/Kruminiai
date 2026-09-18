@@ -120,6 +120,51 @@ export function isCalendarDate(value: string): boolean {
   return utc.toISOString().slice(0, 10) === value;
 }
 
+/**
+ * Kiek dienų gavėjui žadame atsakyti. Tas pats skaičius rodomas deklaracijos
+ * puslapyje (`/deklaracija/[token]`) ir riboja kampanijos galiojimo datą, kad
+ * nuoroda neužsidarytų anksčiau, nei pažadėta.
+ */
+export const DECLARATION_RESPONSE_DAYS = 7;
+
+/** Numatytoji kampanijos trukmė, kai admin'as datos nekeičia. */
+export const DECLARATION_DEFAULT_EXPIRY_DAYS = 14;
+
+/** „YYYY-MM-DD" + n parų. Skaičiuojama UTC, todėl EET/EEST perjungimas nepaveikia. */
+function addDays(date: string, days: number): string {
+  if (!isCalendarDate(date)) {
+    throw new RangeError(`Netinkama data: ${date}`);
+  }
+  const base = new Date(`${date}T00:00:00Z`);
+  base.setUTCDate(base.getUTCDate() + days);
+  return base.toISOString().slice(0, 10);
+}
+
+/**
+ * Anksčiausia galima kampanijos pabaiga: `today` („YYYY-MM-DD") + žadėtas langas.
+ * Trumpesnis terminas reikštų, kad nuoroda užsidaro anksčiau, nei gavėjui
+ * pažadėta deklaracijos puslapyje.
+ */
+export function minDeclarationExpiryDate(today: string): string {
+  return addDays(today, DECLARATION_RESPONSE_DAYS);
+}
+
+/**
+ * Galiojimo ribos admin formai ir server action'ui – VIENAS šaltinis, kad forma
+ * nesiūlytų ir nepriimtų to, ką serveris atmes.
+ */
+export function declarationExpiryBounds(today: string): {
+  min: string;
+  default: string;
+  responseDays: number;
+} {
+  return {
+    min: minDeclarationExpiryDate(today),
+    default: addDays(today, DECLARATION_DEFAULT_EXPIRY_DAYS),
+    responseDays: DECLARATION_RESPONSE_DAYS,
+  };
+}
+
 /** „2026 m. gegužės 23 d." / „23 May 2026" – laiškams ir puslapių tekstams. */
 export function formatMeetingDateLong(iso: string, locale: NotificationLocale): string {
   const p = vilniusParts(iso);

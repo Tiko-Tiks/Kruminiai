@@ -13,9 +13,12 @@ import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import { z } from "zod";
 import {
+  DECLARATION_RESPONSE_DAYS,
+  declarationExpiryBounds,
   declarationReminderSmsText,
   declarationSmsText,
   isCalendarDate,
+  minDeclarationExpiryDate,
   overdueDeclarationSmsText,
 } from "@/lib/notification-texts";
 
@@ -42,17 +45,28 @@ function generateToken(): string {
 // Tikrinamas ne tik formatas, bet ir ar tokia diena kalendoriuje yra: reikšmė
 // ateina iš `DatePicker` teksto lauko per mygtuko veiksmą, todėl naršyklės
 // `pattern` čia nieko nesustabdo.
+//
+// Minimumas – šiandien + `DECLARATION_RESPONSE_DAYS`: deklaracijos puslapis
+// gavėjui žada tokį atsakymo langą, todėl anksčiau užsidaranti nuoroda reikštų,
+// kad viešas RPC atmeta atsakymą dar nepasibaigus pažadėtam terminui.
 const expiresAtSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Netinkamas datos formatas (turi būti YYYY-MM-DD)")
-  .refine(isCalendarDate, "Tokios datos kalendoriuje nėra");
+  .refine(isCalendarDate, "Tokios datos kalendoriuje nėra")
+  .refine(
+    (value) => isCalendarDate(value) && value >= minDeclarationExpiryDate(todayInVilnius()),
+    `Galiojimo data turi būti bent ${DECLARATION_RESPONSE_DAYS} dienos nuo šiandien ` +
+      `(gavėjui žadamas ${DECLARATION_RESPONSE_DAYS} d. langas)`
+  );
 
-const DEFAULT_EXPIRY_DAYS = 14;
+/** Šiandienos data Vilniaus laiku („YYYY-MM-DD"). */
+function todayInVilnius(): string {
+  return isoToVilniusLocal(new Date()).slice(0, 10);
+}
 
-/** Numatytoji kampanijos pabaiga – po 14 d. („YYYY-MM-DD" Vilniaus laiku). */
+/** Numatytoji kampanijos pabaiga („YYYY-MM-DD" Vilniaus laiku) – ta pati, kurią siūlo forma. */
 function defaultExpiresAtDate(): string {
-  const at = Date.now() + DEFAULT_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
-  return isoToVilniusLocal(new Date(at)).slice(0, 10);
+  return declarationExpiryBounds(todayInVilnius()).default;
 }
 
 /**
@@ -100,10 +114,11 @@ function resolveExpiresAt(input: string): { iso: string } | { error: string } {
       error: parsed.error.issues[0]?.message ?? "Netinkama galiojimo data",
     };
   }
+  // Ateityje data jau užtikrinta schemoje (minimumas – šiandien + 7 d.),
+  // todėl čia lieka tik konversijos patikra.
   const iso = vilniusLocalToIso(`${parsed.data}T23:59`);
-  const time = new Date(iso).getTime();
-  if (Number.isNaN(time) || time <= Date.now()) {
-    return { error: "Galiojimo data turi būti ateityje" };
+  if (Number.isNaN(new Date(iso).getTime())) {
+    return { error: "Netinkama galiojimo data" };
   }
   return { iso };
 }

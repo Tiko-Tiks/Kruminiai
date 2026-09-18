@@ -2,8 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  DECLARATION_RESPONSE_DAYS,
+  declarationExpiryBounds,
   declarationReminderSmsText,
   declarationSmsText,
+  minDeclarationExpiryDate,
   formatMeetingDateLong,
   formatMeetingDateTime,
   isCalendarDate,
@@ -61,6 +64,29 @@ test("isCalendarDate atmeta kalendoriuje neegzistuojančias datas", () => {
   ]) {
     assert.equal(isCalendarDate(bad), false, `turėjo būti netinkama: ${bad}`);
   }
+});
+
+test("minDeclarationExpiryDate prideda žadamą atsakymo langą", () => {
+  assert.equal(DECLARATION_RESPONSE_DAYS, 7);
+  assert.equal(minDeclarationExpiryDate("2026-09-18"), "2026-09-25");
+  // Mėnesio, metų ir keliamųjų metų riba
+  assert.equal(minDeclarationExpiryDate("2026-09-30"), "2026-10-07");
+  assert.equal(minDeclarationExpiryDate("2026-12-28"), "2027-01-04");
+  assert.equal(minDeclarationExpiryDate("2028-02-25"), "2028-03-03");
+  // Vasaros/žiemos laiko perjungimas (paros skaičiuojamos UTC, ne vietos laiku)
+  assert.equal(minDeclarationExpiryDate("2027-03-25"), "2027-04-01");
+  assert.equal(minDeclarationExpiryDate("2027-10-28"), "2027-11-04");
+  assert.throws(() => minDeclarationExpiryDate("2026-02-30"), RangeError);
+});
+
+test("declarationExpiryBounds – ta pati riba formai ir serveriui", () => {
+  const bounds = declarationExpiryBounds("2026-09-18");
+  assert.equal(bounds.min, minDeclarationExpiryDate("2026-09-18"));
+  assert.equal(bounds.min, "2026-09-25");
+  assert.equal(bounds.default, "2026-10-02");
+  assert.equal(bounds.responseDays, DECLARATION_RESPONSE_DAYS);
+  // Numatytoji reikšmė visada tinka pagal minimumą
+  assert.ok(bounds.default >= bounds.min);
 });
 
 test("susirinkimo tipo pavadinimas pagal meetings.meeting_type", () => {

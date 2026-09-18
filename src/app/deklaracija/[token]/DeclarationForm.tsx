@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { submitDeclaration } from "@/actions/declarations";
 import { vocative, formatCurrency } from "@/lib/utils";
+import { DECLARATION_RESPONSE_DAYS } from "@/lib/notification-texts";
 import { toast } from "sonner";
 import {
   CheckCircle2,
@@ -163,7 +164,8 @@ export function DeclarationForm({ token, member, existingDeclaration, debt }: Pr
             </p>
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-3 text-sm text-gray-700">
               <p>
-                <strong>Svarbu:</strong> jei per <strong>7 dienas</strong> nuo šios žinutės nieko
+                <strong>Svarbu:</strong> jei per{" "}
+                <strong>{DECLARATION_RESPONSE_DAYS} dienas</strong> nuo šios žinutės nieko
                 nepažymėsite ir mokesčio negausime, pagal bendruomenės įstatų 3.5 punktą Tarybos
                 sprendimu narystė gali būti nutraukta dėl nemokumo.
               </p>
