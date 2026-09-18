@@ -30,8 +30,10 @@ Trys numeriai turi po du failus – tai susidarė anksčiau ir paliekama kaip yr
 | `021` | `021_fix_handle_new_user_search_path.sql`, `021_fundraising_projects_bic.sql` |
 | `028` | `028_security_hardening.sql`, `028_member_financial_status_metinis_only.sql` |
 
-Jie įrašyti į `scripts/check-migrations.mjs` išimčių sąrašą. Naujų dublikatų
-patikra nepraleidžia.
+Jie įrašyti į `scripts/check-migrations.mjs` išimčių sąrašą su **tiksliu** failų
+skaičiumi: naujų dublikatų patikra nepraleidžia, o ištrynus vieną iš poros –
+praneša klaidą. Migracijų failai apskritai netrinami (tai tikrina ir PR patikra) –
+jie jau pritaikyti duomenų bazei.
 
 ## Numerių rezervavimas lygiagretiems PR
 

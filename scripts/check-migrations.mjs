@@ -57,13 +57,14 @@ function pad(n) {
  * Gryna patikros logika – be failų sistemos ir be git.
  *
  * @param {string[]} files migracijų failų vardai (be katalogo)
- * @param {{ addedFiles?: string[] | null, mainMaxNumber?: string | null }} [context]
+ * @param {{ addedFiles?: string[] | null, deletedFiles?: string[] | null, mainMaxNumber?: string | null }} [context]
  *   `addedFiles` – šiame PR pridėti failai (vardai be katalogo);
+ *   `deletedFiles` – šiame PR ištrinti failai;
  *   `mainMaxNumber` – didžiausias numeris `origin/main` šakoje.
  * @returns {{ problems: string[], count: number }}
  */
 export function checkMigrationFiles(files, context = {}) {
-  const { addedFiles = null, mainMaxNumber = null } = context;
+  const { addedFiles = null, deletedFiles = null, mainMaxNumber = null } = context;
   const problems = [];
   const byNumber = new Map();
 
@@ -79,13 +80,32 @@ export function checkMigrationFiles(files, context = {}) {
     byNumber.set(number, [...(byNumber.get(number) ?? []), file]);
   }
 
-  // 1) Dublikatai
+  // 1) Dublikatai. Istoriniams numeriams reikalaujama LYGIAI tiek failų, kiek
+  // jų buvo pritaikyta – kitaip ištrynus vieną iš poros patikra praeitų, nors
+  // dalis istorijos dingusi.
   for (const [number, group] of [...byNumber.entries()].sort()) {
-    const allowed = KNOWN_DUPLICATES[number] ?? 1;
-    if (group.length > allowed) {
+    const known = KNOWN_DUPLICATES[number];
+    if (known !== undefined) {
+      if (group.length !== known) {
+        problems.push(
+          `istorinis dublikatas ${number} turi turėti ${known} failus, rasta ${group.length}` +
+            (group.length > 0 ? ` – ${group.join(", ")}` : "")
+        );
+      }
+      continue;
+    }
+    if (group.length > 1) {
       problems.push(
-        `numeris ${number}: ${group.length} failai (leidžiama ${allowed}) – ${group.join(", ")}`
+        `numeris ${number}: ${group.length} failai (leidžiama 1) – ${group.join(", ")}`
       );
+    }
+  }
+
+  // Istorinis dublikatas gali būti ištrintas VISAS – tada jo numerio `byNumber`
+  // nebėra, o sekos patikra rodytų tik „trūksta numerio". Pasakom tiksliau.
+  for (const [number, known] of Object.entries(KNOWN_DUPLICATES)) {
+    if (!byNumber.has(number)) {
+      problems.push(`istorinis dublikatas ${number} turi turėti ${known} failus, rasta 0`);
     }
   }
 
@@ -103,7 +123,13 @@ export function checkMigrationFiles(files, context = {}) {
     );
   }
 
-  // 3) Naujai pridėti failai turi eiti PO visko, kas jau sumerginta
+  // 3) Migracijos netrinamos – jos jau pritaikytos duomenų bazei, o failo
+  // pašalinimas atkūrimo iš repo metu tyliai praleistų dalį istorijos.
+  if (deletedFiles && deletedFiles.length > 0) {
+    problems.push(`migracijų failai netrinami: ${deletedFiles.join(", ")}`);
+  }
+
+  // 4) Naujai pridėti failai turi eiti PO visko, kas jau sumerginta
   if (addedFiles && mainMaxNumber) {
     const expected = pad(Number(mainMaxNumber) + 1);
     for (const file of addedFiles) {
@@ -161,19 +187,24 @@ function readMainContext() {
     if (mainNumbers.length === 0) return null;
 
     // Dviejų taškų diff'as – veikia ir shallow clone'e (nereikia merge-base)
-    const addedFiles = toFileNames(
-      git([
-        "diff",
-        "--name-only",
-        "--diff-filter=A",
-        "origin/main",
-        "HEAD",
-        "--",
-        "supabase/migrations",
-      ])
-    );
+    const diffNames = (filter) =>
+      toFileNames(
+        git([
+          "diff",
+          "--name-only",
+          `--diff-filter=${filter}`,
+          "origin/main",
+          "HEAD",
+          "--",
+          "supabase/migrations",
+        ])
+      );
 
-    return { mainMaxNumber: pad(Math.max(...mainNumbers)), addedFiles };
+    return {
+      mainMaxNumber: pad(Math.max(...mainNumbers)),
+      addedFiles: diffNames("A"),
+      deletedFiles: diffNames("D"),
+    };
   } catch {
     return null;
   }
@@ -310,6 +341,33 @@ export function buildSelfTestCases() {
       name: "naujas rezervuotas numeris – praeina",
       files: [...base, "047_rezervuotas.sql"],
       context: { addedFiles: ["047_rezervuotas.sql"], mainMaxNumber: "054" },
+      expectProblem: false,
+    },
+    {
+      name: "ištrinta viena istorinio dublikato dalis – klaida",
+      files: base.filter((f) => f !== "020_migracija_1.sql"),
+      context: {},
+      expectProblem: true,
+      expectMessage: "istorinis dublikatas 020 turi turėti 2 failus, rasta 1",
+    },
+    {
+      name: "ištrintas visas istorinis dublikatas – klaida",
+      files: base.filter((f) => !f.startsWith("028_")),
+      context: {},
+      expectProblem: true,
+      expectMessage: "istorinis dublikatas 028 turi turėti 2 failus, rasta 0",
+    },
+    {
+      name: "PR trina migracijos failą – klaida",
+      files: base,
+      context: { addedFiles: [], deletedFiles: ["030_migracija_0.sql"], mainMaxNumber: "054" },
+      expectProblem: true,
+      expectMessage: "migracijų failai netrinami: 030_migracija_0.sql",
+    },
+    {
+      name: "PR nieko netrina – praeina",
+      files: base,
+      context: { addedFiles: [], deletedFiles: [], mainMaxNumber: "054" },
       expectProblem: false,
     },
   ];
