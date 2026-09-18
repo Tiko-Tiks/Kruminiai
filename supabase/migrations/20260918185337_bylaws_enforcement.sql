@@ -45,7 +45,7 @@ ALTER TABLE public.meetings
   ADD COLUMN convening_requesters uuid[],
   ADD COLUMN chairperson_member_id uuid REFERENCES public.members(id);
 ALTER TABLE public.resolutions ADD COLUMN decision_type text
-  CHECK (decision_type IN ('ordinary', 'statutes', 'transformation', 'liquidation'));
+  CHECK (decision_type IN ('ordinary','statutes','transformation','liquidation','council_election','council_removal','auditor_election','reports','fees','seat'));
 CREATE INDEX meetings_chairperson_member_idx ON public.meetings(chairperson_member_id) WHERE chairperson_member_id IS NOT NULL;
 
 -- Keep the already stored history; require evidence for new admissions and re-admissions.
@@ -84,6 +84,11 @@ BEGIN
   END IF;
   IF NEW.status IN ('aktyvus', 'pasyvus', 'garbes_narys') AND
      (TG_OP = 'INSERT' OR OLD.status NOT IN ('aktyvus', 'pasyvus', 'garbes_narys')) THEN
+    IF TG_OP='UPDATE' AND (OLD.termination_date IS NULL OR NEW.admission_date < OLD.termination_date
+      OR btrim(NEW.admission_reference) IS NOT DISTINCT FROM btrim(OLD.admission_reference)
+      OR btrim(NEW.application_reference) IS NOT DISTINCT FROM btrim(OLD.application_reference)) THEN
+      RAISE EXCEPTION 'Pakartotiniam priėmimui būtinas naujas prašymas ir naujas Tarybos sprendimas po ankstesnės narystės pabaigos';
+    END IF;
     IF nullif(btrim(NEW.application_reference), '') IS NULL OR
        nullif(btrim(NEW.admission_reference), '') IS NULL OR NEW.admission_date IS NULL THEN
       RAISE EXCEPTION 'Narystei būtinas raštiško prašymo ir Tarybos sprendimo pagrindas bei data (3.2 p.)';
@@ -119,6 +124,9 @@ BEGIN
     (OLD.electorate_snapshot, OLD.total_members_at_time, OLD.quorum_required, OLD.meeting_date) THEN
     RAISE EXCEPTION 'Susirinkimo laiko narių bazė užfiksuota; būtinas atskiras dokumentuotas taisymas';
   END IF;
+  IF TG_OP='UPDATE' AND OLD.status IN ('baigtas','atšauktas') AND NEW.status IS DISTINCT FROM OLD.status THEN
+    RAISE EXCEPTION 'Uždaryto susirinkimo atidaryti negalima; būtinas atskiras dokumentuotas taisymas';
+  END IF;
   capture := NEW.electorate_snapshot IS NULL AND NEW.status='vyksta' AND (TG_OP='INSERT' OR OLD.status<>'vyksta');
   IF capture OR ((TG_OP='INSERT' OR OLD.electorate_snapshot IS NULL) AND NEW.electorate_snapshot IS NOT NULL) THEN
     IF capture OR NEW.electorate_snapshot = '{"capture":true}'::jsonb THEN
@@ -140,7 +148,12 @@ BEGIN
         RAISE EXCEPTION 'Istorinei narių bazei būtinas dokumento pagrindas ir narių skaičius';
       END IF;
       total := (NEW.electorate_snapshot->>'total')::integer;
-      NEW.electorate_snapshot := jsonb_build_object('total',total,'basis','document','reference',NEW.electorate_snapshot->>'reference','meeting_date',NEW.meeting_date,'recorded_at',now());
+      IF jsonb_typeof(NEW.electorate_snapshot->'member_ids') IS DISTINCT FROM 'array' THEN RAISE EXCEPTION 'Istoriniam išrašui būtinas visas narių sąrašas'; END IF;
+      ids := ARRAY(SELECT DISTINCT value::uuid FROM jsonb_array_elements_text(NEW.electorate_snapshot->'member_ids'));
+      IF cardinality(ids)<>total OR EXISTS(SELECT 1 FROM unnest(ids) id WHERE NOT EXISTS(SELECT 1 FROM public.members mb WHERE mb.id=id)) THEN
+        RAISE EXCEPTION 'Istorinio išrašo narių sąrašas turi sutapti su narių skaičiumi ir registro tapatybėmis';
+      END IF;
+      NEW.electorate_snapshot := jsonb_build_object('total',total,'member_ids',ids,'basis','document','reference',NEW.electorate_snapshot->>'reference','meeting_date',NEW.meeting_date,'recorded_at',now());
     END IF;
     IF total < 1 OR (NEW.meeting_type='valdybos' AND total<>6) THEN
       RAISE EXCEPTION 'Patikrinkite narių bazę: Tarybos balso teisės bazę turi sudaryti šeši nariai (5.2 p.)';
@@ -208,7 +221,7 @@ FOR EACH ROW EXECUTE FUNCTION public.bylaws_meeting_guard();
 -- Covers both token RPCs, account RPCs, manual entry and direct Data API writes.
 CREATE FUNCTION public.bylaws_participation_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
-DECLARE mid uuid; memberid uuid; mt text; ms text; rs text;
+DECLARE mid uuid; memberid uuid; mt text; ms text; rs text; electorate jsonb;
 BEGIN
   PERFORM pg_advisory_xact_lock(hashtext('members_voting_eligibility'));
   IF TG_TABLE_NAME = 'vote_ballots' THEN
@@ -232,11 +245,14 @@ BEGIN
       mid := NEW.meeting_id; memberid := NEW.member_id;
     END IF;
   END IF;
-  SELECT meeting_type, status INTO mt, ms FROM public.meetings WHERE id = mid FOR UPDATE;
+  SELECT meeting_type, status, electorate_snapshot INTO mt, ms, electorate FROM public.meetings WHERE id = mid FOR UPDATE;
   IF NOT FOUND THEN
     -- Cascading deletion of an unused draft is allowed.
     IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
     RAISE EXCEPTION 'Susirinkimas nerastas';
+  END IF;
+  IF TG_OP<>'DELETE' AND electorate IS NOT NULL AND NOT coalesce((electorate->'member_ids') ? memberid::text,false) THEN
+    RAISE EXCEPTION 'Asmuo nepriklauso užfiksuotam susirinkimo narių sąrašui';
   END IF;
   IF ms = 'baigtas' AND TG_TABLE_NAME = 'meeting_attendance' THEN
     IF EXISTS (SELECT 1 FROM public.meetings WHERE previous_meeting_id=mid) THEN
@@ -251,6 +267,7 @@ BEGIN
   END IF;
   IF ms IN ('baigtas', 'atšauktas') THEN RAISE EXCEPTION 'Susirinkimas uždarytas'; END IF;
   IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  IF electorate IS NOT NULL THEN RETURN NEW; END IF;
   IF NOT EXISTS (SELECT 1 FROM public.members WHERE id = memberid AND status IN ('aktyvus', 'pasyvus', 'garbes_narys')) THEN
     RAISE EXCEPTION 'Asmuo neturi galiojančios narystės';
   END IF;
@@ -299,7 +316,7 @@ BEGIN
     NEW.requires_qualified_majority := NEW.decision_type IN ('statutes', 'transformation', 'liquidation');
   END IF;
   IF NEW.status NOT IN ('patvirtintas', 'atmestas') THEN RETURN NEW; END IF;
-  IF m.meeting_type='valdybos' AND NEW.decision_type IN ('statutes','transformation','liquidation') THEN
+  IF m.meeting_type='valdybos' AND NEW.decision_type IN ('statutes','transformation','liquidation','council_election','council_removal','auditor_election','reports','fees','seat') THEN
     RAISE EXCEPTION 'Šis sprendimas priklauso Visuotinio susirinkimo kompetencijai (4.8, 7.1 p.)';
   END IF;
   IF NEW.decision_type IS NULL THEN RAISE EXCEPTION 'Pasirinkite sprendimo rūšį; daugumos reikalavimas nustatomas pagal ją'; END IF;
@@ -317,11 +334,12 @@ BEGIN
       RAISE EXCEPTION 'Reikia užfiksuoto bent 1/5 narių reikalavimo patikros pagrindo';
     END IF;
   END IF;
-  IF EXISTS (SELECT 1 FROM public.meeting_attendance ma JOIN public.members mb ON mb.id = ma.member_id
-    WHERE ma.meeting_id = m.id AND (mb.status NOT IN ('aktyvus', 'pasyvus', 'garbes_narys') OR
-      (m.meeting_type = 'valdybos' AND (NOT EXISTS (SELECT 1 FROM public.community_management cm WHERE cm.member_id = mb.id AND cm.is_current AND cm.role IN ('pirmininkas', 'tarybos_narys'))
-        OR EXISTS (SELECT 1 FROM public.community_management cm WHERE cm.member_id = mb.id AND cm.is_current AND cm.role = 'revizorius'))))) THEN
-    RAISE EXCEPTION 'Dalyvių sąraše yra asmenų be šio susirinkimo balso teisės; patikrinkite dalyvavimą';
+  IF jsonb_array_length(m.electorate_snapshot->'member_ids') IS DISTINCT FROM m.total_members_at_time THEN
+    RAISE EXCEPTION 'Narių bazėje trūksta užfiksuoto vardinio sąrašo';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.meeting_attendance ma WHERE ma.meeting_id=m.id
+      AND NOT coalesce((m.electorate_snapshot->'member_ids') ? ma.member_id::text,false)) THEN
+    RAISE EXCEPTION 'Dalyvių sąraše yra asmenų be užfiksuotos šio susirinkimo balso teisės';
   END IF;
   IF EXISTS (SELECT 1 FROM public.vote_ballots vb WHERE vb.resolution_id = NEW.id
       AND NOT EXISTS (SELECT 1 FROM public.meeting_attendance ma WHERE ma.meeting_id = m.id AND ma.member_id = vb.member_id)) THEN
@@ -512,3 +530,47 @@ END; $$;
 CREATE TRIGGER bylaws_council_lock BEFORE INSERT OR UPDATE OR DELETE ON public.community_management
 FOR EACH ROW EXECUTE FUNCTION public.bylaws_council_lock();
 REVOKE ALL ON FUNCTION public.bylaws_council_lock() FROM PUBLIC, anon, authenticated;
+
+CREATE FUNCTION public.bylaws_document_guard() RETURNS trigger
+LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
+DECLARE target_ids uuid[];
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtext('members_voting_eligibility'));
+  IF TG_TABLE_NAME='resolution_documents' THEN
+    target_ids := ARRAY[CASE WHEN TG_OP<>'INSERT' THEN OLD.resolution_id END,CASE WHEN TG_OP<>'DELETE' THEN NEW.resolution_id END];
+    -- Lock linked document identity too; its deletion must finish before a new attachment.
+    IF TG_OP<>'DELETE' THEN PERFORM 1 FROM public.documents WHERE id=NEW.document_id FOR SHARE; END IF;
+  ELSE
+    target_ids := ARRAY(SELECT resolution_id FROM public.resolution_documents WHERE document_id=OLD.id);
+  END IF;
+  IF EXISTS(SELECT 1 FROM public.resolutions r JOIN public.meetings m ON m.id=r.meeting_id WHERE r.id=ANY(target_ids)
+    AND (r.status IN ('patvirtintas','atmestas') OR m.status IN ('baigtas','atšauktas'))) THEN
+    -- Visibility is a separate access decision; content and identity stay fixed.
+    IF TG_TABLE_NAME<>'documents' OR TG_OP='DELETE' OR
+       (to_jsonb(NEW)-'is_public'-'published_at') IS DISTINCT FROM (to_jsonb(OLD)-'is_public'-'published_at') THEN
+      RAISE EXCEPTION 'Galutinio nutarimo arba uždarytos darbotvarkės priedų keisti negalima';
+    END IF;
+  END IF;
+  IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END; $$;
+CREATE TRIGGER bylaws_document_links BEFORE INSERT OR UPDATE OR DELETE ON public.resolution_documents
+FOR EACH ROW EXECUTE FUNCTION public.bylaws_document_guard();
+CREATE TRIGGER bylaws_documents BEFORE UPDATE OR DELETE ON public.documents
+FOR EACH ROW EXECUTE FUNCTION public.bylaws_document_guard();
+REVOKE ALL ON FUNCTION public.bylaws_document_guard() FROM PUBLIC, anon, authenticated;
+
+-- Restrictive policies preserve the underlying file through authenticated Storage API calls.
+-- Existing permissive policies still decide who may otherwise change files.
+CREATE POLICY bylaws_preserve_document_file_delete ON storage.objects AS RESTRICTIVE FOR DELETE TO authenticated
+USING (bucket_id<>'documents' OR NOT EXISTS (
+  SELECT 1 FROM public.documents d JOIN public.resolution_documents rd ON rd.document_id=d.id
+    JOIN public.resolutions r ON r.id=rd.resolution_id JOIN public.meetings m ON m.id=r.meeting_id
+  WHERE d.file_path=storage.objects.name AND (r.status IN ('patvirtintas','atmestas') OR m.status IN ('baigtas','atšauktas'))
+));
+CREATE POLICY bylaws_preserve_document_file_update ON storage.objects AS RESTRICTIVE FOR UPDATE TO authenticated
+USING (bucket_id<>'documents' OR NOT EXISTS (
+  SELECT 1 FROM public.documents d JOIN public.resolution_documents rd ON rd.document_id=d.id
+    JOIN public.resolutions r ON r.id=rd.resolution_id JOIN public.meetings m ON m.id=r.meeting_id
+  WHERE d.file_path=storage.objects.name AND (r.status IN ('patvirtintas','atmestas') OR m.status IN ('baigtas','atšauktas'))
+));

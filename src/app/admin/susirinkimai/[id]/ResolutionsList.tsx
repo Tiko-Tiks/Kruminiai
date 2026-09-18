@@ -237,7 +237,7 @@ export function ResolutionsList({
                     meetingId={meetingId}
                     attached={res.resolution_documents || []}
                     allDocuments={allDocuments}
-                    canModify={canModify}
+                    canModify={canModify && !["patvirtintas","atmestas"].includes(res.status)}
                   />
                 )}
 
@@ -280,7 +280,7 @@ export function ResolutionsList({
                     const result = await updateResolution(res.id, meetingId, {decision_type: e.target.value as NonNullable<Resolution['decision_type']>});
                     if (result.error) toast.error(result.error); else router.refresh();
                   }}>
-                    <option value="" disabled>Pasirinkite sprendimo rūšį</option><option value="ordinary">Įprastas sprendimas</option><option value="statutes">Įstatų keitimas (2/3)</option><option value="transformation">Pertvarkymas (2/3)</option><option value="liquidation">Likvidavimas (2/3)</option>
+                    <option value="" disabled>Pasirinkite sprendimo rūšį</option><option value="ordinary">Kitas / procedūrinis sprendimas</option><option value="statutes">Įstatų keitimas (2/3)</option><option value="transformation">Pertvarkymas (2/3)</option><option value="liquidation">Likvidavimas (2/3)</option><option value="council_election">Tarybos rinkimai</option><option value="council_removal">Tarybos atšaukimas</option><option value="auditor_election">Revizoriaus rinkimai</option><option value="reports">Metinių ataskaitų tvirtinimas</option><option value="fees">Stojamojo / nario mokesčio tvarka</option><option value="seat">Buveinės nustatymas</option>
                   </select>
                 </label>}
                 {/* Protokolo tekstai */}

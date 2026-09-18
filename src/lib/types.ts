@@ -167,7 +167,7 @@ export interface Meeting {
 
 export type ResolutionStatus = "projektas" | "svarstomas" | "balsuojamas" | "patvirtintas" | "atmestas";
 
-export type DecisionType = "ordinary" | "statutes" | "transformation" | "liquidation";
+export type DecisionType = "ordinary" | "statutes" | "transformation" | "liquidation" | "council_election" | "council_removal" | "auditor_election" | "reports" | "fees" | "seat";
 export interface Resolution {
   decision_type?: DecisionType | null;
   source_resolution_id?: string | null;

@@ -131,7 +131,7 @@ for(const date of ['2099-01-01T12:00Z',new Date().toISOString()]) test(`Rankinė
 });
 test('Dokumentuota istorinė bazė perduodama duomenų bazės patikrai',async()=>{
   const h=actionHarness('src/actions/meetings.ts',votingFixture());
-  assert.equal((await h.actions.updateMeetingQuorum('meeting',{total_members_at_time:10,quorum_required:6,electorate_reference:'Registro išrašas 1'})).success,true);
+  assert.equal((await h.actions.updateMeetingQuorum('meeting',{total_members_at_time:10,quorum_required:6,electorate_reference:'Registro išrašas 1',electorate_member_ids:[]})).success,true);
   assert.equal(h.tables.meetings[0].electorate_snapshot.reference,'Registro išrašas 1');
 });
 const ended={termination_kind:'expulsion',termination_reference:'Tarybos 2',termination_date:'2026-09-18',expulsion_ground:'3.4.2',appeal_reference:'Pranešimas apie skundą'};
@@ -157,4 +157,37 @@ test('Ankstyvas nepaskirtas kanalas neatstoja Tarybos pasirinkto el. pašto',()=
 for(const email of [false,true]) test(`Visi Tarybos paskirti kanalai turi įrodymus: ${email}`,()=>{
   const list=email?[...springNotice,{...springNotice[0],channel:'email'}]:springNotice;
   assert.equal(summarizeAnnouncements(list,springMeeting,'visuotinis',{...noticePolicy,notice_channels:['web','email']}).compliant,email);
+});
+for(const type of ['council_election','council_removal','auditor_election','reports','fees','seat']) test(`Serveris saugo Visuotinio kompetenciją: ${type}`,async()=>{
+  const seed=votingFixture({totalMembers:6,attendees:4});seed.meetings[0].meeting_type='valdybos';seed.resolutions[0].decision_type=type;
+  const h=actionHarness('src/actions/voting.ts',seed);
+  assert.match((await h.actions.setResolutionResults('resolution','meeting',{result_for:3,result_against:1,result_abstain:0},'patvirtintas')).error,/kompetencijai/);
+  assert.equal(h.writes.length,0);
+});
+test('Serveris nepriima į sąrašą naujo, momentinėje kopijoje nesančio dalyvio',async()=>{
+  const seed=votingFixture();seed.meeting_attendance[0].member_id='new-member';
+  const h=actionHarness('src/actions/voting.ts',seed);
+  assert.match((await h.actions.setResolutionResults('resolution','meeting',{result_for:7,result_against:0,result_abstain:0},'patvirtintas')).error,/sąrašui/);
+});
+test('Istorinio susirinkimo pasirinkimai išsaugo vėliau išstojusį narį',async()=>{
+  const seed=votingFixture();seed.members[0].status='išstojęs';
+  const h=actionHarness('src/actions/meetings.ts',seed);
+  assert.equal((await h.actions.getEligibleAttendees('visuotinis','meeting')).length,10);
+});
+test('Serveris neatidaro užbaigto susirinkimo',async()=>{
+  const seed=votingFixture();seed.meetings[0].status='baigtas';
+  const h=actionHarness('src/actions/meetings.ts',seed);
+  assert.match((await h.actions.updateMeetingStatus('meeting','vyksta')).error,/atidaryti negalima/);assert.equal(h.writes.length,0);
+});
+for(const method of ['attachDocumentToResolution','detachDocumentFromResolution','uploadAndAttachDocument']) test(`Serveris nekeičia galutinio nutarimo priedų: ${method}`,async()=>{
+  const seed=votingFixture();seed.resolutions[0].status='patvirtintas';
+  const h=actionHarness('src/actions/voting.ts',seed);
+  const args=method==='uploadAndAttachDocument'?['resolution','meeting',new FormData()]:['resolution','document','meeting'];
+  assert.match((await h.actions[method](...args)).error,/priedų keisti/);assert.equal(h.writes.length,0);
+});
+test('Serveris neatkuria narystės pagal buvusio laikotarpio dokumentus',async()=>{
+  const evidence={application_reference:'Senas prašymas',admission_reference:'Sena Taryba',admission_date:'2020-01-01'};
+  const h=actionHarness('src/actions/members.ts',{members:[{id:'member',status:'išstojęs',...ended,...evidence}]});
+  const result=await h.actions.updateMember('member',form({first_name:'Testas',last_name:'Narys',join_date:'2020-01-01',status:'aktyvus',...ended,...evidence}));
+  assert.match(result.error._form[0],/Pakartotiniam priėmimui/);assert.equal(h.writes.length,0);
 });

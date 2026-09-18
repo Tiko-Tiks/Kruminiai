@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, useEffect } from "react";
+import { getMembers } from "@/actions/members";
 import { useRouter } from "next/navigation";
 import {
   setAttendance,
@@ -366,6 +367,9 @@ function QuorumEditor({
   suggestion: { eligibleCount: number; suggestedQuorum: number };
   onSaved: () => void;
 }) {
+  const [historicalMembers,setHistoricalMembers]=useState<Array<{id:string;first_name:string;last_name:string}>>([]);
+  const [selectedIds,setSelectedIds]=useState<string[]>([]);
+  useEffect(()=>{getMembers("","visi").then(setHistoricalMembers).catch(()=>toast.error("Nepavyko gauti narių sąrašo"));},[]);
   const [total, setTotal] = useState(String(totalMembersAtTime));
   const [quorum, setQuorum] = useState(String(quorumRequired));
   const [reference, setReference] = useState("");
@@ -380,6 +384,7 @@ function QuorumEditor({
       total_members_at_time: Number(total) || 0,
       quorum_required: Number(quorum) || 0,
       electorate_reference: reference,
+      electorate_member_ids: selectedIds,
     });
     setSaving(false);
     if (result.error) {
@@ -399,6 +404,8 @@ function QuorumEditor({
       <label className="block text-sm">Susirinkimo laiko narių skaičių pagrindžiančio dokumento nuoroda
         <input value={reference} onChange={e=>setReference(e.target.value)} className="mt-1 w-full rounded border p-2" />
       </label>
+      <p className="text-sm">Pagal to laiko registro išrašą pažymėkite visus balso teisę turėjusius narius (ne vien dalyvius). Pažymėta: {selectedIds.length}.</p>
+      <div className="max-h-48 overflow-auto">{historicalMembers.map(member=><label key={member.id} className="flex gap-2 text-sm"><input type="checkbox" checked={selectedIds.includes(member.id)} onChange={e=>setSelectedIds(ids=>e.target.checked?[...ids,member.id]:ids.filter(id=>id!==member.id))} />{member.first_name} {member.last_name}</label>)}</div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">

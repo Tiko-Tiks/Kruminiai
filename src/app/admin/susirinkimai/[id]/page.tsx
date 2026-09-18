@@ -60,7 +60,7 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
   // Kas gali būti registruojamas – PRIKLAUSO NUO POSĖDŽIO TIPO:
   // Tarybos posėdyje tik dabartiniai Tarybos nariai, kituose – visi balso
   // teisę turintys nariai (įsk. garbės narius, migr. 042).
-  const eligibleAttendees = await getEligibleAttendees(meeting.meeting_type);
+  const eligibleAttendees = await getEligibleAttendees(meeting.meeting_type, meeting.id);
   const quorumSuggestion = await getQuorumSuggestion(meeting.meeting_type);
   const allDocuments = await getDocuments();
   const tokenStats = await getVotingTokensStats(params.id);

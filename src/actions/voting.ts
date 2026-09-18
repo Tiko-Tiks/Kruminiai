@@ -7,12 +7,14 @@ import { revalidatePath } from "next/cache";
 import { revalidateMeetingPaths } from "@/lib/revalidate";
 import { z } from "zod";
 import { validateDecision } from "@/lib/decision-validation";
+import { DECISION_TYPES, QUALIFIED_DECISION_TYPES } from "@/lib/bylaws";
+import type { DecisionType } from "@/lib/types";
 import { getNutartaText, summarizeAnnouncements } from "@/lib/protocol-text";
 
 const resolutionSchema = z.object({
   title: z.string().min(1, "Pavadinimas privalomas"),
   description: z.string().optional().or(z.literal("")),
-  decision_type: z.enum(["ordinary", "statutes", "transformation", "liquidation"]),
+  decision_type: z.enum(DECISION_TYPES),
 });
 
 // Leistinos reikšmės (atitinka DB CHECK constraints) – app-lygio validacija
@@ -188,7 +190,7 @@ export async function createResolution(meetingId: string, formData: FormData) {
     description: parsed.data.description || null,
     resolution_number: nextNumber,
     decision_type: parsed.data.decision_type,
-    requires_qualified_majority: parsed.data.decision_type !== "ordinary",
+    requires_qualified_majority: (QUALIFIED_DECISION_TYPES as readonly string[]).includes(parsed.data.decision_type),
     created_by: user?.id ?? null,
   };
 
@@ -258,14 +260,14 @@ export async function createResolution(meetingId: string, formData: FormData) {
 export async function updateResolution(
   id: string,
   meetingId: string,
-  data: { decision_type?: "ordinary" | "statutes" | "transformation" | "liquidation"; discussion_text?: string; decision_text?: string; title?: string; description?: string }
+  data: { decision_type?: DecisionType; discussion_text?: string; decision_text?: string; title?: string; description?: string }
 ) {
   const supabase = createServerSupabaseClient();
   const auth = await requireAdmin(supabase);
   if (auth.error) return { error: auth.error };
   const user = auth.user;
 
-  const parsed = z.object({ decision_type: z.enum(["ordinary", "statutes", "transformation", "liquidation"]).optional(), discussion_text: z.string().optional(), decision_text: z.string().optional(), title: z.string().min(1).optional(), description: z.string().optional() }).strict().safeParse(data);
+  const parsed = z.object({ decision_type: z.enum(DECISION_TYPES).optional(), discussion_text: z.string().optional(), decision_text: z.string().optional(), title: z.string().min(1).optional(), description: z.string().optional() }).strict().safeParse(data);
   if (!parsed.success) return { error: "Neleistini nutarimo laukai" };
   const { data: meeting, error: meetingError } = await supabase.from("meetings").select("status").eq("id", meetingId).single();
   if (meetingError || !meeting) return { error: "Nepavyko patikrinti susirinkimo" };
@@ -575,6 +577,14 @@ export async function getResolutionDocuments(resolutionId: string) {
   return data;
 }
 
+async function attachmentEditError(supabase: ReturnType<typeof createServerSupabaseClient>, resolutionId: string, meetingId: string) {
+  const {data:r,error:re}=await supabase.from("resolutions").select("status").eq("id",resolutionId).eq("meeting_id",meetingId).single();
+  const {data:m,error:me}=await supabase.from("meetings").select("status").eq("id",meetingId).single();
+  if(re || me || !r || !m) return "Nepavyko patikrinti nutarimo priedų";
+  if(['patvirtintas','atmestas'].includes(r.status) || ['baigtas','atšauktas'].includes(m.status)) return "Galutinio nutarimo arba uždarytos darbotvarkės priedų keisti negalima";
+  return null;
+}
+
 export async function attachDocumentToResolution(
   resolutionId: string,
   documentId: string,
@@ -584,6 +594,8 @@ export async function attachDocumentToResolution(
   const auth = await requireAdmin(supabase);
   if (auth.error) return { error: auth.error };
   const user = auth.user;
+  const locked = await attachmentEditError(supabase,resolutionId,meetingId);
+  if(locked) return {error:locked};
 
   // Nustatyti sort_order kaip max+1
   const { data: existing } = await supabase
@@ -623,6 +635,8 @@ export async function uploadAndAttachDocument(
   const auth = await requireAdmin(supabase);
   if (auth.error) return { error: auth.error };
   const user = auth.user;
+  const locked = await attachmentEditError(supabase,resolutionId,meetingId);
+  if(locked) return {error:locked};
 
   const file = formData.get("file") as File | null;
   const title = ((formData.get("title") as string) || "").trim();
@@ -692,6 +706,8 @@ export async function detachDocumentFromResolution(
   const auth = await requireAdmin(supabase);
   if (auth.error) return { error: auth.error };
   const user = auth.user;
+  const locked = await attachmentEditError(supabase,resolutionId,meetingId);
+  if(locked) return {error:locked};
 
   const { error } = await supabase
     .from("resolution_documents")

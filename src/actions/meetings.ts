@@ -271,6 +271,9 @@ export async function updateMeetingStatus(id: string, status: string) {
   if (auth.error) return { error: auth.error };
   const user = auth.user;
 
+  const {data:old,error:readError}=await supabase.from("meetings").select("status").eq("id",id).single();
+  if(readError || !old) return {error:"Susirinkimas nerastas"};
+  if(['baigtas','atšauktas'].includes(old.status) && status!==old.status) return {error:"Uždaryto susirinkimo atidaryti negalima. Taisymui reikia atskiro dokumentuoto proceso."};
   const updateData: Record<string, unknown> = { status };
 
   // Kai baigiamas – fiksuoti pabaigos laiką
@@ -443,7 +446,19 @@ async function countEligibleAttendees(meetingType: string): Promise<number> {
 }
 
 /** Registracijos sąrašas posėdžio admin ekranui. */
-export async function getEligibleAttendees(meetingType: string): Promise<EligibleAttendee[]> {
+export async function getEligibleAttendees(meetingType: string, meetingId?: string): Promise<EligibleAttendee[]> {
+  if(meetingId) {
+    const db=createServerSupabaseClient();
+    const {data:m,error:me}=await db.from("meetings").select("electorate_snapshot").eq("id",meetingId).single();
+    if(me) throw me;
+    if(m?.electorate_snapshot) {
+      const ids=m.electorate_snapshot.member_ids || [];
+      if(!ids.length) return [];
+      const {data,error}=await db.from("members").select("id,first_name,last_name,status").in("id",ids).order("last_name");
+      if(error) throw error;
+      return (data || []).map(member=>({...member,role:null}));
+    }
+  }
   return fetchEligibleAttendees(meetingType);
 }
 
@@ -568,7 +583,7 @@ export async function removeAttendance(meetingId: string, memberId: string) {
  */
 export async function updateMeetingQuorum(
   meetingId: string,
-  values: { total_members_at_time: number; quorum_required: number; electorate_reference?: string }
+  values: { total_members_at_time: number; quorum_required: number; electorate_reference?: string; electorate_member_ids?: string[] }
 ) {
   const supabase = createServerSupabaseClient();
   const auth = await requireAdmin(supabase);
@@ -579,6 +594,7 @@ export async function updateMeetingQuorum(
       total_members_at_time: z.number().int().min(0).max(100000),
       quorum_required: z.number().int().min(0).max(100000),
       electorate_reference: z.string().trim().max(1000).optional(),
+      electorate_member_ids: z.array(z.string().uuid()).optional(),
     })
     .safeParse(values);
   if (!parsed.success) return { error: "Neteisingi kvorumo skaičiai" };
@@ -596,12 +612,12 @@ export async function updateMeetingQuorum(
   if (parsed.data.total_members_at_time <= 0 || parsed.data.quorum_required !== suggestedQuorum(oldData.meeting_type, parsed.data.total_members_at_time)) {
     return { error: "Kvorumas turi atitikti įstatų formulę: daugiau kaip pusė narių; pakartotinio susirinkimo išimtis tikrinama atskirai." };
   }
-  const {electorate_reference, ...counts} = parsed.data;
+  const {electorate_reference, electorate_member_ids, ...counts} = parsed.data;
   if (electorate_reference && isoToVilniusLocal(oldData.meeting_date).slice(0,10) >= isoToVilniusLocal(new Date()).slice(0,10)) {
     return {error:"Dokumentinis narių skaičius leidžiamas tik istoriniam susirinkimui. Susirinkimo dieną užfiksuokite registrą."};
   }
   const { error } = await supabase.from("meetings").update({...counts,
-    ...(electorate_reference ? {electorate_snapshot:{total:counts.total_members_at_time,reference:electorate_reference}} : {})
+    ...(electorate_reference ? {electorate_snapshot:{total:counts.total_members_at_time,reference:electorate_reference,member_ids:electorate_member_ids || []}} : {})
   }).eq("id", meetingId);
   if (error) return { error: error.message };
 

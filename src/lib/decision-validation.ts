@@ -1,6 +1,6 @@
 import type { createServerSupabaseClient } from "@/lib/supabase-server";
 import { summarizeAnnouncements } from "@/lib/protocol-text";
-import { decisionError } from "@/lib/bylaws";
+import { decisionError, DECISION_TYPES, QUALIFIED_DECISION_TYPES, GENERAL_DECISION_TYPES } from "@/lib/bylaws";
 
 type Client = ReturnType<typeof createServerSupabaseClient>;
 
@@ -22,16 +22,12 @@ export async function validateDecision(db: Client, resolutionId: string, meeting
   }
   if (!m.electorate_snapshot?.total) return "Pirmiausia užfiksuokite susirinkimo laiko narių bazę.";
   if (m.meeting_type === 'valdybos' && m.electorate_snapshot.total !== 6) return "Tarybos narių bazę sudaro šeši nariai (5.2 p.).";
-  if (!['ordinary','statutes','transformation','liquidation'].includes(r.decision_type)) return "Pasirinkite sprendimo rūšį.";
-  if (m.meeting_type === 'valdybos' && r.decision_type !== 'ordinary') return "Šis sprendimas priklauso Visuotinio susirinkimo kompetencijai (4.8, 7.1 p.).";
-  const { data: members, error: memberError } = await db.from('members').select('id').in('status', ['aktyvus','pasyvus','garbes_narys']);
-  if (memberError || !members) return "Nepavyko patikrinti esamos narių bazės.";
-  let eligibleIds = new Set(members.map(member => member.id));
+  if (!(DECISION_TYPES as readonly string[]).includes(r.decision_type)) return "Pasirinkite sprendimo rūšį.";
+  if (m.meeting_type === 'valdybos' && GENERAL_DECISION_TYPES.includes(r.decision_type)) return "Šis sprendimas priklauso Visuotinio susirinkimo kompetencijai (4.8, 7.1 p.).";
+  const eligibleIds = new Set<string>(m.electorate_snapshot.member_ids || []);
+  if (eligibleIds.size !== m.electorate_snapshot.total || attendees.some(a => !eligibleIds.has(a.member_id))) return "Dalyvis nepriklauso užfiksuotam susirinkimo narių sąrašui.";
   if (m.meeting_type === 'valdybos') {
-    const { data: roles, error } = await db.from('community_management').select('member_id, role').eq('is_current', true);
-    if (error || !roles) return "Nepavyko patikrinti Tarybos sudėties.";
-    eligibleIds = new Set(Array.from(eligibleIds).filter(id => roles.some(role => role.member_id === id && ['pirmininkas','tarybos_narys'].includes(role.role)) && !roles.some(role => role.member_id === id && role.role === 'revizorius')));
-    if (totals.result_for === totals.result_against && r.decision_type === 'ordinary') {
+    if (totals.result_for === totals.result_against && !(QUALIFIED_DECISION_TYPES as readonly string[]).includes(r.decision_type)) {
       const { data: ballot, error: ballotError } = await db.from('vote_ballots').select('vote').eq('resolution_id', r.id).eq('member_id', m.chairperson_member_id).maybeSingle();
       if (ballotError || !ballot || ballot.vote !== chairVote || !eligibleIds.has(m.chairperson_member_id) || !attendees.some(a => a.member_id === m.chairperson_member_id)) return "Reikia dalyvaujančio posėdžio pirmininko vardinio balso.";
     }
@@ -52,11 +48,11 @@ export async function validateDecision(db: Client, resolutionId: string, meeting
       previous.total_members_at_time > 0 && new Set(priorAttendance.map(a => a.member_id)).size <= previous.total_members_at_time / 2 &&
       new Date(previous.meeting_date) < new Date(m.meeting_date) &&
       source.title === r.title && (source.description || '') === (r.description || '') &&
-      (!source.decision_type || source.decision_type === r.decision_type) && (!source.requires_qualified_majority || r.decision_type !== 'ordinary');
+      (!source.decision_type || source.decision_type === r.decision_type) && (!source.requires_qualified_majority || (QUALIFIED_DECISION_TYPES as readonly string[]).includes(r.decision_type));
   }
   return decisionError({
     participants: new Set(attendees.map(a => a.member_id)).size, totalMembers: m.electorate_snapshot.total,
-    repeat: m.meeting_type === 'pakartotinis', repeatValidated, qualified: r.decision_type !== 'ordinary',
+    repeat: m.meeting_type === 'pakartotinis', repeatValidated, qualified: (QUALIFIED_DECISION_TYPES as readonly string[]).includes(r.decision_type),
     council: m.meeting_type === 'valdybos', majorityRule: m.majority_rule, majorityReference: m.majority_reference,
     for: totals.result_for, against: totals.result_against, abstain: totals.result_abstain, status, chairVote,
   });

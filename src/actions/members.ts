@@ -172,6 +172,11 @@ export async function updateMember(id: string, formData: FormData) {
     return {error:{_form:["Narystės pabaigos pagrindas užfiksuotas; būtinas atskiras dokumentuotas taisymas."]}};
   }
   const reactivating = !ACTIVE_MEMBER_STATUSES.includes(oldData.status) && ACTIVE_MEMBER_STATUSES.includes(parsed.data.status);
+  if (reactivating && (!oldData.termination_date || !parsed.data.admission_date || parsed.data.admission_date < oldData.termination_date ||
+      parsed.data.admission_reference?.trim() === oldData.admission_reference?.trim() ||
+      parsed.data.application_reference?.trim() === oldData.application_reference?.trim())) {
+    return {error:{_form:["Pakartotiniam priėmimui būtinas naujas prašymas ir naujas Tarybos sprendimas po ankstesnės narystės pabaigos."]}};
+  }
   const hadEvidence = oldData.application_reference?.trim() && oldData.admission_reference?.trim() && oldData.admission_date;
   if (hadEvidence && (!parsed.data.application_reference?.trim() || !parsed.data.admission_reference?.trim() || !parsed.data.admission_date)) {
     return { error: { _form: ["Užregistruoto priėmimo pagrindo ištrinti negalima."] } };

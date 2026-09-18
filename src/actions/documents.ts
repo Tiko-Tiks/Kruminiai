@@ -122,9 +122,9 @@ export async function deleteDocument(id: string) {
   const { data: doc } = await supabase.from("documents").select("*").eq("id", id).single();
   if (!doc) return { error: "Dokumentas nerastas" };
 
-  await supabase.storage.from("documents").remove([doc.file_path]);
   const { error } = await supabase.from("documents").delete().eq("id", id);
   if (error) return { error: error.message };
+  await supabase.storage.from("documents").remove([doc.file_path]);
 
   await logAudit(supabase, {
     userId: user?.id ?? null,

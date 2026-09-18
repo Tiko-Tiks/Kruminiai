@@ -72,3 +72,7 @@ export function terminationEvidenceError(member: {
   }
   return null;
 }
+
+export const DECISION_TYPES = ["ordinary", "statutes", "transformation", "liquidation", "council_election", "council_removal", "auditor_election", "reports", "fees", "seat"] as const;
+export const QUALIFIED_DECISION_TYPES = ["statutes","transformation","liquidation"] as const;
+export const GENERAL_DECISION_TYPES: readonly string[] = DECISION_TYPES.filter(type => type !== "ordinary");
