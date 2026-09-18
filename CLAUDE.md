@@ -23,15 +23,21 @@ tyliai neperrašoma. Jei taisyklei reikia žingsnis po žingsnio procedūros, ji
 3. **Kiekviena Codex pastaba taisoma**, ne ginčijama: pataisyti → lokalios patikros →
    push → vėl `@codex review` → tol, kol pastabų nelieka. Visos pastabos, įskaitant
    P3 / „nit", yra pastabos. Jei pastaba faktiškai klaidinga – atsakymas rašomas jos
-   gijoje su įrodymu (failas, eilutė, testas) ir paliekama Mindaugui nuspręsti; tokia
-   pastaba skaičiuojasi kaip **neišspręsta**, ne kaip „be pastabų".
+   gijoje su įrodymu (failas, eilutė, testas) ir tai yra **stabdis** (4 p.) – sprendžia
+   Mindaugas; tokia pastaba skaičiuojasi kaip **neišspręsta**, ne kaip „be pastabų".
 4. **Ratų stabdis – sustoti ir perduoti sprendimą Mindaugui**, kai bent viena:
-   - praėjo **3 pilni ratai** (recenzija → taisymas → recenzija), o pastabų vis dar yra;
+   - praėjo **3 pilni ratai**, o pastabų vis dar yra. **Ratas** = Codex recenzija su
+     pastabomis → pataisymas → nauja Codex recenzija; ratas baigtas tik atėjus tai
+     naujai recenzijai, todėl stabdis suveikia, kai ir **ketvirtoji** recenzija turi
+     pastabų. Pirma recenzija be pastabų = 0 ratų;
    - ta pati arba ankstesnei priešinga pastaba grįžta **antrą kartą** po pataisymo
      (vaikštoma ratais);
    - pastaba reikalauja sprendimo už PR apimties (architektūra, DB schema, verslo
      taisyklė, saugumo modelis);
-   - Codex neatsako per ~30 min. po **dviejų** `@codex review` kvietimų.
+   - AI asistentas pastabą laiko **faktiškai klaidinga** (3 p.) – gija lieka
+     neišspręsta, todėl 2 p. vartai nepraeinami be Mindaugo sprendimo;
+   - Codex nereaguoja: **15 min.** tyla po pirmo `@codex review` → antras kvietimas;
+     dar **15 min.** tyla po antro → stabdis (iš viso ~30 min.).
    Sustojus: PR lieka nemergintas; viename PR komentare – likusių pastabų sąrašas, kas
    išbandyta ir koks sprendimas reikalingas; tas pats trumpai – žinute Mindaugui.
    Tęsti tik jam nusprendus.
