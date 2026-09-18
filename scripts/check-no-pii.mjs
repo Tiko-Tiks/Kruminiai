@@ -19,7 +19,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 
 // Kiek skirtingų kontaktų viename faile dar laikoma pavyzdžiais, ne sąrašu.
 const MAX_CONTACTS = 5;
@@ -78,8 +78,9 @@ function main() {
 
     let content;
     try {
-      // Į git indeksą įrašytas, bet darbiniame medyje ištrintas failas – praleidžiam
-      if (!statSync(file).isFile()) continue;
+      // Į git indeksą įrašytas, bet darbiniame medyje ištrintas ar katalogu
+      // tapęs kelias meta klaidą čia pat – atskira išankstinė patikra būtų
+      // lenktynių sąlyga (failas gali pasikeisti tarp patikros ir skaitymo).
       content = readFileSync(file, "utf8");
     } catch {
       continue;
