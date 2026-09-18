@@ -44,10 +44,9 @@ export interface Dictionary {
     heroSubtitle: string;
     heroNewsButton: string;
     heroContactButton: string;
-    noticeboardHeading: string;
-    noticeboardNewsLabel: string;
-    noticeboardProjectProgress: string;
-    noticeboardEmpty: string;
+    statMembersLabel: string;
+    statVolunteersLabel: string;
+    statYearsLabel: string;
     lieptasBadge: string;
     lieptasCategoryLabel: string;
     lieptasDescription: string;
@@ -57,6 +56,12 @@ export interface Dictionary {
     lieptasCta: string;
     readMoreCta: string;
     pinnedBadge: string;
+    quickLinkNewsTitle: string;
+    quickLinkNewsDesc: string;
+    quickLinkProjectsTitle: string;
+    quickLinkProjectsDesc: string;
+    quickLinkAboutTitle: string;
+    quickLinkAboutDesc: string;
     latestNewsHeading: string;
     allNewsLink: string;
     aboutHeading: string;
@@ -578,16 +583,14 @@ const lt: Dictionary = {
   home: {
     upcomingMeetingBadge: "Artėjantis susirinkimas",
     upcomingMeetingCta: "Darbotvarkė ir dokumentai",
-    heroTitle: "Viena bendruomenė nuo 2012 metų",
-    heroEyebrow: "Krūminiai · Valkininkai · Užuperkasis · Bucivonys · Urkionys · Jakėnai · Paversekis",
-    heroSubtitle:
-      "Patys prižiūrime paplūdimį, žaidimų aikštelę ir bendrą teritoriją, kasmet švenčiame Mindaugines ir puošiame Eglutę. Šiandien mus vienija 70+ narių ir 25 savanoriai.",
+    heroTitle: "Krūminių kaimo bendruomenė",
+    heroEyebrow: "Nuo 2012 m.",
+    heroSubtitle: "Kartu kuriame geresnę ateitį mūsų kaimui ir žmonėms.",
     heroNewsButton: "Naujienos",
     heroContactButton: "Susisiekite",
-    noticeboardHeading: "Dabar bendruomenėje",
-    noticeboardNewsLabel: "Naujiena",
-    noticeboardProjectProgress: "{percent} % surinkta iki tikslo",
-    noticeboardEmpty: "Naujų pranešimų kol kas nėra – sekite naujienas",
+    statMembersLabel: "narių",
+    statVolunteersLabel: "savanorių",
+    statYearsLabel: "veiklos metų",
     lieptasBadge: "Bendruomenės projektas",
     lieptasCategoryLabel: "Aukų rinkimas",
     lieptasDescription:
@@ -598,6 +601,12 @@ const lt: Dictionary = {
     lieptasCta: "Padėti",
     readMoreCta: "Plačiau",
     pinnedBadge: "Svarbu",
+    quickLinkNewsTitle: "Naujienos",
+    quickLinkNewsDesc: "Pranešimai apie susirinkimus, renginius ir svarbius sprendimus",
+    quickLinkProjectsTitle: "Projektai",
+    quickLinkProjectsDesc: "Aukų rinkimo projektai su skaidria lėšų istorija",
+    quickLinkAboutTitle: "Apie mus",
+    quickLinkAboutDesc: "Vizija, misija ir bendruomenės veiklos modelis",
     latestNewsHeading: "Naujausios naujienos",
     allNewsLink: "Visos naujienos",
     aboutHeading: "Apie bendruomenę",
@@ -1201,16 +1210,14 @@ const en: Dictionary = {
   home: {
     upcomingMeetingBadge: "Upcoming meeting",
     upcomingMeetingCta: "Agenda and documents",
-    heroTitle: "One community since 2012",
-    heroEyebrow: "Krūminiai · Valkininkai · Užuperkasis · Bucivonys · Urkionys · Jakėnai · Paversekis",
-    heroSubtitle:
-      "We maintain the beach, playground and shared grounds ourselves, and hold two traditions every year – Mindauginės and decorating the Christmas tree. Today we're 70+ members and 25 volunteers strong.",
+    heroTitle: "Krūminiai Village Community",
+    heroEyebrow: "Since 2012",
+    heroSubtitle: "Together we build a better future for our village and its people.",
     heroNewsButton: "News",
     heroContactButton: "Get in touch",
-    noticeboardHeading: "Right now",
-    noticeboardNewsLabel: "News",
-    noticeboardProjectProgress: "{percent}% raised toward the goal",
-    noticeboardEmpty: "No new notices yet – follow our news",
+    statMembersLabel: "members",
+    statVolunteersLabel: "volunteers",
+    statYearsLabel: "years of activity",
     lieptasBadge: "Community project",
     lieptasCategoryLabel: "Fundraising",
     lieptasDescription:
@@ -1221,6 +1228,12 @@ const en: Dictionary = {
     lieptasCta: "Help out",
     readMoreCta: "Read more",
     pinnedBadge: "Important",
+    quickLinkNewsTitle: "News",
+    quickLinkNewsDesc: "Announcements about meetings, events and important decisions",
+    quickLinkProjectsTitle: "Projects",
+    quickLinkProjectsDesc: "Fundraising projects with a transparent record of funds",
+    quickLinkAboutTitle: "About us",
+    quickLinkAboutDesc: "Our vision, mission and the way the community operates",
     latestNewsHeading: "Latest news",
     allNewsLink: "All news",
     aboutHeading: "About the community",
