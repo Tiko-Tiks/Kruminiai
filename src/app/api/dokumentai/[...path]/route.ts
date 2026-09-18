@@ -206,16 +206,21 @@ export async function GET(
   let relativePath = "";
 
   if (isStorageRequest) {
-    const storageSegments = segments.slice(1);
     // Storage failų vardai istoriškai turi tarpų, skliaustų ir lietuviškų
-    // raidžių (įkeliami ir nesanitarizuoti), todėl simbolių aibės neribojam –
+    // raidžių (dalis įkelta be sanitarizavimo), todėl simbolių aibės neribojam –
     // užtenka atmesti kelio manipuliacijas. Tikroji prieigos kontrolė yra
     // `documents` įrašas: be jo failas neatiduodamas.
+    //
+    // Skaidom PO sujungimo: Next.js `%2F` iškoduoja segmento viduje, todėl
+    // „..%2F.." atkeliauja kaip vienas segmentas su brūkšniais.
+    const candidate = segments.slice(1).join("/");
+    const parts = candidate.split("/");
     const invalid =
-      storageSegments.length === 0 ||
-      storageSegments.some((s) => s === "" || s === "." || s === ".." || s.includes("\\"));
+      candidate === "" ||
+      candidate.includes("\\") ||
+      parts.some((s) => s === "" || s === "." || s === "..");
     if (invalid) return errorPage("missing", 404, locale);
-    filePath = storageSegments.join("/");
+    filePath = candidate;
   } else {
     if (!segments.every((s) => SAFE_SEGMENT.test(s))) {
       return errorPage("missing", 404, locale);
