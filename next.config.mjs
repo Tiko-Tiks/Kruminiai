@@ -54,6 +54,9 @@ const contentSecurityPolicy = [
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
+  // Report-only režime naršyklė šios direktyvos nevykdo (taip numato CSP
+  // specifikacija) – palikta tam, kad perjungiant į įgalinamą antraštę
+  // nereikėtų jos prisiminti.
   "upgrade-insecure-requests",
 ].join("; ");
 

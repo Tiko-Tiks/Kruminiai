@@ -185,9 +185,17 @@ function contentDisposition(downloadName: string, asciiFallback: string): string
   return `inline; filename="${asciiFileName(asciiFallback)}"; filename*=UTF-8''${encodeURIComponent(downloadName)}`;
 }
 
+/**
+ * Viešo dokumento atsakymą leidžiam talpyklauti, bet trumpai: matomumą admin'as
+ * gali išjungti bet kada (`toggleDocumentVisibility`), o ilga CDN talpykla
+ * dokumentą dar valandą dalintų jau po paslėpimo. Neviešas dokumentas
+ * netalpyklaujamas išvis – jis priklauso nuo sesijos.
+ */
+const PUBLIC_DOC_MAX_AGE_SECONDS = 300;
+
 function cacheControl(isPublicDoc: boolean): string {
   return isPublicDoc
-    ? "public, max-age=3600, stale-while-revalidate=86400"
+    ? `public, max-age=${PUBLIC_DOC_MAX_AGE_SECONDS}`
     : "private, no-store";
 }
 
