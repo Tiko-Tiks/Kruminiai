@@ -7,8 +7,12 @@ import { SupabaseClient } from "@supabase/supabase-js";
  * neužverstų žurnalo.
  */
 function logSafe(value: unknown): string {
+  // Eilučių lūžiai šalinami atskirais kvietimais – būtent tokį pavidalą
+  // statinė analizė (CodeQL log-injection) atpažįsta kaip valymą.
   return String(value ?? "")
-    .replace(/[\r\n\t\u0000-\u001f\u007f]+/g, " ")
+    .replace(/\n/g, "")
+    .replace(/\r/g, "")
+    .replace(/[\t\u0000-\u001f\u007f]+/g, " ")
     .slice(0, 200);
 }
 
