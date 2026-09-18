@@ -130,6 +130,10 @@ export interface Meeting {
   convening_snapshot?: {total:number;requester_ids:string[];demand_date:string} | null;
   convening_date?: string | null;
   convening_total_members?: number | null;
+  notice_channels?: string[] | null;
+  notice_reference?: string | null;
+  notice_day_rule?: "vilnius_calendar" | "elapsed_hours" | null;
+  notice_day_reference?: string | null;
   repeat_notice_days?: number | null;
   repeat_notice_reference?: string | null;
   convening_kind?: "council" | "members" | null;

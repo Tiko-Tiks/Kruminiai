@@ -23,6 +23,7 @@ export async function validateDecision(db: Client, resolutionId: string, meeting
   if (!m.electorate_snapshot?.total) return "Pirmiausia užfiksuokite susirinkimo laiko narių bazę.";
   if (m.meeting_type === 'valdybos' && m.electorate_snapshot.total !== 6) return "Tarybos narių bazę sudaro šeši nariai (5.2 p.).";
   if (!['ordinary','statutes','transformation','liquidation'].includes(r.decision_type)) return "Pasirinkite sprendimo rūšį.";
+  if (m.meeting_type === 'valdybos' && r.decision_type !== 'ordinary') return "Šis sprendimas priklauso Visuotinio susirinkimo kompetencijai (4.8, 7.1 p.).";
   const { data: members, error: memberError } = await db.from('members').select('id').in('status', ['aktyvus','pasyvus','garbes_narys']);
   if (memberError || !members) return "Nepavyko patikrinti esamos narių bazės.";
   let eligibleIds = new Set(members.map(member => member.id));

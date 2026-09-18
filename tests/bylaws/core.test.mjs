@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadSource, actionHarness } from './helpers.mjs';
+import { loadSource, actionHarness, noticePolicy } from './helpers.mjs';
 
 const { suggestedQuorum, hasQuorum } = loadSource('src/lib/quorum.ts');
 const { summarizeAnnouncements } = loadSource('src/lib/protocol-text.ts');
@@ -22,11 +22,11 @@ const meetingDate = new Date('2026-01-20T16:00:00Z');
 for (const [days, expected] of [[14, true], [13, false]]) {
   test(`KKB-14: eilinio susirinkimo ${days} dienų informavimo riba`, () => {
     const published_at = new Date(meetingDate.getTime() - days * 86400000).toISOString();
-    assert.equal(summarizeAnnouncements([{ channel: 'web', url: null, published_at }], meetingDate).compliant, expected);
+    assert.equal(summarizeAnnouncements([{ channel: 'web', url: null, published_at }], meetingDate,'visuotinis',noticePolicy).compliant, expected);
   });
 }
 test('KKB-14: be pranešimų nėra patvirtintos informavimo atitikties', () => {
-  assert.equal(summarizeAnnouncements([], meetingDate).compliant, false);
+  assert.equal(summarizeAnnouncements([], meetingDate,'visuotinis',noticePolicy).compliant, false);
 });
 
 const window = { status: 'planuojamas', meeting_date: '2026-01-20T16:00:00Z',

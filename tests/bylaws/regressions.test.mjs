@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadSource, actionHarness, votingFixture, form } from './helpers.mjs';
+import { loadSource, actionHarness, votingFixture, form, noticePolicy } from './helpers.mjs';
 const { decisionError, overdueMoreThanTwelveMonths } = loadSource('src/lib/bylaws.ts');
 const { summarizeAnnouncements } = loadSource('src/lib/protocol-text.ts');
 const decision = { participants: 10, totalMembers: 10, repeat: false, repeatValidated: false,
@@ -33,7 +33,7 @@ for (const [type, days, expected] of [['neeilinis',7,true],['neeilinis',6,false]
   test(`Pranešimo terminas: ${type}, ${days} dienos`, () => {
     const meeting = new Date('2026-03-20T10:00:00Z');
     const published_at = new Date(meeting.getTime() - days * 86400000).toISOString();
-    assert.equal(summarizeAnnouncements([{ channel:'email', url:null, published_at }],meeting,type).compliant,expected);
+    assert.equal(summarizeAnnouncements([{ channel:'email', url:null, published_at }],meeting,type,{...noticePolicy,notice_channels:['email']}).compliant,expected);
   });
 }
 test('ankstyva SMS neuždengia per vėlyvo įstatuose numatyto kanalo', () => {

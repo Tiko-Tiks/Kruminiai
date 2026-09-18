@@ -166,6 +166,11 @@ export async function updateMember(id: string, formData: FormData) {
     const endError = terminationEvidenceError(parsed.data);
     if (endError) return { error: { _form: [endError] } };
   }
+  const terminationFields = ['termination_kind','termination_reference','termination_date','expulsion_ground','appeal_reference'] as const;
+  if (oldData.termination_kind && !(ACTIVE_MEMBER_STATUSES.includes(oldData.status) && parsed.data.status === 'išstojęs') &&
+      terminationFields.some(key => (oldData[key] || null) !== (parsed.data[key] || null))) {
+    return {error:{_form:["Narystės pabaigos pagrindas užfiksuotas; būtinas atskiras dokumentuotas taisymas."]}};
+  }
   const reactivating = !ACTIVE_MEMBER_STATUSES.includes(oldData.status) && ACTIVE_MEMBER_STATUSES.includes(parsed.data.status);
   const hadEvidence = oldData.application_reference?.trim() && oldData.admission_reference?.trim() && oldData.admission_date;
   if (hadEvidence && (!parsed.data.application_reference?.trim() || !parsed.data.admission_reference?.trim() || !parsed.data.admission_date)) {

@@ -1,3 +1,5 @@
+import { isoToVilniusLocal } from "@/lib/utils";
+
 /**
  * Protokolo tekstų generavimas (LR raštvedybos standartas).
  *
@@ -58,25 +60,40 @@ export interface AnnouncementSummary {
   paragraph: string;
 }
 
+export interface NoticePolicy {
+  repeat_notice_days?: number | null;
+  repeat_notice_reference?: string | null;
+  notice_channels?: string[] | null;
+  notice_reference?: string | null;
+  notice_day_rule?: string | null;
+  notice_day_reference?: string | null;
+}
+
 /** Skelbimų suvestinė – kanalai, datos ir įstatų 4.3 p. (14 d.) atitikimas. */
 export function summarizeAnnouncements(
   announcements: ProtocolAnnouncement[] | null | undefined,
   meetingDate: Date,
   meetingType = "visuotinis",
-  repeatPolicy?: { repeat_notice_days?: number | null; repeat_notice_reference?: string | null }
+  repeatPolicy?: NoticePolicy
 ): AnnouncementSummary {
   const list = announcements || [];
   const repeatDays = repeatPolicy?.repeat_notice_days;
   const requiredDays = meetingType === "neeilinis" ? 7 : meetingType === "visuotinis" ? 14 :
     meetingType === "pakartotinis" && Number.isInteger(repeatDays) && repeatDays! >= 0 && repeatPolicy?.repeat_notice_reference?.trim() ? repeatDays! : null;
-  const earliestMs = list
-    .filter(a => ["web", "facebook", "email", "paper", "rc"].includes(a.channel))
-    .map((a) => new Date(a.published_at).getTime())
-    .sort((a, b) => a - b)[0];
-  const daysAdvance = Number.isFinite(earliestMs)
-    ? Math.floor((meetingDate.getTime() - earliestMs) / (1000 * 60 * 60 * 24))
-    : null;
-  const compliant = requiredDays !== null && daysAdvance !== null && daysAdvance >= requiredDays;
+  const channels = Array.from(new Set(repeatPolicy?.notice_channels || []));
+  const policyValid = channels.length > 0 && channels.every(c => ["web","facebook","email","paper","rc"].includes(c)) &&
+    !!repeatPolicy?.notice_reference?.trim() && !!repeatPolicy?.notice_day_reference?.trim() &&
+    ["vilnius_calendar","elapsed_hours"].includes(repeatPolicy?.notice_day_rule || "");
+  const timeValue = (date: Date) => repeatPolicy?.notice_day_rule === "vilnius_calendar"
+    ? Date.parse(`${isoToVilniusLocal(date)}:00Z`) + date.getUTCSeconds()*1000 + date.getUTCMilliseconds()
+    : date.getTime();
+  // For each required channel take its earliest evidence, then the latest of those.
+  const earliestByChannel = channels.map(channel => Math.min(...list.filter(a => a.channel === channel)
+    .map(a => timeValue(new Date(a.published_at))).filter(Number.isFinite)));
+  const limitingNotice = Math.max(...earliestByChannel);
+  const daysAdvance = policyValid && Number.isFinite(limitingNotice)
+    ? Math.floor((timeValue(meetingDate) - limitingNotice) / 86400000) : null;
+  const compliant = policyValid && requiredDays !== null && daysAdvance !== null && daysAdvance >= requiredDays;
 
   const channelsText = list
     .map((a) => {

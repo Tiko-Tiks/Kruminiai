@@ -22,14 +22,14 @@ import {
   AlertCircle,
   CheckCircle2,
 } from "lucide-react";
-import { summarizeAnnouncements } from "@/lib/protocol-text";
+import { summarizeAnnouncements, type NoticePolicy } from "@/lib/protocol-text";
 import { toast } from "sonner";
 
 interface Props {
   meetingId: string;
   meetingDate: string;
   meetingType: string;
-  repeatPolicy?: {repeat_notice_days?:number|null;repeat_notice_reference?:string|null};
+  repeatPolicy?: NoticePolicy;
   announcements: MeetingAnnouncement[];
 }
 
@@ -138,14 +138,13 @@ export function AnnouncementsPanel({
             <div className="text-sm">
               {compliant ? (
                 <p className="text-green-900">
-                  <strong>Atitinka informavimo terminą</strong> – pirmasis skelbimas
-                  paskelbtas <strong>{daysAdvance} d.</strong> prieš susirinkimą
+                  <strong>Atitinka informavimo terminą</strong> – visi Tarybos pasirinkti kanalai turi skelbimus bent <strong>{daysAdvance} d.</strong> prieš susirinkimą
                   (min. {requiredDays} d. reikalavimas).
                 </p>
               ) : (
                 <p className="text-amber-900">
                   <strong>Termino atitiktis nepatvirtinta.</strong>{" "}
-                  {requiredDays === null ? "Šio posėdžio informavimo tvarka vertinama atskirai." : `Reikia bent vieno įstatų 8.1 p. kanalo ne vėliau kaip prieš ${requiredDays} d. SMS vienos nepakanka.`}
+                  {requiredDays === null ? "Šio posėdžio informavimo tvarka vertinama atskirai." : `Susirinkimo formoje nurodykite Tarybos pasirinktus kanalus ir dienų skaičiavimo pagrindą. Kiekvienam pasirinktam kanalui reikia pranešimo ne vėliau kaip prieš ${requiredDays} d.`}
                 </p>
               )}
             </div>

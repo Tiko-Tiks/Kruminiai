@@ -34,6 +34,10 @@ ALTER TABLE public.members
   ADD COLUMN expulsion_ground text CHECK (expulsion_ground IN ('3.4.1', '3.4.2', '3.4.3')),
   ADD COLUMN appeal_reference text;
 ALTER TABLE public.meetings
+  ADD COLUMN notice_channels text[] CHECK (notice_channels <@ ARRAY['web','facebook','email','paper','rc']::text[] AND array_position(notice_channels,NULL) IS NULL),
+  ADD COLUMN notice_reference text,
+  ADD COLUMN notice_day_rule text CHECK (notice_day_rule IN ('vilnius_calendar','elapsed_hours')),
+  ADD COLUMN notice_day_reference text,
   ADD COLUMN repeat_notice_days integer CHECK (repeat_notice_days >= 0),
   ADD COLUMN repeat_notice_reference text,
   ADD COLUMN convening_kind text CHECK (convening_kind IN ('council', 'members')),
@@ -54,6 +58,12 @@ BEGIN
   END IF;
   IF NEW.archived_at IS NOT NULL AND NEW.status IN ('aktyvus','pasyvus','garbes_narys') THEN
     RAISE EXCEPTION 'Pirmiausia dokumentuokite narystės pabaigą';
+  END IF;
+  IF TG_OP='UPDATE' AND OLD.termination_kind IS NOT NULL
+      AND NOT (OLD.status IN ('aktyvus','pasyvus','garbes_narys') AND NEW.status='išstojęs')
+      AND (NEW.termination_kind,NEW.termination_reference,NEW.termination_date,NEW.expulsion_ground,NEW.appeal_reference)
+        IS DISTINCT FROM (OLD.termination_kind,OLD.termination_reference,OLD.termination_date,OLD.expulsion_ground,OLD.appeal_reference) THEN
+    RAISE EXCEPTION 'Narystės pabaigos pagrindas užfiksuotas; būtinas atskiras dokumentuotas taisymas';
   END IF;
   IF TG_OP = 'UPDATE' AND OLD.status IN ('aktyvus', 'pasyvus', 'garbes_narys') AND NEW.status = 'išstojęs' THEN
     IF NEW.termination_kind IS NULL OR nullif(btrim(NEW.termination_reference), '') IS NULL OR NEW.termination_date IS NULL THEN
@@ -105,13 +115,16 @@ DECLARE expected integer; ids uuid[]; signers uuid[]; total integer; capture boo
 BEGIN
   PERFORM pg_advisory_xact_lock(hashtext('members_voting_eligibility'));
   IF TG_OP='UPDATE' AND OLD.electorate_snapshot IS NOT NULL AND
-    (NEW.electorate_snapshot, NEW.total_members_at_time, NEW.quorum_required) IS DISTINCT FROM
-    (OLD.electorate_snapshot, OLD.total_members_at_time, OLD.quorum_required) THEN
+    (NEW.electorate_snapshot, NEW.total_members_at_time, NEW.quorum_required, NEW.meeting_date) IS DISTINCT FROM
+    (OLD.electorate_snapshot, OLD.total_members_at_time, OLD.quorum_required, OLD.meeting_date) THEN
     RAISE EXCEPTION 'Susirinkimo laiko narių bazė užfiksuota; būtinas atskiras dokumentuotas taisymas';
   END IF;
   capture := NEW.electorate_snapshot IS NULL AND NEW.status='vyksta' AND (TG_OP='INSERT' OR OLD.status<>'vyksta');
   IF capture OR ((TG_OP='INSERT' OR OLD.electorate_snapshot IS NULL) AND NEW.electorate_snapshot IS NOT NULL) THEN
     IF capture OR NEW.electorate_snapshot = '{"capture":true}'::jsonb THEN
+      IF NEW.meeting_date > now() OR (NEW.meeting_date AT TIME ZONE 'Europe/Vilnius')::date <> (now() AT TIME ZONE 'Europe/Vilnius')::date THEN
+        RAISE EXCEPTION 'Dabartinę narių bazę fiksuokite susirinkimo dieną jam prasidėjus; istoriniam reikia dokumento';
+      END IF;
       IF NEW.status='baigtas' THEN RAISE EXCEPTION 'Istoriniam susirinkimui reikia dokumentuoto to laiko narių skaičiaus'; END IF;
       SELECT array_agg(DISTINCT mb.id) INTO ids FROM public.members mb
         WHERE mb.status IN ('aktyvus','pasyvus','garbes_narys') AND
@@ -120,6 +133,9 @@ BEGIN
       total := coalesce(cardinality(ids),0);
       NEW.electorate_snapshot := jsonb_build_object('total',total,'member_ids',ids,'basis','registry','recorded_at',now());
     ELSE
+      IF (NEW.meeting_date AT TIME ZONE 'Europe/Vilnius')::date >= (now() AT TIME ZONE 'Europe/Vilnius')::date THEN
+        RAISE EXCEPTION 'Dokumentinis narių skaičius leidžiamas tik istoriniam susirinkimui; šiandien naudokite registrą';
+      END IF;
       IF nullif(btrim(NEW.electorate_snapshot->>'reference'),'') IS NULL OR jsonb_typeof(NEW.electorate_snapshot->'total')<>'number' THEN
         RAISE EXCEPTION 'Istorinei narių bazei būtinas dokumento pagrindas ir narių skaičius';
       END IF;
@@ -283,6 +299,9 @@ BEGIN
     NEW.requires_qualified_majority := NEW.decision_type IN ('statutes', 'transformation', 'liquidation');
   END IF;
   IF NEW.status NOT IN ('patvirtintas', 'atmestas') THEN RETURN NEW; END IF;
+  IF m.meeting_type='valdybos' AND NEW.decision_type IN ('statutes','transformation','liquidation') THEN
+    RAISE EXCEPTION 'Šis sprendimas priklauso Visuotinio susirinkimo kompetencijai (4.8, 7.1 p.)';
+  END IF;
   IF NEW.decision_type IS NULL THEN RAISE EXCEPTION 'Pasirinkite sprendimo rūšį; daugumos reikalavimas nustatomas pagal ją'; END IF;
   PERFORM pg_advisory_xact_lock(hashtext('members_voting_eligibility'));
   SELECT * INTO m FROM public.meetings WHERE id = NEW.meeting_id FOR UPDATE;
@@ -374,6 +393,10 @@ BEGIN
   END IF;
   IF (NEW.status = 'patvirtintas') IS DISTINCT FROM passed THEN RAISE EXCEPTION 'Nutarimo statusas neatitinka balsų daugumos'; END IF;
   IF m.meeting_type <> 'valdybos' THEN
+    IF coalesce(cardinality(m.notice_channels),0)=0 OR nullif(btrim(m.notice_reference),'') IS NULL
+       OR m.notice_day_rule IS NULL OR nullif(btrim(m.notice_day_reference),'') IS NULL THEN
+      RAISE EXCEPTION 'Pranešimo patikrai būtini Tarybos pasirinkti kanalai, sprendimo pagrindas ir patvirtinta dienų skaičiavimo tvarka';
+    END IF;
     IF m.meeting_type='pakartotinis' THEN
       IF m.repeat_notice_days IS NULL OR nullif(btrim(m.repeat_notice_reference),'') IS NULL THEN
         RAISE EXCEPTION 'Pakartotiniam susirinkimui būtina patvirtinta informavimo termino tvarka ir jos pagrindas';
@@ -381,20 +404,26 @@ BEGIN
       threshold := m.repeat_notice_days;
     ELSE threshold := CASE WHEN m.meeting_type = 'neeilinis' THEN 7 ELSE 14 END;
     END IF;
-    SELECT jsonb_build_object('id', id, 'channel', channel, 'published_at', published_at, 'url', url)
-      INTO notice FROM public.meeting_announcements WHERE meeting_id = m.id
-        AND channel IN ('web', 'facebook', 'email', 'paper', 'rc')
-        AND published_at <= m.meeting_date - make_interval(days => threshold)
-      ORDER BY published_at LIMIT 1 FOR SHARE;
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'Nėra laiku paskelbto pranešimo įstatų 8.1 p. kanalu';
-    END IF;
+    -- Each required Council-selected channel must have its own timely evidence.
+    -- Calendar arithmetic happens in Vilnius local time, including DST changes.
+    IF EXISTS (SELECT 1 FROM unnest(m.notice_channels) selected(channel) WHERE NOT EXISTS (
+      SELECT 1 FROM public.meeting_announcements a WHERE a.meeting_id=m.id AND a.channel=selected.channel
+        AND CASE m.notice_day_rule WHEN 'vilnius_calendar'
+          THEN a.published_at AT TIME ZONE 'Europe/Vilnius' <= (m.meeting_date AT TIME ZONE 'Europe/Vilnius') - make_interval(days=>threshold)
+          ELSE a.published_at <= m.meeting_date - make_interval(hours=>threshold*24) END
+    )) THEN RAISE EXCEPTION 'Nėra laiku paskelbto pranešimo kiekvienu Tarybos pasirinktu kanalu'; END IF;
+    SELECT jsonb_agg(jsonb_build_object('id',id,'channel',channel,'published_at',published_at,'url',url))
+      INTO notice FROM public.meeting_announcements WHERE meeting_id=m.id AND channel=ANY(m.notice_channels)
+        AND CASE m.notice_day_rule WHEN 'vilnius_calendar'
+          THEN published_at AT TIME ZONE 'Europe/Vilnius' <= (m.meeting_date AT TIME ZONE 'Europe/Vilnius') - make_interval(days=>threshold)
+          ELSE published_at <= m.meeting_date - make_interval(hours=>threshold*24) END;
   END IF;
   NEW.participants_at_decision := participants;
   NEW.decision_basis := jsonb_build_object('bylaws', '2025-12-07', 'total_members', m.total_members_at_time,
     'participants', participants, 'meeting_type', m.meeting_type, 'majority_rule', m.majority_rule,
     'majority_reference', m.majority_reference, 'previous_meeting_id', m.previous_meeting_id,
-    'notice', notice, 'notice_days', threshold, 'repeat_notice_reference', m.repeat_notice_reference,
+    'notice', notice, 'notice_channels', m.notice_channels, 'notice_reference', m.notice_reference,
+    'notice_day_rule', m.notice_day_rule, 'notice_day_reference', m.notice_day_reference, 'notice_days', threshold, 'repeat_notice_reference', m.repeat_notice_reference,
     'decision_type', NEW.decision_type, 'chairperson_member_id', m.chairperson_member_id, 'chair_vote', chair_ballot,
     'convening_kind', m.convening_kind, 'convening_reference', m.convening_reference,
     'convening_requesters', m.convening_requesters, 'convening_snapshot', m.convening_snapshot, 'electorate_snapshot', m.electorate_snapshot, 'recorded_at', now());

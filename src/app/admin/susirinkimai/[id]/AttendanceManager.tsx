@@ -394,7 +394,7 @@ function QuorumEditor({
     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
       <p className="text-sm font-semibold text-blue-900">Kvorumo duomenys</p>
       <p className="text-xs text-blue-800">
-        Istoriniam skaičiui nurodykite to susirinkimo narių registro išrašą ar kitą dokumentinį pagrindą. Išsaugojus su pagrindu bazė užfiksuojama. Šiandienos sąrašas gali nebeatitikti buvusio susirinkimo.
+        Tik ankstesnės dienos ar senesniam susirinkimui nurodykite to susirinkimo narių registro išrašą ar kitą dokumentinį pagrindą. Išsaugojus su pagrindu bazė užfiksuojama. Šios dienos susirinkimui naudokite registro fiksavimo mygtuką, kai ateina jo pradžios laikas.
       </p>
       <label className="block text-sm">Susirinkimo laiko narių skaičių pagrindžiančio dokumento nuoroda
         <input value={reference} onChange={e=>setReference(e.target.value)} className="mt-1 w-full rounded border p-2" />

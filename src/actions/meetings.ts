@@ -8,7 +8,7 @@ import { revalidateMeetingPaths } from "@/lib/revalidate";
 import { z } from "zod";
 import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
 import { isCouncilMeeting, suggestedQuorum } from "@/lib/quorum";
-import { vilniusLocalToIso } from "@/lib/utils";
+import { vilniusLocalToIso, isoToVilniusLocal } from "@/lib/utils";
 
 const meetingSchema = z.object({
   title: z.string().min(1, "Pavadinimas privalomas"),
@@ -18,6 +18,10 @@ const meetingSchema = z.object({
   location: z.string().min(1, "Vieta privaloma"),
   meeting_type: z.enum(["visuotinis", "neeilinis", "pakartotinis", "valdybos"]),
   previous_meeting_id: z.string().optional(),
+  notice_channels: z.array(z.enum(['web','facebook','email','paper','rc'])).optional(),
+  notice_reference: z.string().trim().max(1000).optional(),
+  notice_day_rule: z.enum(['','vilnius_calendar','elapsed_hours']).optional(),
+  notice_day_reference: z.string().trim().max(1000).optional(),
   repeat_notice_days: z.preprocess(v => v === '' || v === undefined ? undefined : Number(v), z.number().int().nonnegative().optional()),
   repeat_notice_reference: z.string().trim().max(1000).optional(),
   convening_date: z.string().optional(),
@@ -60,7 +64,7 @@ export async function createMeeting(formData: FormData) {
   const user = auth.user;
 
   const raw = Object.fromEntries(formData.entries());
-  const parsed = meetingSchema.safeParse({ ...raw, convening_requesters: formData.getAll("convening_requesters") });
+  const parsed = meetingSchema.safeParse({ ...raw, notice_channels: formData.getAll("notice_channels"), convening_requesters: formData.getAll("convening_requesters") });
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors };
   }
@@ -102,6 +106,10 @@ export async function createMeeting(formData: FormData) {
     meeting_type: parsed.data.meeting_type,
     protocol_number: parsed.data.protocol_number || null,
     previous_meeting_id: parsed.data.meeting_type === "pakartotinis" ? parsed.data.previous_meeting_id || null : null,
+    notice_channels: parsed.data.notice_channels || [],
+    notice_reference: parsed.data.notice_reference || null,
+    notice_day_rule: parsed.data.notice_day_rule || null,
+    notice_day_reference: parsed.data.notice_day_reference || null,
     repeat_notice_days: parsed.data.repeat_notice_days ?? null,
     repeat_notice_reference: parsed.data.repeat_notice_reference || null,
     convening_date: parsed.data.convening_date || null,
@@ -196,7 +204,7 @@ export async function updateMeeting(id: string, formData: FormData) {
   const user = auth.user;
 
   const raw = Object.fromEntries(formData.entries());
-  const parsed = meetingSchema.safeParse({ ...raw, convening_requesters: formData.getAll("convening_requesters") });
+  const parsed = meetingSchema.safeParse({ ...raw, notice_channels: formData.getAll("notice_channels"), convening_requesters: formData.getAll("convening_requesters") });
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors };
   }
@@ -220,6 +228,10 @@ export async function updateMeeting(id: string, formData: FormData) {
     meeting_type: parsed.data.meeting_type,
     protocol_number: parsed.data.protocol_number || null,
     previous_meeting_id: parsed.data.meeting_type === "pakartotinis" ? parsed.data.previous_meeting_id || null : null,
+    notice_channels: parsed.data.notice_channels || [],
+    notice_reference: parsed.data.notice_reference || null,
+    notice_day_rule: parsed.data.notice_day_rule || null,
+    notice_day_reference: parsed.data.notice_day_reference || null,
     repeat_notice_days: parsed.data.repeat_notice_days ?? null,
     repeat_notice_reference: parsed.data.repeat_notice_reference || null,
     convening_date: parsed.data.convening_date || null,
@@ -576,7 +588,7 @@ export async function updateMeetingQuorum(
 
   const { data: oldData } = await supabase
     .from("meetings")
-    .select("meeting_type, total_members_at_time, quorum_required")
+    .select("meeting_type, meeting_date, total_members_at_time, quorum_required")
     .eq("id", meetingId)
     .single();
 
@@ -585,6 +597,9 @@ export async function updateMeetingQuorum(
     return { error: "Kvorumas turi atitikti įstatų formulę: daugiau kaip pusė narių; pakartotinio susirinkimo išimtis tikrinama atskirai." };
   }
   const {electorate_reference, ...counts} = parsed.data;
+  if (electorate_reference && isoToVilniusLocal(oldData.meeting_date).slice(0,10) >= isoToVilniusLocal(new Date()).slice(0,10)) {
+    return {error:"Dokumentinis narių skaičius leidžiamas tik istoriniam susirinkimui. Susirinkimo dieną užfiksuokite registrą."};
+  }
   const { error } = await supabase.from("meetings").update({...counts,
     ...(electorate_reference ? {electorate_snapshot:{total:counts.total_members_at_time,reference:electorate_reference}} : {})
   }).eq("id", meetingId);

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { actionHarness, votingFixture, form, loadSource } from './helpers.mjs';
+import { actionHarness, votingFixture, form, loadSource, noticePolicy } from './helpers.mjs';
 
 const meetingForm=type=>form({title:'Testinis',meeting_date:'2026-09-20',meeting_time:'12:00',location:'Testas',meeting_type:type});
 test('Peržiūra: Tarybos posėdis nepaverčiamas Visuotiniu su sena narių baze',async()=>{
@@ -84,7 +84,7 @@ for(const locale of ['lt','en']) test(`Peržiūra: portalo paskyros laiškas nes
 const {summarizeAnnouncements}=loadSource('src/lib/protocol-text.ts');
 const {terminationEvidenceError}=loadSource('src/lib/bylaws.ts');
 for(const [policy,expected] of [[undefined,false],[{repeat_notice_days:10},false],[{repeat_notice_days:10,repeat_notice_reference:'Patvirtinta tvarka'},true],[{repeat_notice_days:11,repeat_notice_reference:'Patvirtinta tvarka'},false]]) test(`Pakartotinio terminas taikomas tik pagal patvirtintą tvarką: ${JSON.stringify(policy)}`,()=>{
-  assert.equal(summarizeAnnouncements([{channel:'web',url:null,published_at:'2026-09-10T12:00:00Z'}],new Date('2026-09-20T12:00:00Z'),'pakartotinis',policy).compliant,expected);
+  assert.equal(summarizeAnnouncements([{channel:'web',url:null,published_at:'2026-09-10T12:00:00Z'}],new Date('2026-09-20T12:00:00Z'),'pakartotinis',{...noticePolicy,...policy}).compliant,expected);
 });
 test('Narystės pabaiga: raštiškas išstojimas nereikalauja Tarybos sprendimo',()=>{
   assert.equal(terminationEvidenceError({termination_kind:'withdrawal',termination_reference:'Nario prašymas',termination_date:'2026-09-18'}),null);
@@ -108,11 +108,53 @@ test('Skelbimas tiksliai prieš 14 dienų Vilniaus laiku priimamas',async()=>{
   const h=actionHarness('src/actions/announcements.ts',{meeting_announcements:[]});
   await h.actions.createMeetingAnnouncement(form({meeting_id:'00000000-0000-4000-8000-000000000100',channel:'web',published_at:'2026-09-04T18:00',url:'',notes:''}));
   const {vilniusLocalToIso}=loadSource('src/lib/utils.ts');
-  assert.equal(summarizeAnnouncements(h.tables.meeting_announcements,new Date(vilniusLocalToIso('2026-09-18T18:00')),'visuotinis').compliant,true);
+  assert.equal(summarizeAnnouncements(h.tables.meeting_announcements,new Date(vilniusLocalToIso('2026-09-18T18:00')),'visuotinis',noticePolicy).compliant,true);
 });
 test('Buvusio nario archyvavimas saugo tą patį įrašą',async()=>{
   const h=actionHarness('src/actions/members.ts',{members:[{id:'former',status:'išstojęs'}]});
   assert.equal((await h.actions.deleteMember('former')).success,true);
   assert.equal(h.tables.members.length,1);assert.ok(h.tables.members[0].archived_at);
   assert.equal(h.writes[0].operation,'update');
+});
+
+for(const type of ['statutes','transformation','liquidation']) test(`Taryba negali uždaryti Visuotinio kompetencijos sprendimo: ${type}`,async()=>{
+  const seed=votingFixture({attendees:4,totalMembers:6});seed.meetings[0].meeting_type='valdybos';seed.resolutions[0].decision_type=type;
+  const h=actionHarness('src/actions/voting.ts',seed);
+  assert.match((await h.actions.setResolutionResults('resolution','meeting',{result_for:3,result_against:0,result_abstain:1},'patvirtintas')).error,/kompetencijai/);
+  assert.equal(h.writes.length,0);
+});
+for(const date of ['2099-01-01T12:00Z',new Date().toISOString()]) test(`Rankinė bazė neįšaldoma prieš istorinį susirinkimą: ${date}`,async()=>{
+  const seed=votingFixture();seed.meetings[0].meeting_date=date;
+  const h=actionHarness('src/actions/meetings.ts',seed);
+  assert.match((await h.actions.updateMeetingQuorum('meeting',{total_members_at_time:2,quorum_required:2,electorate_reference:'Tariamas išrašas'})).error,/istoriniam/);
+  assert.equal(h.writes.length,0);
+});
+test('Dokumentuota istorinė bazė perduodama duomenų bazės patikrai',async()=>{
+  const h=actionHarness('src/actions/meetings.ts',votingFixture());
+  assert.equal((await h.actions.updateMeetingQuorum('meeting',{total_members_at_time:10,quorum_required:6,electorate_reference:'Registro išrašas 1'})).success,true);
+  assert.equal(h.tables.meetings[0].electorate_snapshot.reference,'Registro išrašas 1');
+});
+const ended={termination_kind:'expulsion',termination_reference:'Tarybos 2',termination_date:'2026-09-18',expulsion_ground:'3.4.2',appeal_reference:'Pranešimas apie skundą'};
+for(const key of Object.keys(ended)) test(`Serveris išsaugo narystės pabaigos įrodymą: ${key}`,async()=>{
+  const h=actionHarness('src/actions/members.ts',{members:[{id:'member',status:'išstojęs',...ended}]});
+  assert.ok((await h.actions.updateMember('member',form({first_name:'Testas',last_name:'Narys',join_date:'2020-01-01',status:'išstojęs',...ended,[key]:''}))).error);
+  assert.equal(h.writes.length,0);
+});
+const springMeeting=new Date('2026-04-05T15:00:00Z');
+const springNotice=[{channel:'web',url:null,published_at:'2026-03-22T16:00:00Z'}];
+for(const [rule,expected] of [['vilnius_calendar',true],['elapsed_hours',false]]) test(`Vasaros laiko riba laikosi įrašytos tvarkos: ${rule}`,()=>{
+  assert.equal(summarizeAnnouncements(springNotice,springMeeting,'visuotinis',{...noticePolicy,notice_day_rule:rule}).compliant,expected);
+});
+test('Vasaros laiko riboje viena sekunde pavėluotas kalendorinis pranešimas atmetamas',()=>{
+  assert.equal(summarizeAnnouncements([{...springNotice[0],published_at:'2026-03-22T16:00:01Z'}],springMeeting,'visuotinis',noticePolicy).compliant,false);
+});
+for(const missing of ['notice_channels','notice_reference','notice_day_rule','notice_day_reference']) test(`Be informavimo tvarkos įrodymo atitiktis nepatvirtinama: ${missing}`,()=>{
+  assert.equal(summarizeAnnouncements(springNotice,springMeeting,'visuotinis',{...noticePolicy,[missing]:null}).compliant,false);
+});
+test('Ankstyvas nepaskirtas kanalas neatstoja Tarybos pasirinkto el. pašto',()=>{
+  assert.equal(summarizeAnnouncements(springNotice,springMeeting,'visuotinis',{...noticePolicy,notice_channels:['email']}).compliant,false);
+});
+for(const email of [false,true]) test(`Visi Tarybos paskirti kanalai turi įrodymus: ${email}`,()=>{
+  const list=email?[...springNotice,{...springNotice[0],channel:'email'}]:springNotice;
+  assert.equal(summarizeAnnouncements(list,springMeeting,'visuotinis',{...noticePolicy,notice_channels:['web','email']}).compliant,email);
 });

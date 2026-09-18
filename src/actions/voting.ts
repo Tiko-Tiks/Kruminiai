@@ -92,7 +92,7 @@ async function resolveDecisionText(
 
   const { data: meeting } = await supabase
     .from("meetings")
-    .select("meeting_type, meeting_date, chairperson_name, secretary_name, repeat_notice_days, repeat_notice_reference")
+    .select("meeting_type, meeting_date, chairperson_name, secretary_name, repeat_notice_days, repeat_notice_reference, notice_channels, notice_reference, notice_day_rule, notice_day_reference")
     .eq("id", resolution.meeting_id)
     .single();
   if (!meeting) return { error: "Susirinkimas nerastas" };

@@ -121,6 +121,15 @@ export function MeetingForm({ meeting }: Props) {
             <p className="text-sm text-gray-600">Narių reikalavimo atveju pažymėkite jį pasirašiusius narius. Šiam keliui papildomo Tarybos sprendimo nereikia.</p>
             <div className="max-h-48 overflow-auto space-y-1">{eligibleMembers.map(member => <label key={member.id} className="flex gap-2 text-sm"><input type="checkbox" name="convening_requesters" value={member.id} defaultChecked={meeting?.convening_requesters?.includes(member.id)} />{member.first_name} {member.last_name}</label>)}</div>
           </fieldset>}
+          {meetingType !== "valdybos" && <fieldset className="space-y-3 border-t pt-4">
+            <legend className="font-medium">Tarybos nustatyta informavimo tvarka</legend>
+            <p className="text-sm text-gray-600">Pažymėkite sprendime privalomai pasirinktus kanalus. Prieš nutarimus reikės laiku paskelbto pranešimo kiekvienu pažymėtu kanalu.</p>
+            <div className="flex flex-wrap gap-4">{[['web','Svetainė'],['facebook','Facebook'],['email','El. paštas'],['paper','Raštu / skelbimų lenta'],['rc','Registrų centro leidinys']].map(([value,label]) => <label key={value} className="flex gap-2 text-sm"><input type="checkbox" name="notice_channels" value={value} defaultChecked={meeting?.notice_channels?.includes(value)} />{label}</label>)}</div>
+            <Input name="notice_reference" label="Tarybos sprendimo dėl informavimo kanalų nuoroda" defaultValue={meeting?.notice_reference || ""} />
+            <Select name="notice_day_rule" label="Patvirtintas informavimo dienų skaičiavimas" defaultValue={meeting?.notice_day_rule || ""} options={[{value:"",label:"Tvarka dar nenurodyta"},{value:"vilnius_calendar",label:"Kalendorinės dienos tuo pačiu Vilniaus laiku"},{value:"elapsed_hours",label:"Pilni 24 valandų laikotarpiai"}]} />
+            <Input name="notice_day_reference" label="Dienų skaičiavimo tvarkos dokumento nuoroda" defaultValue={meeting?.notice_day_reference || ""} />
+            <p className="text-sm text-gray-600">Pasirinkimai turi atitikti patvirtintus dokumentus. Sistema nenustato neapibrėžtos tvarkos savo nuožiūra.</p>
+          </fieldset>}
           <Select name="majority_rule" label="Patvirtintoje balsavimo tvarkoje nustatyta paprasta dauguma" defaultValue={meeting?.majority_rule || ""}
             options={[{ value: "", label: "Tvarka dar nenurodyta" }, { value: "for_against", label: "Daugiau už negu prieš" }, { value: "participants", label: "Daugiau nei pusė dalyvaujančių" }]} />
           <Input name="majority_reference" label="Balsavimo tvarkos dokumentas / sprendimo nuoroda" defaultValue={meeting?.majority_reference || ""} />
