@@ -11,36 +11,51 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * atidaryti.
  *
  * Ribos, kad tokenas netaptų raktu į visą biblioteką:
- *   • tokenas paverčiamas susirinkimo ID per `voting_token_meeting` RPC
- *     (SECURITY DEFINER, anon; tas pats šaltinis kaip `canViewMeetingDoc`);
- *   • atiduodamas TIK dokumentas, prikabintas BŪTENT prie to susirinkimo –
- *     tiesiogiai (`documents.meeting_id`) arba per jo nutarimą
- *     (`resolution_documents` → `resolutions.meeting_id`).
+ *   • tokenas turi EGZISTUOTI ir dar GALIOTI – `meeting_voting_tokens.expires_at`
+ *     ateityje. Būtent `expires_at`, ne `voted_at`: po balsavimo gavėjas dar
+ *     gauna patvirtinimo laišką su nuorodomis į tuos pačius dokumentus, o balso
+ *     teisės netekusiam nariui tokenas anuliuojamas nustatant `expires_at`
+ *     dabartimi – tad viena patikra padengia abu atvejus;
+ *   • atiduodamas TIK dokumentas, prikabintas prie TO susirinkimo
+ *     **neprocedūrinio** nutarimo (`resolution_documents` → `resolutions`).
+ *     Procedūriniai klausimai į balsavimo payload'ą neįeina
+ *     (`_meeting_resolutions_jsonb(..., TRUE)` filtruoja `is_procedural = FALSE`),
+ *     todėl jų priedų balsuotojas ir nemato. Tiesioginis `documents.meeting_id`
+ *     ryšys SĄMONINGAI netinka: migr. 025 juo prikabinami PO susirinkimo įkelti
+ *     pasirašyti dokumentai (protokolas, dalyvių sąrašas) – jie nėra
+ *     darbotvarkės medžiaga.
  *
- * Ryšius skaitom service-role klientu: anon RLS neviešo dokumento nerodo, o
- * `resolution_documents` / `resolutions` anonimui irgi nematomi.
+ * Viskas skaitoma service-role klientu: anon RLS neviešo dokumento nerodo, o
+ * `meeting_voting_tokens` / `resolution_documents` / `resolutions` anonimui irgi
+ * nematomi. Route'as prieš kviesdamas tikrina `isAdminClientAvailable()`.
  */
 
-/** Dokumento ryšiai su susirinkimais – tiek, kiek reikia prieigai nuspręsti. */
-export interface DocumentMeetingLinks {
-  /** `documents.meeting_id` – dokumentas prikabintas prie susirinkimo tiesiogiai. */
+/** Vienas `resolution_documents` ryšys – tiek, kiek reikia prieigai nuspręsti. */
+export interface DocumentResolutionLink {
   meetingId: string | null;
-  /** Susirinkimai, prie kurių nutarimų dokumentas prikabintas. */
-  resolutionMeetingIds: readonly (string | null)[];
+  isProcedural: boolean | null;
+}
+
+/** Dokumento ryšiai su nutarimais. */
+export interface DocumentMeetingLinks {
+  resolutions: readonly DocumentResolutionLink[];
 }
 
 /**
- * Ar dokumentas priklauso BŪTENT šiam susirinkimui?
+ * Ar dokumentas yra šio susirinkimo darbotvarkės medžiaga?
  *
  * Gryna funkcija – visa DB dalis lieka `findDocumentForVotingToken`.
+ * `isProcedural === false` atkartoja SQL `is_procedural = FALSE`: neaiški
+ * (`null`) reikšmė neatrakina.
  */
 export function documentBelongsToMeeting(
   links: DocumentMeetingLinks,
   meetingId: string | null | undefined
 ): boolean {
   if (!meetingId) return false;
-  if (links.meetingId === meetingId) return true;
-  return (links.resolutionMeetingIds || []).some((id) => id === meetingId);
+  return (links.resolutions || []).some(
+    (r) => r.isProcedural === false && r.meetingId === meetingId
+  );
 }
 
 /** Dokumento duomenys, kurių reikia atsakymui suformuoti. */
@@ -49,11 +64,33 @@ export interface TokenAccessibleDocument {
   file_name: string | null;
 }
 
-/** Susirinkimai, prie kurių nutarimų prikabintas dokumentas. */
-async function loadResolutionMeetingIds(
+/** Tokeno susirinkimas, jei tokenas egzistuoja ir dar galioja. */
+async function loadValidTokenMeetingId(
+  admin: SupabaseClient,
+  token: string
+): Promise<string | null> {
+  const { data: row } = await admin
+    .from("meeting_voting_tokens")
+    .select("meeting_id, expires_at")
+    .eq("token", token)
+    .maybeSingle();
+  if (!row) return null;
+
+  const expiresAt = row.expires_at as string | null;
+  const expiresAtMs = expiresAt ? new Date(expiresAt).getTime() : NaN;
+  // Neįskaitoma data laikoma negaliojančia – kitaip `NaN` palyginimas būtų
+  // `false` ir tokenas praeitų.
+  if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) return null;
+
+  const meetingId = row.meeting_id as string | null;
+  return meetingId || null;
+}
+
+/** Nutarimai, prie kurių prikabintas dokumentas. */
+async function loadDocumentResolutionLinks(
   admin: SupabaseClient,
   documentId: string
-): Promise<string[]> {
+): Promise<DocumentResolutionLink[]> {
   const { data: links } = await admin
     .from("resolution_documents")
     .select("resolution_id")
@@ -66,12 +103,13 @@ async function loadResolutionMeetingIds(
 
   const { data: resolutions } = await admin
     .from("resolutions")
-    .select("meeting_id")
+    .select("id, meeting_id, is_procedural")
     .in("id", resolutionIds);
 
-  return (resolutions ?? [])
-    .map((row) => row.meeting_id as string | null)
-    .filter((id): id is string => !!id);
+  return (resolutions ?? []).map((row) => ({
+    meetingId: (row.meeting_id as string | null) ?? null,
+    isProcedural: (row.is_procedural as boolean | null) ?? null,
+  }));
 }
 
 /**
@@ -80,51 +118,28 @@ async function loadResolutionMeetingIds(
  * sesijos keliu (ir gauna 401/403).
  */
 export async function findDocumentForVotingToken(
-  clients: { anon: SupabaseClient; admin: SupabaseClient },
+  admin: SupabaseClient,
   filePath: string,
   token: string
 ): Promise<TokenAccessibleDocument | null> {
   if (!token) return null;
 
-  const { data: tokenMeetingId } = await clients.anon.rpc("voting_token_meeting", {
-    p_token: token,
-  });
-  if (typeof tokenMeetingId !== "string" || !tokenMeetingId) return null;
+  const tokenMeetingId = await loadValidTokenMeetingId(admin, token);
+  if (!tokenMeetingId) return null;
 
-  const { data: doc } = await clients.admin
+  const { data: doc } = await admin
     .from("documents")
-    .select("id, file_name, meeting_id")
+    .select("id, file_name")
     .eq("file_path", filePath)
     .maybeSingle();
   if (!doc) return null;
 
   const documentId = doc.id as string;
-  const directMeetingId = (doc.meeting_id as string | null) ?? null;
+  const resolutions = await loadDocumentResolutionLinks(admin, documentId);
+  if (!documentBelongsToMeeting({ resolutions }, tokenMeetingId)) return null;
 
-  const result: TokenAccessibleDocument = {
+  return {
     id: documentId,
     file_name: (doc.file_name as string | null) ?? null,
   };
-
-  // Greitas kelias – dokumentas prikabintas tiesiai prie susirinkimo.
-  if (
-    documentBelongsToMeeting(
-      { meetingId: directMeetingId, resolutionMeetingIds: [] },
-      tokenMeetingId
-    )
-  ) {
-    return result;
-  }
-
-  const resolutionMeetingIds = await loadResolutionMeetingIds(clients.admin, documentId);
-  if (
-    documentBelongsToMeeting(
-      { meetingId: directMeetingId, resolutionMeetingIds },
-      tokenMeetingId
-    )
-  ) {
-    return result;
-  }
-
-  return null;
 }

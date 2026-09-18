@@ -32,9 +32,10 @@ import type { Locale } from "@/lib/i18n";
  *   • `is_public = true`  → mato visi, įskaitant neprisijungusius (įstatai yra
  *     vieši pagal LR Asociacijų įstatymą – jų negalima slėpti už prisijungimo);
  *   • kitu atveju        → tik prisijungęs IR patvirtintas narys arba adminas,
- *     ARBA anon balsuotojas su galiojančiu `?token=` TO PATIES susirinkimo
- *     dokumentui (`src/lib/document-access.ts`) – be šito prie darbotvarkės
- *     prikabintas neviešas failas SMS nuorodos gavėjui liktų neatidaromas.
+ *     ARBA anon balsuotojas su dar galiojančiu `?token=` – TIK savo susirinkimo
+ *     darbotvarkės medžiagai (`src/lib/document-access.ts`); be šito prie
+ *     darbotvarkės prikabintas neviešas failas SMS nuorodos gavėjui liktų
+ *     neatidaromas.
  *     (/api/* yra už middleware matcher ribų, todėl tikrinam patys.)
  *
  * KLAIDOS grąžinamos kaip suprantamas HTML puslapis (dokumentai atidaromi
@@ -256,13 +257,14 @@ export async function GET(
   const isPublicDoc = doc?.is_public === true;
 
   if (!isPublicDoc) {
-    // (a) Anon balsuotojas su galiojančiu tokenu – prie jo susirinkimo
-    // prikabintus failus jis mato ir be sesijos (žr. `src/lib/document-access.ts`).
+    // (a) Anon balsuotojas su dar galiojančiu tokenu mato be sesijos tik savo
+    // susirinkimo darbotvarkės medžiagą – failus, prikabintus prie to
+    // susirinkimo neprocedūrinių nutarimų (žr. `src/lib/document-access.ts`).
     // Repo statiniams failams šis kelias nereikalingas: darbotvarkėje jų nėra.
     const token = request.nextUrl.searchParams.get("token");
     if (isStorageRequest && token && isAdminClientAvailable()) {
       const tokenDoc = await findDocumentForVotingToken(
-        { anon: supabase, admin: createAdminSupabaseClient() },
+        createAdminSupabaseClient(),
         filePath,
         token
       );
