@@ -3,6 +3,36 @@ import assert from 'node:assert/strict';
 import { actionHarness, votingFixture, form, loadSource, noticePolicy } from './helpers.mjs';
 
 const meetingForm=type=>form({title:'Testinis',meeting_date:'2026-09-20',meeting_time:'12:00',location:'Testas',meeting_type:type});
+test('Peržiūra: būsimas priėmimo sprendimas nesukuria narystės',()=>{
+  const {admissionEvidenceError}=loadSource('src/lib/bylaws.ts');
+  assert.match(admissionEvidenceError({status:'aktyvus',application_reference:'Prašymas',admission_reference:'Taryba',admission_date:'2099-01-01'}),/data dar neatėjo/);
+});
+test('Peržiūra: būsimas mokesčio sprendimas nesukuria prievolės',async()=>{
+  const h=actionHarness('src/actions/payments.ts',{fee_periods:[]});
+  const result=await h.actions.createFeePeriod(form({year:2027,name:'Metinis',amount_cents:1200,fee_type:'metinis',decision_reference:'Visuotinio 1',decision_date:'2099-01-01'}));
+  assert.ok(result.error);assert.equal(h.writes.length,0);
+});
+test('Peržiūra: reikalavimas po susirinkimo nepriimamas',async()=>{
+  const h=actionHarness('src/actions/meetings.ts',{});const f=meetingForm('neeilinis');
+  f.set('convening_kind','members');f.set('convening_date','2026-09-21');
+  assert.ok((await h.actions.createMeeting(f)).error);assert.equal(h.writes.length,0);
+});
+test('Peržiūra: perrikiavimas negali dubliuoti užfiksuoto numerio',async()=>{
+  const h=actionHarness('src/actions/voting.ts',{resolutions:[{id:'final',meeting_id:'meeting',status:'patvirtintas',resolution_number:1},{id:'draft',meeting_id:'meeting',status:'projektas',resolution_number:2}]});
+  assert.match((await h.actions.reorderResolution('draft','meeting','up')).error,/numeracija užfiksuota/);assert.equal(h.writes.length,0);
+});
+test('Peržiūra: perrikiavimo RPC klaida nepateikiama kaip sėkmė',async()=>{
+  const h=actionHarness('src/actions/voting.ts',{resolutions:[{id:'one',meeting_id:'meeting',status:'projektas'},{id:'two',meeting_id:'meeting',status:'projektas'}]},{rpc:{bylaws_reorder_resolutions:{error:{message:'Darbotvarkė pasikeitė'}}}});
+  assert.match((await h.actions.reorderResolution('two','meeting','up')).error,/pasikeitė/);assert.equal(h.writes.length,0);
+});
+for(const error of [false,true]) test(`Peržiūra: pakartotinis paveldi priedus arba grąžina klaidą ${error}`,async()=>{
+  const seed={members:[{id:'member',status:'aktyvus'}],meetings:[{id:'previous',status:'baigtas',meeting_type:'visuotinis',meeting_date:'2026-08-01',total_members_at_time:10}],meeting_attendance:[],resolutions:[{id:'source',meeting_id:'previous',title:'Įstatai',decision_type:'statutes'}],resolution_documents:[{resolution_id:'source',document_id:'original-document',sort_order:2}]};
+  const h=actionHarness('src/actions/meetings.ts',seed,{errors:error?{'resolution_documents:insert':'Nepavyko įrašyti priedo'}:{}});
+  const f=meetingForm('pakartotinis');f.set('previous_meeting_id','previous');
+  const result=await h.actions.createMeeting(f);
+  if(error) {assert.ok(result.error);assert.equal(h.tables.meetings.length,1);}
+  else {assert.equal(result.success,true);assert.equal(h.tables.resolution_documents.at(-1).document_id,'original-document');assert.equal(h.tables.resolution_documents.at(-1).resolution_id,'test-resolutions-0');}
+});
 test('Peržiūra: Tarybos posėdis nepaverčiamas Visuotiniu su sena narių baze',async()=>{
   const seed=votingFixture({totalMembers:6});seed.meetings[0].meeting_type='valdybos';
   const h=actionHarness('src/actions/meetings.ts',seed);
@@ -190,4 +220,11 @@ test('Serveris neatkuria narystės pagal buvusio laikotarpio dokumentus',async()
   const h=actionHarness('src/actions/members.ts',{members:[{id:'member',status:'išstojęs',...ended,...evidence}]});
   const result=await h.actions.updateMember('member',form({first_name:'Testas',last_name:'Narys',join_date:'2020-01-01',status:'aktyvus',...ended,...evidence}));
   assert.match(result.error._form[0],/Pakartotiniam priėmimui/);assert.equal(h.writes.length,0);
+});
+
+test('Peržiūra: projekto pašalinimas nepakeičia likusių protokolo numerių',async()=>{
+  const seed=votingFixture();seed.resolutions=[{id:'final',meeting_id:'meeting',status:'patvirtintas',resolution_number:1},{id:'draft',meeting_id:'meeting',status:'projektas',resolution_number:2},{id:'next',meeting_id:'meeting',status:'projektas',resolution_number:3}];
+  const h=actionHarness('src/actions/voting.ts',seed);
+  assert.equal((await h.actions.deleteResolution('draft','meeting')).success,true);
+  assert.deepEqual(h.tables.resolutions.map(r=>r.resolution_number),[1,3]);
 });

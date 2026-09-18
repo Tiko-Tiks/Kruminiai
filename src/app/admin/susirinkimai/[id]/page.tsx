@@ -127,6 +127,7 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
           meetingType={meeting.meeting_type}
           repeatPolicy={meeting}
           announcements={announcements}
+          locked={["baigtas","atšauktas"].includes(meeting.status) || resolutions.some(r => ["patvirtintas","atmestas"].includes(r.status))}
         />
       </div>
 

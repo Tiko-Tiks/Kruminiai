@@ -69,6 +69,8 @@ export async function createMeeting(formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
+  if (parsed.data.convening_kind === "members" && parsed.data.convening_date && parsed.data.convening_date > parsed.data.meeting_date) return {error:{_form:["Narių reikalavimas turi būti pateiktas iki susirinkimo."]}};
+
   // Formose laikas įvedamas VILNIAUS laiku – konvertuojam į UTC instantą.
   // Be to naivus „…T18:00:00" Postgres'e (UTC zona) virsdavo 18:00 UTC ir
   // visur rodydavosi kaip 21:00 Vilniaus laiku.
@@ -178,11 +180,28 @@ export async function createMeeting(formData: FormData) {
   const agendaItems = isRepeat ? inheritedAgenda.map(({ id, ...item }) => ({
     ...item, meeting_id: data.id, source_resolution_id: id, created_by: user?.id ?? null,
   })) : proceduralItems;
-  const { error: agendaError } = await supabase.from("resolutions").insert(agendaItems);
+  const { data: createdAgenda, error: agendaError } = await supabase.from("resolutions").insert(agendaItems).select("id, source_resolution_id");
   if (agendaError) {
     // Compensate the new draft; an incomplete repeat agenda must never look complete.
     await supabase.from("meetings").delete().eq("id", data.id);
     return { error: { _form: [agendaError.message] } };
+  }
+
+  if (isRepeat) {
+    const {data: links,error: linksError}=await supabase.from("resolution_documents").select("resolution_id, document_id, sort_order").in("resolution_id",inheritedAgenda.map(r=>r.id));
+    const sourceToNew=new Map((createdAgenda || []).map(r=>[r.source_resolution_id,r.id]));
+    let attachmentError=linksError?.message;
+    if (!attachmentError && links?.length) {
+      if(links.some(link=>!sourceToNew.has(link.resolution_id))) attachmentError="Nepavyko susieti paveldėtų priedų";
+      else {
+        const {error}=await supabase.from("resolution_documents").insert(links.map(link=>({...link,resolution_id:sourceToNew.get(link.resolution_id)})));
+        attachmentError=error?.message;
+      }
+    }
+    if(attachmentError) {
+      await supabase.from("meetings").delete().eq("id",data.id);
+      return {error:{_form:[attachmentError]}};
+    }
   }
 
   await logAudit(supabase, {
@@ -208,6 +227,8 @@ export async function updateMeeting(id: string, formData: FormData) {
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors };
   }
+
+  if (parsed.data.convening_kind === "members" && parsed.data.convening_date && parsed.data.convening_date > parsed.data.meeting_date) return {error:{_form:["Narių reikalavimas turi būti pateiktas iki susirinkimo."]}};
 
   const { data: oldData } = await supabase.from("meetings").select("*").eq("id", id).single();
   const meetingDateTime = vilniusLocalToIso(

@@ -1,3 +1,4 @@
+import { isoToVilniusLocal } from "@/lib/utils";
 import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
 
 export function admissionEvidenceError(member: {
@@ -10,6 +11,7 @@ export function admissionEvidenceError(member: {
       Number.isNaN(Date.parse(member.admission_date))) {
     return "Narystei būtinas raštiško prašymo ir Tarybos priėmimo sprendimo pagrindas bei data (įstatų 3.2 p.).";
   }
+  if (member.admission_date > isoToVilniusLocal(new Date()).slice(0,10)) return "Priėmimo sprendimo data dar neatėjo.";
   return null;
 }
 

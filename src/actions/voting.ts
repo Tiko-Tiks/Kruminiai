@@ -29,36 +29,6 @@ const VALID_STATUSES = [
 ] as const;
 
 /**
- * Perrašo `resolution_number` į ištisinę seką 1..N pagal dabartinę tvarką.
- *
- * Kodėl reikia: ištrynus klausimą likdavo spragos (1,2,3,4,7,9,10,11) – toks
- * numeravimas patenka į protokolą ir atrodo kaip pamesti sprendimai.
- * `resolution_number` neturi UNIQUE apribojimo, todėl užtenka nuoseklių
- * UPDATE'ų be laikino poslinkio.
- */
-async function renumberResolutions(
-  supabase: ReturnType<typeof createServerSupabaseClient>,
-  meetingId: string
-) {
-  const { data } = await supabase
-    .from("resolutions")
-    .select("id, resolution_number, created_at")
-    .eq("meeting_id", meetingId)
-    .order("resolution_number", { ascending: true })
-    .order("created_at", { ascending: true });
-
-  const rows = (data || []) as { id: string; resolution_number: number }[];
-  for (let i = 0; i < rows.length; i++) {
-    const nextNumber = i + 1;
-    if (rows[i].resolution_number === nextNumber) continue;
-    await supabase
-      .from("resolutions")
-      .update({ resolution_number: nextNumber })
-      .eq("id", rows[i].id);
-  }
-}
-
-/**
  * NUTARTA tekstas nutarimą uždarant.
  *
  * TAISYKLĖ: `patvirtintas` / `atmestas` be sprendimo teksto neleidžiamas –
@@ -350,8 +320,7 @@ export async function deleteResolution(id: string, meetingId: string) {
   const { error } = await supabase.from("resolutions").delete().eq("id", id).eq("meeting_id", meetingId);
   if (error) return { error: error.message };
 
-  // Užpildom numeracijos spragą – protokole klausimai turi eiti 1..N
-  await renumberResolutions(supabase, meetingId);
+  // Keep existing agenda identities after deletion. Explicit reorder is atomic.
 
   await logAudit(supabase, {
     userId: user?.id ?? null,
@@ -378,14 +347,16 @@ export async function reorderResolution(
   if (auth.error) return { error: auth.error };
   const user = auth.user;
 
-  const { data } = await supabase
+  const { data, error: readError } = await supabase
     .from("resolutions")
-    .select("id, resolution_number, created_at")
+    .select("id, resolution_number, created_at, status")
     .eq("meeting_id", meetingId)
     .order("resolution_number", { ascending: true })
     .order("created_at", { ascending: true });
 
-  const rows = (data || []) as { id: string }[];
+  if (readError || !data) return {error:"Nepavyko perskaityti darbotvarkės"};
+  if (data.some(r => ["patvirtintas","atmestas"].includes(r.status))) return {error:"Priėmus sprendimą darbotvarkės numeracija užfiksuota"};
+  const rows = data as { id: string }[];
   const index = rows.findIndex((r) => r.id === id);
   if (index === -1) return { error: "Nutarimas nerastas" };
 
@@ -394,12 +365,8 @@ export async function reorderResolution(
 
   [rows[index], rows[target]] = [rows[target], rows[index]];
 
-  for (let i = 0; i < rows.length; i++) {
-    await supabase
-      .from("resolutions")
-      .update({ resolution_number: i + 1 })
-      .eq("id", rows[i].id);
-  }
+  const {error: reorderError}=await supabase.rpc("bylaws_reorder_resolutions", {p_meeting_id:meetingId,p_order:rows.map(r=>r.id)});
+  if(reorderError) return {error:reorderError.message};
 
   await logAudit(supabase, {
     userId: user?.id ?? null,

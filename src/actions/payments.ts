@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { isoToVilniusLocal } from "@/lib/utils";
 
 const feePeriodSchema = z.object({
   decision_reference: z.string().trim().min(3, "Nurodykite Visuotinio susirinkimo sprendimą").max(1000),
@@ -54,6 +55,7 @@ export async function createFeePeriod(formData: FormData) {
   const parsed = feePeriodSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
 
+  if (parsed.data.decision_date > isoToVilniusLocal(new Date()).slice(0,10)) return {error:{decision_date:["Sprendimo data dar neatėjo."]}};
   const values = {
     ...parsed.data,
     due_date: parsed.data.due_date || null,

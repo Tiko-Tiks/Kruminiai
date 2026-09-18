@@ -161,7 +161,7 @@ export function ResolutionsList({
               <span className="text-sm font-bold text-gray-400 w-8">
                 {res.resolution_number}.
               </span>
-              {canModify && resolutions.length > 1 && (
+              {canModify && !resolutions.some(r => ["patvirtintas","atmestas"].includes(r.status)) && resolutions.length > 1 && (
                 <div className="flex flex-col -my-1">
                   <button
                     type="button"

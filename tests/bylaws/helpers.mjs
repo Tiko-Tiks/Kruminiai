@@ -38,11 +38,15 @@ export function loadSource(relativePath, mocks = {}) {
 }
 
 /** In-memory, query-aware double; never reads env files or connects to a server. */
-export function fakeDatabase(seed = {}, { userId = 'test-admin', errors = {} } = {}) {
+export function fakeDatabase(seed = {}, { userId = 'test-admin', errors = {}, rpc = {} } = {}) {
   const tables = structuredClone(seed);
   const writes = [];
   const calls = [];
   const client = {
+    async rpc(name,args) {
+      if (!Object.hasOwn(rpc,name)) throw new Error(`Unmocked RPC blocked: ${name}`);
+      calls.push({rpc:name,args});return rpc[name];
+    },
     auth: { getUser: async () => ({ data: { user: userId ? { id: userId } : null }, error: null }) },
     from(table) {
       if (!Object.hasOwn(tables, table)) throw new Error(`Unconfigured test table: ${table}`);
@@ -61,6 +65,7 @@ export function fakeDatabase(seed = {}, { userId = 'test-admin', errors = {} } =
         maybeSingle() { one = true; return query; },
         insert(value) { operation = 'insert'; values = value; return query; },
         update(value) { operation = 'update'; values = value; return query; },
+        delete() { operation = 'delete'; values = null; return query; },
         then(onFulfilled, onRejected) {
           calls.push({ table, operation, selection });
           const injectedError = errors[`${table}:${operation}`];
@@ -71,6 +76,8 @@ export function fakeDatabase(seed = {}, { userId = 'test-admin', errors = {} } =
             if (operation === 'insert') {
               rows = (Array.isArray(values) ? values : [values]).map((row, i) => ({ id: `test-${table}-${i}`, ...row }));
               tables[table].push(...rows);
+            } else if (operation === 'delete') {
+              tables[table]=tables[table].filter(row=>!rows.includes(row));
             } else {
               for (const row of rows) Object.assign(row, values);
             }

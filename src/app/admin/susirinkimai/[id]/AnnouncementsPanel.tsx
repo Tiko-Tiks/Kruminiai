@@ -26,6 +26,7 @@ import { summarizeAnnouncements, type NoticePolicy } from "@/lib/protocol-text";
 import { toast } from "sonner";
 
 interface Props {
+  locked?: boolean;
   meetingId: string;
   meetingDate: string;
   meetingType: string;
@@ -57,6 +58,7 @@ const CHANNEL_BY_VALUE = Object.fromEntries(
  * prieš susirinkimą (LT tipinis reikalavimas).
  */
 export function AnnouncementsPanel({
+  locked = false,
   meetingId,
   meetingDate,
   meetingType,
@@ -112,7 +114,7 @@ export function AnnouncementsPanel({
               Susirinkimo skelbimai
             </h2>
           </div>
-          {!showForm && (
+          {!locked && !showForm && (
             <Button size="sm" variant="outline" onClick={() => setShowForm(true)}>
               <Plus className="h-4 w-4" />
               Pridėti skelbimą
@@ -208,6 +210,7 @@ export function AnnouncementsPanel({
                   </div>
                   <button
                     type="button"
+                    disabled={locked}
                     onClick={() => handleDelete(a.id)}
                     className="text-gray-400 hover:text-red-600 transition-colors flex-shrink-0"
                     title="Ištrinti"
@@ -221,7 +224,7 @@ export function AnnouncementsPanel({
         )}
 
         {/* Pridėjimo forma */}
-        {showForm && (
+        {!locked && showForm && (
           <form
             onSubmit={handleSubmit}
             className="space-y-3 p-4 bg-blue-50/40 border border-blue-100 rounded-lg"

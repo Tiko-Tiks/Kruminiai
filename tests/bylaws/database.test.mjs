@@ -10,19 +10,23 @@ const db = new PGlite();
 await db.exec(`create role anon; create role authenticated; create schema auth;
   create table auth.users(id uuid primary key, email text, raw_user_meta_data jsonb);
   create function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;`);
-for (const file of ['001_initial_schema.sql','002_voting_schema.sql','003_voting_tokens.sql','005_resolution_documents.sql','013_vote_comments_and_management.sql','024_meeting_announcements_and_doc_linkage.sql','026_procedural_type_pranesimas.sql','036_honorary_member_status.sql']) {
+for (const file of ['001_initial_schema.sql','002_voting_schema.sql','003_voting_tokens.sql','005_resolution_documents.sql','008_membership_declarations.sql','009_notification_log.sql','010_declaration_view_tracking.sql','011_meeting_expulsions.sql','013_vote_comments_and_management.sql','024_meeting_announcements_and_doc_linkage.sql','026_procedural_type_pranesimas.sql','036_honorary_member_status.sql']) {
   await db.exec(migration(file));
 }
 await db.exec(`create schema storage; create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text,metadata jsonb);
   alter table storage.objects enable row level security;
   create policy test_storage_access on storage.objects for all to authenticated using(true) with check(true);
   grant usage on schema storage to authenticated; grant select,update,delete on storage.objects to authenticated;`);
+await db.exec(`alter table meetings add column is_published boolean default true;
+  create function public.is_admin() returns boolean language sql as $$ select coalesce(current_setting('test.is_admin',true),'true')='true' $$;
+  create function public._can_view_meeting_doc(uuid,text default null) returns boolean language sql as $$ select coalesce(current_setting('test.doc_access',true),'true')='true' $$;
+  create function public.is_voting_status(text) returns boolean language sql as $$ select $1 in ('aktyvus','pasyvus','garbes_narys') $$;`);
 await db.exec(migration('20260918185337_bylaws_enforcement.sql'));
 await db.exec(`create trigger members_status_change_sync after update of status on members for each row execute function public.on_member_status_change();`);
 const uuid=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 async function setup({members=10,attendees=10,type='visuotinis',qualified=type!=='valdybos',notice=true,started=true,historical=false,date=null}={}) {
   // Each case rolls back; the migration is applied only once.
-  await db.exec('begin');
+  await db.exec("begin; set local test.is_admin='true'; set local test.doc_access='true'");
   for(let i=1;i<=members;i++) await db.query(`insert into members(id,first_name,last_name,application_reference,admission_reference,admission_date) values ($1,'Testas','Narys','Prašymas 1','Tarybos 1','2026-01-01')`,[uuid(i)]);
   await db.query(`insert into meetings(id,title,meeting_date,location,meeting_type,total_members_at_time,quorum_required,status,majority_rule,majority_reference,chairperson_name)
     values ($1,'Testinis susirinkimas',now(),'Testinė vieta',$2,$3,$4,'planuojamas','for_against','Patvirtinta tvarka Nr. 1','Testas Narys')`,[uuid(100),type,members,type==='pakartotinis'?0:Math.floor(members/2)+1]);
@@ -149,8 +153,9 @@ for (const [type,days] of [['visuotinis',13],['neeilinis',6]]) {
   });
 }
 scenario('DB: pranešimo įrodymai išsaugomi prie priimto sprendimo',{},async()=>{
-  await finish(7); await db.exec('delete from meeting_announcements');
+  await finish(7);
   assert.equal((await db.query("select decision_basis->'notice'->0->>'channel' as channel from resolutions")).rows[0].channel,'web');
+  await assert.rejects(db.exec('delete from meeting_announcements'),/įrodymai užfiksuoti/);
 });
 scenario('DB: užbaigto susirinkimo dalyviai taisomi su auditu, sprendimo vardiklis nekinta',{},async()=>{
   await finish(7); await db.exec("update meetings set status='baigtas'");
@@ -373,5 +378,102 @@ for(const sql of ["delete from storage.objects","update storage.objects set name
   await db.exec('grant select on all tables in schema public to authenticated; set local role authenticated');
   await db.exec(sql);
   assert.equal((await db.query("select name from storage.objects")).rows[0].name,'test-file.pdf');
+});
+
+
+for(const change of ["admission_date=(now() AT TIME ZONE 'Europe/Vilnius')::date+1","admission_date='2099-01-01'"]) scenario(`DB: būsimas priėmimas nesuteikia narystės: ${change}`,{},async()=>{
+  await assert.rejects(db.exec(`update members set ${change}`),/Priėmimo sprendimo data/);
+});
+scenario('DB: šiandienos priėmimo sprendimas galioja',{},async()=>{
+  await db.exec("update members set admission_date=(now() AT TIME ZONE 'Europe/Vilnius')::date");
+});
+for(const date of ["(now() AT TIME ZONE 'Europe/Vilnius')::date+1","'2099-01-01'::date"]) scenario(`DB: būsimas mokesčio sprendimas nesukuria prievolės ${date}`,{},async()=>{
+  await assert.rejects(db.exec(`insert into fee_periods(year,name,amount_cents,decision_reference,decision_date) values(2027,'Metinis',1200,'Visuotinio 1',${date})`),/sprendimo data dar neatėjo/);
+});
+scenario('DB: šiandienos mokesčio sprendimas priimamas',{},async()=>{
+  await db.exec("insert into fee_periods(year,name,amount_cents,decision_reference,decision_date) values(2027,'Metinis',1200,'Visuotinio 1',(now() AT TIME ZONE 'Europe/Vilnius')::date)");
+});
+for(const change of ["admission_date='2026-07-01'","status='išstojęs',termination_kind='withdrawal',termination_reference='Prašymas',termination_date='2026-02-01'"]) scenario(`DB: istorinis sąrašas negali prieštarauti narystės datoms ${change}`,{started:false,attendees:0},async()=>{
+  await db.exec(`update members set ${change}`);
+  await assert.rejects(db.exec("update meetings set meeting_date='2026-06-01',electorate_snapshot=jsonb_build_object('total',10,'reference','Istorinis sąrašas','member_ids',(select jsonb_agg(id) from members))"),/narystės datos/);
+});
+scenario('DB: reikalavimas negali būti vėlesnis už susirinkimą',{type:'neeilinis',started:false,attendees:0},async()=>{
+  await db.exec("update meetings set meeting_date='2026-06-01'");
+  await assert.rejects(db.query("update meetings set convening_kind='members',convening_date='2026-06-02',convening_reference='Reikalavimas',convening_total_members=10,convening_requesters=$1",[[uuid(1),uuid(2)]]),/iki susirinkimo/);
+});
+scenario('DB: datos perkėlimas negali apeiti jau įrašyto reikalavimo',{type:'neeilinis',started:false,attendees:0},async()=>{
+  await db.query("update meetings set convening_kind='members',convening_date='2026-06-02',convening_reference='Reikalavimas',convening_total_members=10,convening_requesters=$1",[[uuid(1),uuid(2)]]);
+  await assert.rejects(db.exec("update meetings set meeting_date='2026-06-01'"),/iki susirinkimo/);
+});
+for(const change of ["update meeting_announcements set published_at=now()","insert into meeting_announcements(meeting_id,channel,published_at) select id,'rc',now() from meetings","update meetings set notice_reference='Naujas pagrindas'","update meetings set notice_day_rule='elapsed_hours'"]) scenario(`DB: po sprendimo informavimo įrodymai nekinta: ${change}`,{},async()=>{
+  await finish(7);await assert.rejects(db.exec(change),/užfiksuot/);
+});
+scenario('DB: neužbaigto susirinkimo skelbimą galima pataisyti',{},async()=>{
+  await db.exec("update meeting_announcements set url='https://example.invalid/pranesimas'");
+});
+scenario('DB: darbotvarkė perrikiuojama vienu veiksmu',{},async()=>{
+  await db.query("insert into resolutions(id,meeting_id,title) values($1,$2,'Antras')",[uuid(201),uuid(100)]);
+  await db.query('select bylaws_reorder_resolutions($1,$2)',[uuid(100),[uuid(201),uuid(200)]]);
+  assert.equal((await db.query('select resolution_number from resolutions where id=$1',[uuid(200)])).rows[0].resolution_number,2);
+});
+for(const order of [[200],[200,200],[200,999]]) scenario(`DB: nepilnas perrikiavimas atmetamas ${order}`,{},async()=>{
+  await db.query("insert into resolutions(id,meeting_id,title,resolution_number) values($1,$2,'Antras',2)",[uuid(201),uuid(100)]);
+  await assert.rejects(db.query('select bylaws_reorder_resolutions($1,$2)',[uuid(100),order.map(uuid)]),/Darbotvarkė pasikeitė/);
+});
+scenario('DB: perrikiavimas negali perkelti galutinio klausimo',{},async()=>{
+  await finish(7);
+  await assert.rejects(db.query('select bylaws_reorder_resolutions($1,$2)',[uuid(100),[uuid(200)]]),/numeracija užfiksuota/);
+});
+scenario('DB: perrikiavimas tik administratoriui',{},async()=>{
+  await db.exec("set local test.is_admin='false'");
+  await assert.rejects(db.query('select bylaws_reorder_resolutions($1,$2)',[uuid(100),[uuid(200)]]),/Tik administratorius/);
+});
+async function generatedFixture(kind) {
+  await db.query("insert into documents(id,title,file_path,file_name) values($1,'Generuojamas priedas',$2,'test.html')",[uuid(300),`__api__/${kind}/${uuid(100)}`]);
+  await db.query('insert into resolution_documents(resolution_id,document_id) values($1,$2)',[uuid(200),uuid(300)]);
+  if(kind==='salinami') await db.query("insert into meeting_expulsions(meeting_id,member_id,debt_cents,debt_years,reason) values($1,$2,1200,'2024','Pradinis pagrindas')",[uuid(100),uuid(1)]);
+  if(kind==='rinkimai') await db.query("insert into community_management(member_id,role) values($1,'tarybos_narys')",[uuid(1)]);
+}
+for(const [kind,fn] of [['salinami','get_meeting_expulsions_data'],['rinkimai','get_meeting_elections_data'],['veiklos-planai','get_meeting_plan_data']]) scenario(`DB: ${kind} dokumentas grąžina galutinio momento duomenis`,{},async()=>{
+  await generatedFixture(kind);await finish(7);
+  const before=(await db.query(`select ${fn}($1) as payload`,[uuid(100)])).rows[0].payload;
+  assert.ok(before.captured_at);
+  await db.exec("update members set first_name='Pakeistas'; update meetings set title='Vėlesnis pavadinimas'; update community_management set is_current=false");
+  const after=(await db.query(`select ${fn}($1) as payload`,[uuid(100)])).rows[0].payload;
+  assert.deepEqual(after,before);
+});
+for(const change of ["update meeting_expulsions set reason='Pakeista'","delete from meeting_expulsions"]) scenario(`DB: užfiksuotas šalinimo priedas neperrašomas ${change}`,{},async()=>{
+  await generatedFixture('salinami');await finish(7);await assert.rejects(db.exec(change),/įrodymai užfiksuoti/);
+});
+scenario('DB: kvorumo nesurinkusio susirinkimo generuojamas priedas išsaugomas kartojimui',{members:20,attendees:10,historical:true},async()=>{
+  await generatedFixture('salinami');await db.exec("update meetings set status='baigtas'");
+  assert.equal((await db.query('select count(*)::int as n from bylaws_document_snapshots')).rows[0].n,1);
+});
+scenario('DB: kopijos negalima skaityti tiesiogiai per Data API',{},async()=>{
+  await generatedFixture('salinami');await finish(7);await db.exec('set local role anon');
+  await assert.rejects(db.exec('select * from bylaws_document_snapshots'),/permission denied/);
+});
+scenario('DB: kopija nepanaikina dokumento prieigos patikros',{},async()=>{
+  await generatedFixture('salinami');await finish(7);await db.exec("set local test.doc_access='false'");
+  assert.equal((await db.query('select get_meeting_expulsions_data($1) as data',[uuid(100)])).rows[0].data.error,'forbidden');
+});
+for(const same of [true,false]) scenario(`DB: pakartotiniame privalomas tas pats priedas ${same}`,{members:20,attendees:10,historical:true},async()=>{
+  await attachFixture();await db.exec("update meetings set status='baigtas'");
+  await db.query("insert into meetings(id,title,meeting_date,location,meeting_type,status,total_members_at_time,quorum_required,previous_meeting_id,repeat_notice_days,repeat_notice_reference,notice_channels,notice_reference,notice_day_rule,notice_day_reference) values($1,'Pakartotinis',now(),'Testas','pakartotinis','vyksta',20,0,$2,14,'Tvarka',ARRAY['web'],'Taryba','vilnius_calendar','Tvarka')",[uuid(101),uuid(100)]);
+  await db.query("insert into meeting_announcements(meeting_id,channel,published_at) values($1,'web',now()-interval '20 days')",[uuid(101)]);
+  await db.query("insert into resolutions(id,meeting_id,title,decision_text,decision_type,source_resolution_id) values($1,$2,'Įstatų projektas','Priimti','statutes',$3)",[uuid(201),uuid(101),uuid(200)]);
+  if(same) await db.query('insert into resolution_documents(resolution_id,document_id) values($1,$2)',[uuid(201),uuid(300)]);
+  await db.query('insert into meeting_attendance(meeting_id,member_id) values($1,$2)',[uuid(101),uuid(1)]);
+  const close=()=>db.query(`update resolutions set status='patvirtintas',result_for=1,ballot_snapshot='{"uz":0,"pries":0,"susilaike":0}' where id=$1`,[uuid(201)]);
+  if(same) await close();else await assert.rejects(close(),/priedai turi sutapti/);
+});
+scenario('DB: bet kuri perrikiavimo klaida grąžina visus numerius',{},async()=>{
+  await db.exec('update resolutions set resolution_number=1');
+  await db.query("insert into resolutions(id,meeting_id,title,resolution_number) values($1,$2,'Antras',2)",[uuid(201),uuid(100)]);
+  await db.exec(`create function test_reorder_failure() returns trigger language plpgsql as $$ begin if NEW.resolution_number=1 then raise exception 'Testinis sutrikimas'; end if; return NEW; end $$;
+    create trigger z_test_reorder_failure before update on resolutions for each row execute function test_reorder_failure(); savepoint before_reorder;`);
+  await assert.rejects(db.query('select bylaws_reorder_resolutions($1,$2)',[uuid(100),[uuid(201),uuid(200)]]),/Testinis sutrikimas/);
+  await db.exec('rollback to savepoint before_reorder');
+  assert.deepEqual((await db.query('select resolution_number from resolutions order by id')).rows.map(r=>r.resolution_number),[1,2]);
 });
 test.after(async()=>db.close());

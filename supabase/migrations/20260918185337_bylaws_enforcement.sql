@@ -94,6 +94,9 @@ BEGIN
       RAISE EXCEPTION 'Narystei būtinas raštiško prašymo ir Tarybos sprendimo pagrindas bei data (3.2 p.)';
     END IF;
   END IF;
+  IF NEW.status IN ('aktyvus','pasyvus','garbes_narys') AND NEW.admission_date > (now() AT TIME ZONE 'Europe/Vilnius')::date THEN
+    RAISE EXCEPTION 'Priėmimo sprendimo data dar neatėjo';
+  END IF;
   RETURN NEW;
 END; $$;
 CREATE TRIGGER bylaws_admission BEFORE INSERT OR UPDATE OR DELETE ON public.members
@@ -107,6 +110,7 @@ BEGIN
     IF nullif(btrim(NEW.decision_reference), '') IS NULL OR NEW.decision_date IS NULL THEN
       RAISE EXCEPTION 'Mokesčiui būtinas Visuotinio susirinkimo sprendimo pagrindas (3.7, 4.8.5 p.)';
     END IF;
+    IF NEW.decision_date > (now() AT TIME ZONE 'Europe/Vilnius')::date THEN RAISE EXCEPTION 'Mokesčio sprendimo data dar neatėjo'; END IF;
     IF NEW.amount_cents <= 0 THEN RAISE EXCEPTION 'Mokestis turi būti teigiamas'; END IF;
   END IF;
   RETURN NEW;
@@ -153,6 +157,12 @@ BEGIN
       IF cardinality(ids)<>total OR EXISTS(SELECT 1 FROM unnest(ids) id WHERE NOT EXISTS(SELECT 1 FROM public.members mb WHERE mb.id=id)) THEN
         RAISE EXCEPTION 'Istorinio išrašo narių sąrašas turi sutapti su narių skaičiumi ir registro tapatybėmis';
       END IF;
+      IF EXISTS(SELECT 1 FROM public.members mb WHERE mb.id=ANY(ids) AND
+        (coalesce(mb.admission_date,mb.join_date) > (NEW.meeting_date AT TIME ZONE 'Europe/Vilnius')::date
+         OR mb.termination_date < (NEW.meeting_date AT TIME ZONE 'Europe/Vilnius')::date
+            AND (mb.admission_date IS NULL OR mb.admission_date <= mb.termination_date))) THEN
+        RAISE EXCEPTION 'Istorinio sąrašo narystės datos neatitinka susirinkimo datos';
+      END IF;
       NEW.electorate_snapshot := jsonb_build_object('total',total,'member_ids',ids,'basis','document','reference',NEW.electorate_snapshot->>'reference','meeting_date',NEW.meeting_date,'recorded_at',now());
     END IF;
     IF total < 1 OR (NEW.meeting_type='valdybos' AND total<>6) THEN
@@ -163,6 +173,14 @@ BEGIN
   END IF;
   IF TG_OP='UPDATE' AND NEW.status='baigtas' AND OLD.status<>'baigtas' AND NEW.electorate_snapshot IS NULL THEN
     RAISE EXCEPTION 'Prieš uždarant užfiksuokite susirinkimo laiko narių bazę arba įrašykite dokumentuotą istorinį skaičių';
+  END IF;
+  IF NEW.convening_kind='members' AND NEW.convening_date > (NEW.meeting_date AT TIME ZONE 'Europe/Vilnius')::date THEN
+    RAISE EXCEPTION 'Narių reikalavimas turi būti pateiktas iki susirinkimo';
+  END IF;
+  IF TG_OP='UPDATE' AND (OLD.status IN ('baigtas','atšauktas') OR EXISTS(SELECT 1 FROM public.resolutions WHERE meeting_id=OLD.id AND status IN ('patvirtintas','atmestas')))
+    AND (NEW.notice_channels,NEW.notice_reference,NEW.notice_day_rule,NEW.notice_day_reference,NEW.repeat_notice_days,NEW.repeat_notice_reference,NEW.majority_rule,NEW.majority_reference)
+      IS DISTINCT FROM (OLD.notice_channels,OLD.notice_reference,OLD.notice_day_rule,OLD.notice_day_reference,OLD.repeat_notice_days,OLD.repeat_notice_reference,OLD.majority_rule,OLD.majority_reference) THEN
+    RAISE EXCEPTION 'Pranešimo ir balsavimo tvarkos pagrindai užfiksuoti';
   END IF;
   NEW.convening_requesters := ARRAY(SELECT DISTINCT id FROM unnest(NEW.convening_requesters) id ORDER BY id);
   -- A member demand is checked once, for the dated demand, and then preserved.
@@ -364,6 +382,10 @@ BEGIN
         OR (source.decision_type IS NOT NULL AND NEW.decision_type IS DISTINCT FROM source.decision_type)
         OR (source.requires_qualified_majority AND NOT NEW.requires_qualified_majority) THEN
       RAISE EXCEPTION 'Pakartotiniame susirinkime leidžiami tik ankstesnės darbotvarkės klausimai (4.6 p.)';
+    END IF;
+    IF EXISTS((SELECT document_id FROM public.resolution_documents WHERE resolution_id=NEW.id EXCEPT SELECT document_id FROM public.resolution_documents WHERE resolution_id=source.id)
+      UNION ALL (SELECT document_id FROM public.resolution_documents WHERE resolution_id=source.id EXCEPT SELECT document_id FROM public.resolution_documents WHERE resolution_id=NEW.id)) THEN
+      RAISE EXCEPTION 'Pakartotinio klausimo priedai turi sutapti su ankstesne darbotvarke (4.6 p.)';
     END IF;
   ELSIF participants * 2 <= m.total_members_at_time THEN
     RAISE EXCEPTION 'Nėra kvorumo: reikia daugiau kaip pusės narių';
@@ -574,3 +596,341 @@ USING (bucket_id<>'documents' OR NOT EXISTS (
     JOIN public.resolutions r ON r.id=rd.resolution_id JOIN public.meetings m ON m.id=r.meeting_id
   WHERE d.file_path=storage.objects.name AND (r.status IN ('patvirtintas','atmestas') OR m.status IN ('baigtas','atšauktas'))
 ));
+
+
+-- One transaction: a failed reorder cannot leave duplicate/partially moved numbers.
+CREATE FUNCTION public.bylaws_reorder_resolutions(p_meeting_id uuid,p_order uuid[]) RETURNS void
+LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
+DECLARE current_ids uuid[];
+BEGIN
+  IF NOT public.is_admin() THEN RAISE EXCEPTION 'Tik administratorius'; END IF;
+  PERFORM pg_advisory_xact_lock(hashtext('members_voting_eligibility'));
+  IF NOT EXISTS(SELECT 1 FROM public.meetings WHERE id=p_meeting_id AND status NOT IN ('baigtas','atšauktas')) THEN RAISE EXCEPTION 'Susirinkimas uždarytas arba nerastas'; END IF;
+  IF EXISTS(SELECT 1 FROM public.resolutions WHERE meeting_id=p_meeting_id AND status IN ('patvirtintas','atmestas')) THEN RAISE EXCEPTION 'Priėmus sprendimą darbotvarkės numeracija užfiksuota'; END IF;
+  SELECT array_agg(id ORDER BY id) INTO current_ids FROM public.resolutions WHERE meeting_id=p_meeting_id;
+  IF cardinality(p_order) IS DISTINCT FROM cardinality(current_ids) OR
+     ARRAY(SELECT DISTINCT id FROM unnest(p_order) id ORDER BY id) IS DISTINCT FROM current_ids THEN RAISE EXCEPTION 'Darbotvarkė pasikeitė; atnaujinkite puslapį'; END IF;
+  UPDATE public.resolutions r SET resolution_number=o.ordinality FROM unnest(p_order) WITH ORDINALITY o(id,ordinality) WHERE r.id=o.id AND r.meeting_id=p_meeting_id;
+END; $$;
+REVOKE ALL ON FUNCTION public.bylaws_reorder_resolutions(uuid,uuid[]) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.bylaws_reorder_resolutions(uuid,uuid[]) TO authenticated;
+
+-- Contains personal data: no Data API grants/policies. Existing authorized RPCs
+-- expose only their own payload after their existing membership/token checks.
+CREATE TABLE public.bylaws_document_snapshots (
+  meeting_id uuid NOT NULL REFERENCES public.meetings(id) ON DELETE RESTRICT,
+  kind text NOT NULL CHECK(kind IN ('salinami','rinkimai','veiklos-planai')),
+  payload jsonb NOT NULL,
+  captured_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY(meeting_id,kind)
+);
+ALTER TABLE public.bylaws_document_snapshots ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.bylaws_document_snapshots FROM PUBLIC,anon,authenticated;
+
+CREATE FUNCTION public.bylaws_generated_snapshot_guard() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE target_id uuid; doc record; source_id uuid; v_kind text; payload jsonb;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtext('members_voting_eligibility'));
+  IF TG_TABLE_NAME='resolutions' THEN
+    IF NEW.status NOT IN ('patvirtintas','atmestas') OR (TG_OP='UPDATE' AND OLD.status IN ('patvirtintas','atmestas')) THEN RETURN NEW; END IF;
+    target_id:=NEW.meeting_id;
+  ELSE
+    IF NEW.status NOT IN ('baigtas','atšauktas') OR OLD.status IN ('baigtas','atšauktas') THEN RETURN NEW; END IF;
+    target_id:=NEW.id;
+  END IF;
+  FOR doc IN SELECT DISTINCT d.file_path FROM public.documents d JOIN public.resolution_documents rd ON rd.document_id=d.id JOIN public.resolutions r ON r.id=rd.resolution_id
+    WHERE r.meeting_id=target_id AND (TG_TABLE_NAME='meetings' OR r.id=NEW.id)
+      AND d.file_path ~ '^__api__/(salinami|rinkimai|veiklos-planai)/' LOOP
+    v_kind:=split_part(doc.file_path,'/',2);
+    source_id:=split_part(doc.file_path,'/',3)::uuid;
+    IF NOT EXISTS(SELECT 1 FROM public.bylaws_document_snapshots ds WHERE ds.meeting_id=source_id AND ds.kind=v_kind) THEN
+      payload:=CASE v_kind WHEN 'salinami' THEN public.get_meeting_expulsions_data(source_id)
+        WHEN 'rinkimai' THEN public.get_meeting_elections_data(source_id)
+        ELSE public.get_meeting_plan_data(source_id) END;
+      IF payload IS NULL OR payload ? 'error' THEN RAISE EXCEPTION 'Nepavyko užfiksuoti generuojamo priedo'; END IF;
+      payload:=payload || (SELECT jsonb_build_object('meeting_title',m.title,'meeting_date',m.meeting_date,'captured_at',now()) FROM public.meetings m WHERE m.id=source_id);
+      INSERT INTO public.bylaws_document_snapshots(meeting_id,kind,payload) VALUES(source_id,v_kind,payload);
+    END IF;
+  END LOOP;
+  RETURN NEW;
+END; $$;
+REVOKE ALL ON FUNCTION public.bylaws_generated_snapshot_guard() FROM PUBLIC,anon,authenticated;
+CREATE TRIGGER zz_bylaws_generated_resolution AFTER INSERT OR UPDATE ON public.resolutions FOR EACH ROW EXECUTE FUNCTION public.bylaws_generated_snapshot_guard();
+CREATE TRIGGER zz_bylaws_generated_meeting AFTER UPDATE ON public.meetings FOR EACH ROW EXECUTE FUNCTION public.bylaws_generated_snapshot_guard();
+
+CREATE FUNCTION public.bylaws_evidence_guard() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE ids uuid[]; mid uuid;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtext('members_voting_eligibility'));
+  ids:=CASE WHEN TG_OP='INSERT' THEN ARRAY[NEW.meeting_id] WHEN TG_OP='DELETE' THEN ARRAY[OLD.meeting_id] ELSE ARRAY[OLD.meeting_id,NEW.meeting_id] END;
+  FOREACH mid IN ARRAY ids LOOP
+    IF EXISTS(SELECT 1 FROM public.meetings WHERE id=mid AND status IN ('baigtas','atšauktas')) OR
+      (TG_TABLE_NAME='meeting_announcements' AND EXISTS(SELECT 1 FROM public.resolutions WHERE meeting_id=mid AND status IN ('patvirtintas','atmestas'))) OR
+      (TG_TABLE_NAME='meeting_expulsions' AND EXISTS(SELECT 1 FROM public.bylaws_document_snapshots WHERE meeting_id=mid AND kind='salinami')) THEN
+      RAISE EXCEPTION 'Pranešimo arba priedo įrodymai užfiksuoti; būtinas atskiras dokumentuotas taisymas';
+    END IF;
+  END LOOP;
+  IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END; $$;
+REVOKE ALL ON FUNCTION public.bylaws_evidence_guard() FROM PUBLIC,anon,authenticated;
+CREATE TRIGGER bylaws_announcements BEFORE INSERT OR UPDATE OR DELETE ON public.meeting_announcements FOR EACH ROW EXECUTE FUNCTION public.bylaws_evidence_guard();
+CREATE TRIGGER bylaws_expulsions BEFORE INSERT OR UPDATE OR DELETE ON public.meeting_expulsions FOR EACH ROW EXECUTE FUNCTION public.bylaws_evidence_guard();
+
+-- Preserve deployed 047 access checks and grants; prefer the frozen payload.
+CREATE OR REPLACE FUNCTION public.get_meeting_elections_data(p_meeting_id uuid, p_token text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  frozen jsonb;
+  v_meeting meetings%ROWTYPE;
+  v_roles JSONB;
+BEGIN
+  IF NOT public._can_view_meeting_doc(p_meeting_id, p_token) THEN
+    RETURN jsonb_build_object('error', 'forbidden');
+  END IF;
+
+  SELECT * INTO v_meeting FROM meetings WHERE id = p_meeting_id;
+  IF NOT FOUND OR (NOT v_meeting.is_published AND NOT public.is_admin()) THEN
+    RETURN jsonb_build_object('error', 'meeting_not_found');
+  END IF;
+
+  SELECT payload INTO frozen FROM public.bylaws_document_snapshots WHERE meeting_id=p_meeting_id AND kind='rinkimai';
+  IF FOUND THEN RETURN frozen; END IF;
+
+  SELECT COALESCE(
+    jsonb_agg(
+      jsonb_build_object(
+        'role', cm.role,
+        'term_start', cm.term_start,
+        'term_end', cm.term_end,
+        'sort_order', cm.sort_order,
+        'first_name', m.first_name,
+        'last_name', m.last_name
+      )
+      ORDER BY cm.role, cm.sort_order
+    ),
+    '[]'::jsonb
+  )
+  INTO v_roles
+  FROM community_management cm
+  LEFT JOIN members m ON m.id = cm.member_id
+  WHERE cm.is_current = true;
+
+  RETURN jsonb_build_object(
+    'meeting_id', v_meeting.id,
+    'meeting_title', v_meeting.title,
+    'meeting_date', v_meeting.meeting_date,
+    'chairperson_name', v_meeting.chairperson_name,
+    'roles', v_roles
+  );
+END;
+$function$
+;
+
+-- Preserve deployed 047 access checks and grants; prefer the frozen payload.
+CREATE OR REPLACE FUNCTION public.get_meeting_expulsions_data(p_meeting_id uuid, p_token text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  frozen jsonb;
+  v_meeting meetings%ROWTYPE;
+  v_year INT;
+  v_year_start TIMESTAMPTZ;
+  v_candidates JSONB;
+BEGIN
+  IF NOT public._can_view_meeting_doc(p_meeting_id, p_token) THEN
+    RETURN jsonb_build_object('error', 'forbidden');
+  END IF;
+
+  SELECT * INTO v_meeting FROM meetings WHERE id = p_meeting_id;
+  IF NOT FOUND OR (NOT v_meeting.is_published AND NOT public.is_admin()) THEN
+    RETURN jsonb_build_object('error', 'meeting_not_found');
+  END IF;
+
+  SELECT payload INTO frozen FROM public.bylaws_document_snapshots WHERE meeting_id=p_meeting_id AND kind='salinami';
+  IF FOUND THEN RETURN frozen; END IF;
+
+  v_year := EXTRACT(YEAR FROM v_meeting.meeting_date)::INT;
+  v_year_start := (v_year || '-01-01')::TIMESTAMPTZ;
+
+  WITH cands AS (
+    SELECT
+      me.id,
+      me.member_id,
+      me.debt_cents,
+      me.debt_years,
+      me.reason,
+      me.sort_order,
+      m.first_name,
+      m.last_name,
+      -- SAUGUMAS: neatskleidžiam telefono/el. pašto; tik ar narys apskritai
+      -- turi kontaktų (pagrindimui „nepasiekiamas")
+      (m.phone IS NOT NULL OR m.email IS NOT NULL) AS has_contacts
+    FROM meeting_expulsions me
+    LEFT JOIN members m ON m.id = me.member_id
+    WHERE me.meeting_id = p_meeting_id
+  ),
+  notif AS (
+    SELECT
+      n.member_id,
+      COALESCE(
+        jsonb_agg(
+          jsonb_build_object(
+            'sent_at', n.sent_at,
+            'channel', n.channel,
+            'kind', n.kind,
+            'status', n.status
+          )
+          ORDER BY n.sent_at
+        ),
+        '[]'::jsonb
+      ) AS events
+    FROM notification_log n
+    WHERE n.member_id IN (SELECT member_id FROM cands)
+      AND n.sent_at >= v_year_start
+    GROUP BY n.member_id
+  ),
+  decls AS (
+    SELECT
+      d.member_id,
+      jsonb_build_object(
+        'sent_at', d.sent_at,
+        'viewed_at', d.viewed_at,
+        'view_count', d.view_count,
+        'submitted_at', d.submitted_at,
+        'intent', d.intent
+      ) AS decl
+    FROM membership_declarations d
+    WHERE d.member_id IN (SELECT member_id FROM cands)
+  ),
+  roles AS (
+    SELECT
+      cm.member_id,
+      jsonb_agg(cm.role) AS role_list
+    FROM community_management cm
+    WHERE cm.is_current = true
+      AND cm.member_id IN (SELECT member_id FROM cands)
+    GROUP BY cm.member_id
+  )
+  SELECT COALESCE(
+    jsonb_agg(
+      jsonb_build_object(
+        'id', c.id,
+        'member_id', c.member_id,
+        'debt_cents', c.debt_cents,
+        'debt_years', c.debt_years,
+        'reason', c.reason,
+        'first_name', c.first_name,
+        'last_name', c.last_name,
+        'has_contacts', c.has_contacts,
+        'events', COALESCE(n.events, '[]'::jsonb),
+        'declaration', d.decl,
+        'roles', COALESCE(r.role_list, '[]'::jsonb)
+      )
+      ORDER BY c.sort_order
+    ),
+    '[]'::jsonb
+  )
+  INTO v_candidates
+  FROM cands c
+  LEFT JOIN notif n ON n.member_id = c.member_id
+  LEFT JOIN decls d ON d.member_id = c.member_id
+  LEFT JOIN roles r ON r.member_id = c.member_id;
+
+  RETURN jsonb_build_object(
+    'meeting_id', v_meeting.id,
+    'meeting_title', v_meeting.title,
+    'meeting_date', v_meeting.meeting_date,
+    'year', v_year,
+    'candidates', v_candidates
+  );
+END;
+$function$
+;
+
+-- Preserve deployed 047 access checks and grants; prefer the frozen payload.
+CREATE OR REPLACE FUNCTION public.get_meeting_plan_data(p_meeting_id uuid, p_token text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  frozen jsonb;
+  v_meeting meetings%ROWTYPE;
+  v_year INT;
+  v_member_count INT;
+  v_collected_cents INT;
+  v_paid_count INT;
+  v_debt_rows JSONB;
+  v_total_debt_cents INT;
+BEGIN
+  IF NOT public._can_view_meeting_doc(p_meeting_id, p_token) THEN
+    RETURN jsonb_build_object('error', 'forbidden');
+  END IF;
+
+  SELECT * INTO v_meeting FROM meetings WHERE id = p_meeting_id;
+  IF NOT FOUND OR (NOT v_meeting.is_published AND NOT public.is_admin()) THEN
+    RETURN jsonb_build_object('error', 'meeting_not_found');
+  END IF;
+
+  SELECT payload INTO frozen FROM public.bylaws_document_snapshots WHERE meeting_id=p_meeting_id AND kind='veiklos-planai';
+  IF FOUND THEN RETURN frozen; END IF;
+
+  v_year := EXTRACT(YEAR FROM v_meeting.meeting_date)::INT;
+
+  SELECT COUNT(*) INTO v_member_count
+  FROM members
+  WHERE public.is_voting_status(status);
+
+  SELECT COALESCE(SUM(p.amount_cents), 0), COUNT(*)
+  INTO v_collected_cents, v_paid_count
+  FROM payments p
+  JOIN fee_periods fp ON fp.id = p.fee_period_id
+  WHERE fp.fee_type = 'metinis' AND fp.year = v_year;
+
+  WITH metiniai AS (SELECT id, year, amount_cents FROM fee_periods WHERE fee_type='metinis'),
+  unpaid AS (
+    SELECT fp.year, m.id, fp.amount_cents
+    FROM members m
+    CROSS JOIN metiniai fp
+    WHERE m.status IN ('aktyvus','pasyvus')
+      AND fp.year >= EXTRACT(YEAR FROM COALESCE(m.join_date,'2012-01-01'::date))
+      AND NOT EXISTS (
+        SELECT 1 FROM payments p WHERE p.member_id = m.id AND p.fee_period_id = fp.id
+      )
+  )
+  SELECT
+    COALESCE(jsonb_agg(jsonb_build_object(
+      'year', year, 'count', cnt, 'eur', total/100.0
+    ) ORDER BY year), '[]'::jsonb),
+    COALESCE(SUM(total), 0)
+  INTO v_debt_rows, v_total_debt_cents
+  FROM (
+    SELECT year, COUNT(*) AS cnt, SUM(amount_cents) AS total
+    FROM unpaid
+    GROUP BY year
+  ) t;
+
+  RETURN jsonb_build_object(
+    'meeting_id', v_meeting.id,
+    'meeting_date', v_meeting.meeting_date,
+    'year', v_year,
+    'member_count', v_member_count,
+    'collected_cents', v_collected_cents,
+    'paid_count', v_paid_count,
+    'debt_rows', v_debt_rows,
+    'total_debt_cents', v_total_debt_cents
+  );
+END;
+$function$
+;
