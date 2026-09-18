@@ -1,5 +1,7 @@
 # Krūminių kaimo bendruomenės sistemos vadovas
 
+Privalomos įstatų ir peržiūros taisyklės yra `AGENTS.md`; tekstinis šaltinis ir atitikties matrica - `docs/istatai/`. Prieš keičiant veiklos logiką perskaityti aktualius punktus.
+
 Šis failas yra orientyras AI asistentui, dirbant prie šio projekto. Skirtas tiek pirmam susipažinimui, tiek patikrinimui, kad nedubliuotumėt esamų sprendimų.
 
 ## Tech stack
@@ -966,7 +968,7 @@ Naudoja `node scripts/X.mjs` su .env.local skaitymu.
 - **Narystės deklaracija** (`/admin/nariai/deklaracija`):
   - Tik skolingiems siunčiama (sumokėjusiems – aišku, kad tęsia)
   - 3 intencijos: continue_cash / continue_transfer / withdraw
-  - „Withdraw" pasirinkus – statusas DB **NEbekeicia** (Tarybos kompetencija pagal naujus įstatus)
+  - „Withdraw" pasirinkus – esamas kodas statuso DB nekeičia. Tai esamo veikimo aprašymas, ne įstatų reikalavimas: 3.3 p. suteikia išstojimo teisę pateikus raštišką prašymą Tarybai; papildomo Tarybos pritarimo sąlygos jame nėra.
 - **Stojamasis mokestis**: 20 EUR (jei buvęs narys nori vėl įstoti po šalinimo)
 - **SMS sender**: telefono numeris `37065031091` (ne „Kruminiai" alphanumeric)
 - **SMS kaina**: ~0,03 EUR/segmentui
@@ -1031,7 +1033,7 @@ Esminiai punktai, į kuriuos verta atsižvelgti rašant naują logiką
 (punktų numeracija sutikrinta su PDF 2026-09):
 
 - **2.4** – pelnas (100%) reinvestuojamas, nariams nedalinamas
-- **3.1** – nariais gali būti tiek **fiziniai**, tiek **juridiniai** asmenys (18+)
+- **3.1** – nariais gali būti tiek **fiziniai**, tiek **juridiniai** asmenys; amžiaus ir veiksnumo formuluotės taikymą juridiniams asmenims būtina patikslinti, neįvesti įmonės 18 metų amžiaus reikalavimo
 - **3.2** – naujus narius priima **Taryba** (prašymas raštu Tarybai)
 - **3.3** – narys bet kada gali išstoti pateikęs raštišką prašymą Tarybai
 - **3.4** – **Tarybos sprendimu** narys gali būti pašalintas: nesilaiko įstatų;
@@ -1046,7 +1048,7 @@ Esminiai punktai, į kuriuos verta atsižvelgti rašant naują logiką
 - **4.4** – susirinkimas gali vykti ir balsavimas būti vykdomas
   **elektroninėmis ryšio priemonėmis**
 - **4.5** – kvorumas: dalyvauja daugiau kaip **pusė** Bendruomenės narių
-- **4.6** – pakartotinis susirinkimas sprendžia be kvorumo apribojimų
+- **4.6** – pakartotinis susirinkimas po kvorumo nebuvimo sprendžia be pradinės kvorumo ribos, tik neįvykusio susirinkimo darbotvarkės klausimais; balsų daugumos reikalavimai lieka
 - **4.7** – paprasta dauguma; **2/3 dalyvaujančių** dėl įstatų keitimo,
   pertvarkymo ar likvidavimo
 - **4.8** – susirinkimo kompetencija: keisti įstatus; rinkti/atšaukti Tarybos
@@ -1066,7 +1068,7 @@ Esminiai punktai, į kuriuos verta atsižvelgti rašant naują logiką
   narių pradžios
 - **6.2** – **Revizorius** renkamas 4 metams, negali būti valdymo organo nariu
 
-**Svarbu programos tekstams:** narystės šalinimas yra **Tarybos kompetencija** (ne susirinkimo). Visuotinis susirinkimas tik renka/atšaukia Pirmininką ir Tarybą, tvirtina ataskaitas. Visi tekstai apie „pašalinimą per susirinkimą" turi būti atnaujinti į „Tarybos sprendimu".
+**Svarbu programos tekstams:** narystės šalinimas yra **Tarybos kompetencija** (ne susirinkimo). Visuotinis susirinkimas renka ir atšaukia Tarybos narius, renka Revizorių, tvirtina ataskaitas ir vykdo kitą 4.8 p. kompetenciją. Pirmininką iš savo narių renka ir atšaukia Taryba (5.3 p.). Visi tekstai apie „pašalinimą per susirinkimą" turi būti atnaujinti į „Tarybos sprendimu".
 
 ## Žinios prieš pradedant naują darbą
 

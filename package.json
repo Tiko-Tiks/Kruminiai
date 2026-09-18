@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:bylaws": "node --test tests/bylaws/*.test.mjs",
+    "test:bylaws:core": "node --test tests/bylaws/core.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.0",
