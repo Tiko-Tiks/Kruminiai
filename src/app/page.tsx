@@ -23,20 +23,7 @@ export const metadata: Metadata = {
       "Aktyvi kaimo bendruomenė Varėnos r. – naujienos, susirinkimai, dokumentai ir skaidri veikla.",
   },
 };
-import {
-  ArrowRight,
-  Users,
-  Newspaper,
-  Handshake,
-  Eye,
-  TrendingUp,
-  Pin,
-  Calendar,
-  MapPin,
-  Vote,
-  Clock,
-  Heart,
-} from "lucide-react";
+import { ArrowRight, Pin, Heart } from "lucide-react";
 import Link from "next/link";
 
 // Šešios – kad po prisegtųjų atmetimo „Naujausios naujienos" turėtų iš ko
@@ -136,6 +123,42 @@ export default async function HomePage() {
   const pinnedIds = new Set(pinned.map((n) => n.id));
   const latest = news.filter((n) => !pinnedIds.has(n.id)).slice(0, LATEST_LIMIT);
 
+  // „Skelbimų lenta" pagrindinio puslapio dešinėje – vietoj dekoratyvių
+  // skaičių kubelių, tikras šiandienos turinys: artėjantis susirinkimas,
+  // prisegta naujiena, aktyvaus projekto progresas. Kiekvienas – iš JAU
+  // gautų duomenų, be papildomų DB kvietimų.
+  type Notice = { key: string; eyebrow: string; title: string; meta?: string; href: string };
+  const notices: Notice[] = [];
+  if (upcomingMeeting) {
+    notices.push({
+      key: "meeting",
+      eyebrow: t.upcomingMeetingBadge,
+      title: upcomingMeeting.title,
+      meta: `${formatDateLong(upcomingMeeting.meeting_date)} · ${upcomingMeeting.location}`,
+      href: `/susirinkimai/${upcomingMeeting.id}`,
+    });
+  }
+  if (pinned[0]) {
+    notices.push({
+      key: "news",
+      eyebrow: t.noticeboardNewsLabel,
+      title: pinned[0].title,
+      meta: pinned[0].published_at ? formatDateLong(pinned[0].published_at) : undefined,
+      href: `/naujienos/${pinned[0].slug}`,
+    });
+  }
+  const activeProject = projects.find((pr) => pr.acceptsDonations && pr.goalCents > 0);
+  if (activeProject) {
+    const pct = Math.min(100, Math.round((activeProject.totalCents / activeProject.goalCents) * 100));
+    notices.push({
+      key: "project",
+      eyebrow: t.lieptasCategoryLabel,
+      title: activeProject.title,
+      meta: t.noticeboardProjectProgress.replace("{percent}", String(pct)),
+      href: `/projektai/${activeProject.slug}`,
+    });
+  }
+
   const organizationLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
@@ -180,105 +203,81 @@ export default async function HomePage() {
       <PublicHeader />
 
       <main id="turinys">
-        {/* Artėjantis susirinkimas – vienintelis dalykas, kuris turi teisę
-            rėkti gintaro spalva. Visa kita svetainėje – ramu. */}
-        {upcomingMeeting && (
-          <section className="bg-accent-soft border-b border-accent-line">
-            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5">
-              <Link
-                href={`/susirinkimai/${upcomingMeeting.id}`}
-                className="block group"
-              >
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                  <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-accent flex items-center justify-center">
-                    <Vote className="h-6 w-6 text-white" aria-hidden />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="inline-flex items-center gap-1 text-xs font-bold text-accent-strong uppercase tracking-wide">
-                      <Clock className="h-3 w-3" aria-hidden /> {t.upcomingMeetingBadge}
-                    </span>
-                    <h2 className="text-lg sm:text-xl font-bold text-ink mt-1 mb-1 text-balance group-hover:text-accent-strong transition-colors">
-                      {upcomingMeeting.title}
-                    </h2>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted">
-                      <span className="flex items-center gap-1.5">
-                        <Calendar className="h-4 w-4 text-accent" aria-hidden />
-                        {formatDateLong(upcomingMeeting.meeting_date)}{" "}
-                        {new Date(upcomingMeeting.meeting_date).toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vilnius" })}
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <MapPin className="h-4 w-4 text-accent" aria-hidden />
-                        {upcomingMeeting.location}
-                      </span>
-                    </div>
-                  </div>
-                  <span className="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-accent-strong text-white text-sm font-semibold group-hover:bg-accent transition-colors">
-                    {t.upcomingMeetingCta} <ArrowRight className="h-4 w-4" aria-hidden />
-                  </span>
+        {/* Priešakinis puslapis – asimetriškas dviejų stulpelių maketas,
+            NE centruotas „hero" su gradiento dekoracijomis ir statistikos
+            kubeliais (tas raštas identiškas kiekvienam AI sugeneruotam
+            puslapiui: eyebrow + antraštė + subtitle + 2 mygtukai + 3 skaičiai).
+            Kairėje – konkreti tapatybės antraštė su realiais kaimų vardais
+            (ne pakartotas svetainės pavadinimas, kuris jau yra header'yje virš).
+            Dešinėje – tikra, gyva „skelbimų lenta": artėjantis susirinkimas,
+            naujiena, projekto progresas – tas pats turinys, kuris anksčiau
+            gulėjo atskiroje gintarinėje juostoje ir statistikos kubeliuose. */}
+        <section className="bg-surface-muted border-b border-line">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-20">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-10 lg:gap-16 items-start">
+              {/* Tapatybė */}
+              <div>
+                <p className="text-xs sm:text-sm font-semibold uppercase tracking-[0.12em] text-brand mb-4 text-balance">
+                  {t.heroEyebrow}
+                </p>
+                <h1 className="text-display-lg font-bold text-ink text-balance mb-5">
+                  {t.heroTitle}
+                </h1>
+                <p className="text-lg text-ink-muted leading-relaxed max-w-2xl text-pretty mb-8">
+                  {t.heroSubtitle}
+                </p>
+                <div className="flex flex-wrap items-center gap-x-7 gap-y-3">
+                  <Link
+                    href="/naujienos"
+                    className="inline-flex items-center gap-2 px-5 py-3 bg-brand text-brand-ink rounded-xl font-semibold hover:bg-brand-strong transition-colors"
+                  >
+                    {t.heroNewsButton} <ArrowRight className="h-4 w-4" aria-hidden />
+                  </Link>
+                  <Link
+                    href="/kontaktai"
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink hover:text-brand-strong transition-colors"
+                  >
+                    {t.heroContactButton} <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                  </Link>
                 </div>
-              </Link>
-            </div>
-          </section>
-        )}
-
-        {/* Hero */}
-        <section className="relative bg-brand-strong text-white overflow-hidden">
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              backgroundImage:
-                "radial-gradient(70rem 40rem at 15% -10%, rgba(134,239,172,0.22), transparent 60%), radial-gradient(45rem 45rem at 95% 110%, rgba(21,128,61,0.55), transparent 65%)",
-            }}
-            aria-hidden
-          />
-
-          <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-20 md:py-28">
-            <div className="max-w-3xl">
-              <p className="text-sm uppercase tracking-[0.2em] text-green-200 mb-4 font-semibold">
-                {t.heroEyebrow}
-              </p>
-              <h1 className="text-display-lg font-bold text-balance mb-6">
-                {t.heroTitle}
-              </h1>
-              <p className="text-lg md:text-xl text-green-50/90 leading-relaxed mb-9 max-w-2xl text-pretty">
-                {t.heroSubtitle}
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <Link
-                  href="/naujienos"
-                  className="inline-flex items-center gap-2 px-6 py-3.5 bg-white text-brand-strong rounded-xl font-semibold hover:bg-green-50 transition-colors shadow-lg shadow-black/10"
-                >
-                  {t.heroNewsButton} <ArrowRight className="h-4 w-4" aria-hidden />
-                </Link>
-                <Link
-                  href="/kontaktai"
-                  className="inline-flex items-center gap-2 px-6 py-3.5 bg-white/10 text-white border border-white/40 rounded-xl font-semibold hover:bg-white/20 transition-colors backdrop-blur-sm"
-                >
-                  {t.heroContactButton}
-                </Link>
               </div>
-            </div>
 
-            {/* Statistikos juostelė */}
-            <dl className="mt-16 pt-9 border-t border-white/20 grid grid-cols-3 gap-4 max-w-2xl">
-              {[
-                { value: "70+", label: t.statMembersLabel },
-                { value: "25", label: t.statVolunteersLabel },
-                { value: "14", label: t.statYearsLabel },
-              ].map((stat, i) => (
-                <div key={stat.label} className={i > 0 ? "border-l border-white/20 pl-4" : ""}>
-                  <dt className="sr-only">{stat.label}</dt>
-                  <dd>
-                    <span className="block text-4xl md:text-5xl font-bold">
-                      {stat.value}
-                    </span>
-                    <span className="block text-xs sm:text-sm text-green-200 mt-1.5">
-                      {stat.label}
-                    </span>
-                  </dd>
+              {/* Skelbimų lenta */}
+              <aside className="bg-surface-card border border-line rounded-2xl overflow-hidden lg:sticky lg:top-24">
+                <div className="h-1 bg-brand" aria-hidden />
+                <div className="p-5">
+                  <h2 className="text-xs font-bold uppercase tracking-wide text-ink-subtle mb-4">
+                    {t.noticeboardHeading}
+                  </h2>
+                  {notices.length > 0 ? (
+                    <ul className="space-y-4">
+                      {notices.map((n, i) => (
+                        <li key={n.key} className={i > 0 ? "pt-4 border-t border-line" : ""}>
+                          <Link href={n.href} className="group block">
+                            <span className="block text-xs font-semibold text-brand mb-1 truncate">
+                              {n.eyebrow}
+                            </span>
+                            <span className="block text-sm font-semibold text-ink group-hover:text-brand-strong transition-colors text-balance">
+                              {n.title}
+                            </span>
+                            {n.meta && (
+                              <span className="block text-xs text-ink-subtle mt-1">{n.meta}</span>
+                            )}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <Link
+                      href="/naujienos"
+                      className="text-sm text-brand-strong font-semibold hover:underline"
+                    >
+                      {t.noticeboardEmpty}
+                    </Link>
+                  )}
                 </div>
-              ))}
-            </dl>
+              </aside>
+            </div>
           </div>
         </section>
 
@@ -437,115 +436,47 @@ export default async function HomePage() {
           </section>
         )}
 
-        {/* About section */}
+        {/* About section – redakcinis dviejų stulpelių maketas, be ikonų */}
         <section className="py-16 sm:py-20 bg-surface-muted">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <div className="max-w-prose mx-auto text-center mb-12">
-              <h2 className="text-display-sm font-bold text-ink mb-4 text-balance">
-                {t.aboutHeading}
-              </h2>
-              <p className="text-prose text-ink-muted text-pretty">{t.aboutBody}</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-              {[
-                {
-                  icon: Handshake,
-                  title: t.valueCommunityTitle,
-                  desc: t.valueCommunityDesc,
-                },
-                {
-                  icon: Eye,
-                  title: t.valueTransparencyTitle,
-                  desc: t.valueTransparencyDesc,
-                },
-                {
-                  icon: TrendingUp,
-                  title: t.valueInvestmentTitle,
-                  desc: t.valueInvestmentDesc,
-                },
-              ].map((item) => (
-                <div key={item.title} className="text-center">
-                  <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-brand-soft border border-brand-line text-brand mb-4">
-                    <item.icon className="h-6 w-6" aria-hidden />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-start">
+              <div className="max-w-prose">
+                <h2 className="text-display-sm font-bold text-ink mb-4 text-balance">
+                  {t.aboutHeading}
+                </h2>
+                <p className="text-prose text-ink-muted text-pretty">{t.aboutBody}</p>
+              </div>
+              <div className="space-y-6">
+                {[
+                  { title: t.valueCommunityTitle, desc: t.valueCommunityDesc },
+                  { title: t.valueTransparencyTitle, desc: t.valueTransparencyDesc },
+                  { title: t.valueInvestmentTitle, desc: t.valueInvestmentDesc },
+                ].map((item) => (
+                  <div key={item.title} className="border-l-2 border-brand-line pl-5">
+                    <h3 className="font-semibold text-ink mb-1">{item.title}</h3>
+                    <p className="text-sm text-ink-muted text-pretty">{item.desc}</p>
                   </div>
-                  <h3 className="text-lg font-semibold text-ink mb-2">
-                    {item.title}
-                  </h3>
-                  <p className="text-sm text-ink-muted text-pretty">{item.desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Kur eiti toliau – trys skirtingos vietos.
-            Anksčiau čia buvo keturios kortelės, iš kurių dvi („Apie mus" ir
-            „Kontaktai") vedė į tą patį /kontaktai puslapį. */}
-        <section className="py-16 bg-surface border-y border-line">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-              {[
-                {
-                  icon: Newspaper,
-                  title: t.quickLinkNewsTitle,
-                  desc: t.quickLinkNewsDesc,
-                  href: "/naujienos",
-                },
-                {
-                  icon: Heart,
-                  title: t.quickLinkProjectsTitle,
-                  desc: t.quickLinkProjectsDesc,
-                  href: "/projektai",
-                },
-                {
-                  icon: Users,
-                  title: t.quickLinkAboutTitle,
-                  desc: t.quickLinkAboutDesc,
-                  href: "/kontaktai",
-                },
-              ].map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="group flex items-start gap-4 p-5 rounded-2xl border border-line hover:border-brand-line hover:bg-brand-soft/40 transition-colors"
-                >
-                  <item.icon className="h-6 w-6 flex-shrink-0 text-brand mt-0.5" aria-hidden />
-                  <span>
-                    <span className="block font-semibold text-ink group-hover:text-brand-strong transition-colors">
-                      {item.title}
-                    </span>
-                    <span className="block text-sm text-ink-muted mt-0.5 text-pretty">
-                      {item.desc}
-                    </span>
-                  </span>
-                </Link>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </section>
 
         {/* Membership info */}
-        <section className="py-16 sm:py-20 bg-surface-muted">
+        <section className="py-16 sm:py-20 bg-surface border-t border-line">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="max-w-prose mx-auto text-center">
               <h2 className="text-display-sm font-bold text-ink mb-4 text-balance">
                 {t.membershipHeading}
               </h2>
-              <p className="text-prose text-ink-muted mb-8 text-pretty">{t.membershipBody}</p>
-              <div className="flex flex-wrap justify-center gap-4 mb-9">
-                <div className="bg-surface-card rounded-2xl border border-line px-7 py-5 text-center">
-                  <p className="text-3xl font-bold text-brand-strong">
-                    {t.membershipJoiningFeeAmount}
-                  </p>
-                  <p className="text-sm text-ink-muted mt-1">{t.membershipJoiningFeeLabel}</p>
-                </div>
-                <div className="bg-surface-card rounded-2xl border border-line px-7 py-5 text-center">
-                  <p className="text-3xl font-bold text-brand-strong">
-                    {t.membershipAnnualFeeAmount}
-                  </p>
-                  <p className="text-sm text-ink-muted mt-1">{t.membershipAnnualFeeLabel}</p>
-                </div>
-              </div>
+              <p className="text-prose text-ink-muted mb-6 text-pretty">{t.membershipBody}</p>
+              <p className="text-sm text-ink-muted mb-8">
+                {t.membershipJoiningFeeLabel}{" "}
+                <strong className="text-ink font-semibold">{t.membershipJoiningFeeAmount}</strong>
+                <span className="mx-2.5 text-line-strong" aria-hidden>·</span>
+                {t.membershipAnnualFeeLabel}{" "}
+                <strong className="text-ink font-semibold">{t.membershipAnnualFeeAmount}</strong>
+              </p>
               <Link
                 href="/registracija"
                 className="inline-flex items-center gap-2 px-7 py-3.5 bg-brand text-brand-ink rounded-xl font-semibold hover:bg-brand-strong transition-colors shadow-sm"
