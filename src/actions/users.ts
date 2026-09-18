@@ -6,7 +6,7 @@ import { requireAdmin } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
 import { logNotification } from "@/lib/notification-log";
-import { renderMemberWelcomeEmail } from "@/lib/membership-emails";
+import { renderPortalApprovalEmail } from "@/lib/portal-approval-email";
 import { revalidatePath } from "next/cache";
 
 /** Patvirtina portalo paskyrą. Narystė registruojama atskirai pagal Tarybos sprendimą. */
@@ -86,7 +86,7 @@ export async function approveUser(
       }
     }
 
-    // 2) Laiškas #2 – pasveikinimas tapus nariu + supažindinimas su sistema.
+    // 2) Portalo prieigos pranešimas jau priimtam nariui.
     //    Kalba – pagal nario `language` lauką (admin gali nustatyti 'en').
     if (memberId) {
       const { data: member } = await supabase
@@ -98,12 +98,11 @@ export async function approveUser(
         const locale = member.language === "en" ? "en" : "lt";
         const subject =
           locale === "en"
-            ? "Welcome to the Krūminiai Village Community!"
-            : "Sveiki tapę Krūminių kaimo bendruomenės nariu!";
-        const html = renderMemberWelcomeEmail({
+            ? "Your Krūminiai portal account is active"
+            : "Jūsų Krūminių portalo paskyra aktyvuota";
+        const html = renderPortalApprovalEmail({
           firstName: member.first_name as string,
           locale,
-          isHonorary: (member as { status?: string }).status === "garbes_narys",
         });
         const r = await sendEmail(member.email as string, subject, html);
         await logNotification(supabase, {

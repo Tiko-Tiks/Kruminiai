@@ -7,7 +7,7 @@ import ts from 'typescript';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const require = createRequire(import.meta.url);
 const packages = new Set(['zod', 'clsx', 'tailwind-merge', 'date-fns', 'date-fns/locale']);
-const localLibraries = new Set(['authz', 'constants', 'quorum', 'protocol-text', 'utils', 'voting-window', 'bylaws', 'decision-validation']);
+const localLibraries = new Set(['authz', 'constants', 'quorum', 'protocol-text', 'utils', 'voting-window', 'bylaws', 'decision-validation', 'portal-approval-email']);
 
 /** Execute the real TS implementation. All I/O modules must be explicitly replaced.
  * This is an application unit-test boundary, NOT an emulation of Postgres/RLS.
@@ -101,7 +101,7 @@ export function actionHarness(file, seed = {}, options = {}) {
     '@/lib/audit': { logAudit: async () => {} },
     '@/lib/revalidate': { revalidateMeetingPaths: () => {} },
     'next/cache': { revalidatePath: () => {} },
-    '@/lib/email': { sendEmail: async (...args) => { notifications.push(args); return { success: true }; } },
+    '@/lib/email': { renderBrandedEmail: ({preheader,body}) => preheader + body, sendEmail: async (...args) => { notifications.push(args); return { success: true }; } },
     '@/lib/notification-log': { logNotification: async () => {} },
     '@/lib/membership-emails': { renderMemberWelcomeEmail: () => 'test email' },
   };
@@ -122,6 +122,6 @@ export function votingFixture({ attendees = 10, totalMembers = 10, votes = [], q
       requires_qualified_majority: qualified, decision_text: 'Pakeisti įstatus pagal pridėtą projektą.', status: 'balsuojamas' }],
     vote_ballots: votes.map((vote, i) => ({ resolution_id: 'resolution', member_id: `voter-${i}`, vote })),
     meeting_attendance: Array.from({ length: attendees }, (_, i) => ({ meeting_id: 'meeting', member_id: `attendee-${i}` })),
-    meeting_announcements: [],
+    meeting_announcements: [{ meeting_id:'meeting',channel:'web',url:null,published_at:'2026-01-01T16:00:00Z' }],
   };
 }

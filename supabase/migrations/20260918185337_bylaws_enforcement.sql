@@ -22,6 +22,12 @@ CREATE INDEX resolutions_source_resolution_idx ON public.resolutions(source_reso
 CREATE FUNCTION public.bylaws_admission_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
 BEGIN
+  IF TG_OP = 'UPDATE' AND nullif(btrim(OLD.application_reference), '') IS NOT NULL
+      AND nullif(btrim(OLD.admission_reference), '') IS NOT NULL AND OLD.admission_date IS NOT NULL
+      AND (nullif(btrim(NEW.application_reference), '') IS NULL OR
+           nullif(btrim(NEW.admission_reference), '') IS NULL OR NEW.admission_date IS NULL) THEN
+    RAISE EXCEPTION 'Užregistruoto priėmimo pagrindo ištrinti negalima';
+  END IF;
   IF NEW.status IN ('aktyvus', 'pasyvus', 'garbes_narys') AND
      (TG_OP = 'INSERT' OR OLD.status NOT IN ('aktyvus', 'pasyvus', 'garbes_narys')) THEN
     IF nullif(btrim(NEW.application_reference), '') IS NULL OR
@@ -53,6 +59,9 @@ CREATE FUNCTION public.bylaws_meeting_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
 DECLARE expected integer;
 BEGIN
+  IF TG_OP = 'UPDATE' AND NEW.meeting_type IS DISTINCT FROM OLD.meeting_type THEN
+    RAISE EXCEPTION 'Susirinkimo tipo keisti negalima; sukurkite naują susirinkimą';
+  END IF;
   IF TG_OP = 'UPDATE' AND EXISTS (SELECT 1 FROM public.meetings WHERE previous_meeting_id = OLD.id) AND
       (NEW.status, NEW.meeting_date, NEW.total_members_at_time, NEW.meeting_type) IS DISTINCT FROM
       (OLD.status, OLD.meeting_date, OLD.total_members_at_time, OLD.meeting_type) THEN
@@ -128,8 +137,25 @@ CREATE FUNCTION public.bylaws_resolution_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
 DECLARE m public.meetings%ROWTYPE; previous public.meetings%ROWTYPE; source public.resolutions%ROWTYPE;
   participants integer; prior_participants integer; live_capacity integer;
-  f integer; a integer; s integer; passed boolean; threshold integer;
+  f integer; a integer; s integer; passed boolean; threshold integer; notice jsonb;
 BEGIN
+  PERFORM pg_advisory_xact_lock(hashtext('members_voting_eligibility'));
+  -- Preserve both final decisions (including cascading deletion) and the agenda
+  -- actually considered by a closed meeting, before any repeat can refer to it.
+  IF TG_OP = 'DELETE' AND OLD.status IN ('patvirtintas', 'atmestas') THEN
+    RAISE EXCEPTION 'Galutinio nutarimo ištrinti negalima; reikia atskiro protokolo taisymo';
+  END IF;
+  IF TG_OP IN ('UPDATE', 'DELETE') THEN
+    SELECT * INTO m FROM public.meetings WHERE id = OLD.meeting_id FOR UPDATE;
+    IF m.status IN ('baigtas', 'atšauktas') THEN
+      RAISE EXCEPTION 'Uždaryto susirinkimo darbotvarkės keisti negalima';
+    END IF;
+  END IF;
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  SELECT * INTO m FROM public.meetings WHERE id = NEW.meeting_id FOR UPDATE;
+  IF m.status IN ('baigtas', 'atšauktas') THEN
+    RAISE EXCEPTION 'Uždaryto susirinkimo darbotvarkės keisti negalima';
+  END IF;
   IF TG_OP = 'UPDATE' AND OLD.status IN ('patvirtintas', 'atmestas') THEN
     IF (NEW.status, NEW.meeting_id, NEW.title, NEW.description, NEW.decision_text, NEW.requires_qualified_majority,
         NEW.result_for, NEW.result_against, NEW.result_abstain, NEW.source_resolution_id, NEW.chair_vote, NEW.participants_at_decision, NEW.decision_basis)
@@ -211,11 +237,14 @@ BEGIN
     END IF;
   END IF;
   IF (NEW.status = 'patvirtintas') IS DISTINCT FROM passed THEN RAISE EXCEPTION 'Nutarimo statusas neatitinka balsų daugumos'; END IF;
-  IF NEW.procedural_type = 'pranesimas' AND NEW.status = 'patvirtintas' AND m.meeting_type <> 'valdybos' THEN
+  IF m.meeting_type <> 'valdybos' THEN
     threshold := CASE WHEN m.meeting_type = 'neeilinis' THEN 7 ELSE 14 END;
-    IF NOT EXISTS (SELECT 1 FROM public.meeting_announcements WHERE meeting_id = m.id
+    SELECT jsonb_build_object('id', id, 'channel', channel, 'published_at', published_at, 'url', url)
+      INTO notice FROM public.meeting_announcements WHERE meeting_id = m.id
         AND channel IN ('web', 'facebook', 'email', 'paper', 'rc')
-        AND published_at <= m.meeting_date - make_interval(days => threshold)) THEN
+        AND published_at <= m.meeting_date - make_interval(days => threshold)
+      ORDER BY published_at LIMIT 1 FOR SHARE;
+    IF NOT FOUND THEN
       RAISE EXCEPTION 'Nėra laiku paskelbto pranešimo įstatų 8.1 p. kanalu';
     END IF;
   END IF;
@@ -223,11 +252,11 @@ BEGIN
   NEW.decision_basis := jsonb_build_object('bylaws', '2025-12-07', 'total_members', m.total_members_at_time,
     'participants', participants, 'meeting_type', m.meeting_type, 'majority_rule', m.majority_rule,
     'majority_reference', m.majority_reference, 'previous_meeting_id', m.previous_meeting_id,
-    'recorded_at', now());
+    'notice', notice, 'recorded_at', now());
   NEW.early_voting_open := false;
   RETURN NEW;
 END; $$;
-CREATE TRIGGER bylaws_resolution BEFORE INSERT OR UPDATE ON public.resolutions
+CREATE TRIGGER bylaws_resolution BEFORE INSERT OR UPDATE OR DELETE ON public.resolutions
 FOR EACH ROW EXECUTE FUNCTION public.bylaws_resolution_guard();
 
 -- Explicit RC channel; SMS remains available as supplementary communication.

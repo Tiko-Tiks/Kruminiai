@@ -90,13 +90,13 @@ export async function getMeetingExpulsions(
 
   const { data: payments } = await supabase
     .from("payments")
-    .select("member_id, fee_period_id");
+    .select("member_id, fee_period_id, amount_cents");
 
-  const paidMap = new Map<string, Set<string>>();
+  const paidMap = new Map<string, Map<string, number>>();
   for (const p of payments || []) {
-    const s = paidMap.get(p.member_id) || new Set<string>();
-    s.add(p.fee_period_id);
-    paidMap.set(p.member_id, s);
+    const sums = paidMap.get(p.member_id) || new Map<string, number>();
+    sums.set(p.fee_period_id, (sums.get(p.fee_period_id) || 0) + p.amount_cents);
+    paidMap.set(p.member_id, sums);
   }
 
   const existingIds = new Set(list.map((l) => l.member_id));
@@ -104,10 +104,10 @@ export async function getMeetingExpulsions(
   for (const m of members || []) {
     if (existingIds.has(m.id)) continue;
     const joinYear = m.join_date ? new Date(m.join_date).getFullYear() : 2012;
-    const paidIds = paidMap.get(m.id) || new Set<string>();
-    const unpaid = (periods || []).filter(
-      (p) => p.year >= joinYear && !paidIds.has(p.id)
-    );
+    const paid = paidMap.get(m.id) || new Map<string, number>();
+    const unpaid = (periods || []).filter(p => p.year >= joinYear)
+      .map(p => ({ ...p, outstanding: Math.max(0, p.amount_cents - (paid.get(p.id) || 0)) }))
+      .filter(p => p.outstanding > 0);
     const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vilnius" });
     if (!unpaid.some(p => overdueMoreThanTwelveMonths(p.due_date, today))) continue;
     candidates.push({
@@ -117,7 +117,7 @@ export async function getMeetingExpulsions(
       status: m.status,
       phone: m.phone,
       email: m.email,
-      debt_cents: unpaid.reduce((s, p) => s + p.amount_cents, 0),
+      debt_cents: unpaid.reduce((s, p) => s + p.outstanding, 0),
       debt_years: unpaid.map((p) => p.year).sort().join(", "),
       years_unpaid: unpaid.length,
     });
@@ -150,20 +150,24 @@ export async function addExpulsion(
 
   const joinYear = member.join_date ? new Date(member.join_date).getFullYear() : 2012;
 
-  const [{ data: periods }, { data: payments }] = await Promise.all([
+  const [{ data: periods, error: periodsError }, { data: payments, error: paymentsError }] = await Promise.all([
     supabase.from("fee_periods").select("id, year, amount_cents, due_date").eq("fee_type", "metinis"),
-    supabase.from("payments").select("fee_period_id").eq("member_id", memberId),
+    supabase.from("payments").select("fee_period_id, amount_cents").eq("member_id", memberId),
   ]);
 
-  const paidIds = new Set((payments || []).map((p) => p.fee_period_id));
-  const unpaid = (periods || []).filter((p) => p.year >= joinYear && !paidIds.has(p.id));
+  if (periodsError || paymentsError || !periods || !payments) return { error: "Nepavyko patikrinti mokesčių ir mokėjimų." };
+  const paid = new Map<string, number>();
+  for (const p of payments) paid.set(p.fee_period_id, (paid.get(p.fee_period_id) || 0) + p.amount_cents);
+  const unpaid = periods.filter(p => p.year >= joinYear)
+    .map(p => ({ ...p, outstanding: Math.max(0, p.amount_cents - (paid.get(p.id) || 0)) }))
+    .filter(p => p.outstanding > 0);
 
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vilnius" });
   if (!unpaid.some(p => overdueMoreThanTwelveMonths(p.due_date, today))) {
     return { error: "Nėra pagrįsto ilgiau nei 12 mėnesių pradelsto mokesčio. Reikia patvirtintos mokėjimo tvarkos ir termino (3.4.2 p.)." };
   }
 
-  const debtCents = unpaid.reduce((s, p) => s + p.amount_cents, 0);
+  const debtCents = unpaid.reduce((s, p) => s + p.outstanding, 0);
   const debtYears = unpaid.map((p) => p.year).sort().join(", ");
   const defaultReason = "Siūloma Tarybai įvertinti ilgiau nei 12 mėnesių pradelstą nario mokestį (įstatų 3.4.2 p.). Šis sąrašas narystės nenutraukia; galutinį pagrindą tikrina Taryba.";
 

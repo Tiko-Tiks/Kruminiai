@@ -155,6 +155,10 @@ export async function updateMember(id: string, formData: FormData) {
 
   if (!oldData) return { error: { _form: ["Narys nerastas"] } };
   const reactivating = !ACTIVE_MEMBER_STATUSES.includes(oldData.status) && ACTIVE_MEMBER_STATUSES.includes(parsed.data.status);
+  const hadEvidence = oldData.application_reference?.trim() && oldData.admission_reference?.trim() && oldData.admission_date;
+  if (hadEvidence && (!parsed.data.application_reference?.trim() || !parsed.data.admission_reference?.trim() || !parsed.data.admission_date)) {
+    return { error: { _form: ["Užregistruoto priėmimo pagrindo ištrinti negalima."] } };
+  }
   const evidenceError = reactivating ? admissionEvidenceError(parsed.data) : null;
   if (evidenceError) return { error: { _form: [evidenceError] } };
 

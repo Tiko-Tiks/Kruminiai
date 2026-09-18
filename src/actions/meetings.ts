@@ -190,6 +190,9 @@ export async function updateMeeting(id: string, formData: FormData) {
   );
 
   if (!oldData) return { error: { _form: ["Susirinkimas nerastas"] } };
+  if (oldData.meeting_type !== parsed.data.meeting_type) {
+    return { error: { _form: ["Susirinkimo tipo keisti negalima. Sukurkite naują reikiamo tipo susirinkimą, kad būtų nustatyti jo nariai ir darbotvarkė."] } };
+  }
   const values = {
     is_repeat: parsed.data.meeting_type === "pakartotinis",
     quorum_required: suggestedQuorum(parsed.data.meeting_type, oldData.total_members_at_time),

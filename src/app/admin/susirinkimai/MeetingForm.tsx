@@ -78,7 +78,8 @@ export function MeetingForm({ meeting }: Props) {
           <div className="grid grid-cols-2 gap-4">
             <Select
               label="Susirinkimo tipas"
-              name="meeting_type"
+              name={meeting ? undefined : "meeting_type"}
+              disabled={!!meeting}
               value={meetingType}
               onChange={e => setMeetingType(e.target.value as Meeting["meeting_type"])}
               options={[
@@ -96,6 +97,8 @@ export function MeetingForm({ meeting }: Props) {
             />
           </div>
 
+          {meeting && <input type="hidden" name="meeting_type" value={meetingType} />}
+          {meeting && <p className="text-sm text-gray-600">Kitam susirinkimo tipui sukurkite naują susirinkimą.</p>}
           {meetingType === "pakartotinis" && (
             <div className="space-y-2">
               <Select name="previous_meeting_id" label="Dėl kvorumo neįvykęs susirinkimas" defaultValue={meeting?.previous_meeting_id || ""} required

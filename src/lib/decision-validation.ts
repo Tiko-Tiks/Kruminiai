@@ -1,4 +1,5 @@
 import type { createServerSupabaseClient } from "@/lib/supabase-server";
+import { summarizeAnnouncements } from "@/lib/protocol-text";
 import { decisionError } from "@/lib/bylaws";
 
 type Client = ReturnType<typeof createServerSupabaseClient>;
@@ -13,6 +14,12 @@ export async function validateDecision(db: Client, resolutionId: string, meeting
   ]);
   if (re || me || ae || !r || !m || !attendees) return "Nepavyko patikrinti nutarimo, susirinkimo ar dalyvių duomenų.";
   if (['baigtas', 'atšauktas'].includes(m.status)) return "Susirinkimas uždarytas. Rezultatų keisti negalima.";
+  if (m.meeting_type !== 'valdybos') {
+    const { data: announcements, error } = await db.from('meeting_announcements').select('channel, url, published_at').eq('meeting_id', meetingId);
+    if (error || !summarizeAnnouncements(announcements, new Date(m.meeting_date), m.meeting_type).compliant) {
+      return "Nėra laiku paskelbto pranešimo įstatų 8.1 p. kanalu. Patikrinkite susirinkimo informavimo įrodymus.";
+    }
+  }
   let repeatValidated = false;
   if (m.meeting_type === 'pakartotinis' && m.previous_meeting_id && r.source_resolution_id) {
     const [{ data: previous, error: pe }, { data: source, error: se }, { data: priorAttendance, error: pa }] = await Promise.all([

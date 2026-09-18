@@ -265,6 +265,9 @@ export async function updateResolution(
 
   const parsed = z.object({ discussion_text: z.string().optional(), decision_text: z.string().optional(), title: z.string().min(1).optional(), description: z.string().optional() }).strict().safeParse(data);
   if (!parsed.success) return { error: "Neleistini nutarimo laukai" };
+  const { data: meeting, error: meetingError } = await supabase.from("meetings").select("status").eq("id", meetingId).single();
+  if (meetingError || !meeting) return { error: "Nepavyko patikrinti susirinkimo" };
+  if (["baigtas", "atšauktas"].includes(meeting.status)) return { error: "Uždaryto susirinkimo darbotvarkės keisti negalima" };
   const { error } = await supabase.from("resolutions").update(parsed.data).eq("id", id).eq("meeting_id", meetingId);
   if (error) return { error: error.message };
 
@@ -334,7 +337,13 @@ export async function deleteResolution(id: string, meetingId: string) {
   if (auth.error) return { error: auth.error };
   const user = auth.user;
 
-  const { error } = await supabase.from("resolutions").delete().eq("id", id);
+  const { data: resolution, error: resolutionError } = await supabase.from("resolutions").select("status").eq("id", id).eq("meeting_id", meetingId).single();
+  const { data: meeting, error: meetingError } = await supabase.from("meetings").select("status").eq("id", meetingId).single();
+  if (resolutionError || meetingError || !resolution || !meeting) return { error: "Nepavyko patikrinti nutarimo ir susirinkimo" };
+  if (["patvirtintas", "atmestas"].includes(resolution.status) || ["baigtas", "atšauktas"].includes(meeting.status)) {
+    return { error: "Uždaryto nutarimo arba susirinkimo darbotvarkės ištrinti negalima" };
+  }
+  const { error } = await supabase.from("resolutions").delete().eq("id", id).eq("meeting_id", meetingId);
   if (error) return { error: error.message };
 
   // Užpildom numeracijos spragą – protokole klausimai turi eiti 1..N
