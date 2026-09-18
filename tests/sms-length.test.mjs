@@ -7,6 +7,7 @@ import {
   formatMeetingDateLong,
   formatMeetingDateTime,
   isGsm7,
+  isValidMeetingDate,
   meetingTypeLabel,
   overdueDeclarationSmsText,
   smsSegments,
@@ -36,6 +37,9 @@ test("ilgas datos formatas abiem kalbomis", () => {
 
 test("netinkama data – aiški klaida, ne tylus „Invalid Date“", () => {
   assert.throws(() => formatMeetingDateTime("ne data"), RangeError);
+  assert.equal(isValidMeetingDate("ne data"), false);
+  assert.equal(isValidMeetingDate(null), false);
+  assert.equal(isValidMeetingDate(SUMMER_ISO), true);
 });
 
 test("susirinkimo tipo pavadinimas pagal meetings.meeting_type", () => {

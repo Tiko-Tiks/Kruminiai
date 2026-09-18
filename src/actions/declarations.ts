@@ -39,11 +39,6 @@ function generateToken(): string {
 // įrašyta konkreti data, todėl kitai kampanijai nuorodos būdavo nebegaliojančios.
 const expiresAtSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
-/**
- * Paskutinė galiojimo diena („YYYY-MM-DD") → momentas 23:59 Europe/Vilnius
- * laiku (DB stulpelis yra `timestamptz`, serveris – UTC; žr. CLAUDE.md
- * „Datos ir laikai formose").
- */
 const DEFAULT_EXPIRY_DAYS = 14;
 
 /** Numatytoji kampanijos pabaiga – po 14 d. („YYYY-MM-DD" Vilniaus laiku). */
@@ -52,6 +47,11 @@ function defaultExpiresAtDate(): string {
   return isoToVilniusLocal(new Date(at)).slice(0, 10);
 }
 
+/**
+ * Paskutinė galiojimo diena („YYYY-MM-DD") → momentas 23:59 Europe/Vilnius
+ * laiku (DB stulpelis yra `timestamptz`, serveris – UTC; žr. CLAUDE.md
+ * „Datos ir laikai formose").
+ */
 function resolveExpiresAt(input: string): { iso: string } | { error: string } {
   const parsed = expiresAtSchema.safeParse(input);
   if (!parsed.success) {

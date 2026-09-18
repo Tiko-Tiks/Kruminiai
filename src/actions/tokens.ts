@@ -12,7 +12,7 @@ import crypto from "crypto";
 import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
 import {
   formatMeetingDateLong,
-  formatMeetingDateTime,
+  isValidMeetingDate,
   votingReminderSmsText,
   votingSmsText,
 } from "@/lib/notification-texts";
@@ -50,9 +50,7 @@ export async function generateAndSendVotingTokens(meetingId: string) {
 
   // Data ir pavadinimas SMS'ui imami iš susirinkimo įrašo; netinkamą datą
   // pastebim prieš siunčiant, o ne viduryje partijos.
-  try {
-    formatMeetingDateTime(meeting.meeting_date);
-  } catch {
+  if (!isValidMeetingDate(meeting.meeting_date)) {
     return { success: false as const, error: "Netinkama susirinkimo data" };
   }
 
@@ -205,9 +203,7 @@ export async function resendVotingSms(meetingId: string) {
   }
 
   // Data ir pavadinimas – iš susirinkimo įrašo (žr. generateAndSendVotingTokens)
-  try {
-    formatMeetingDateTime(meeting.meeting_date);
-  } catch {
+  if (!isValidMeetingDate(meeting.meeting_date)) {
     const error = "Netinkama susirinkimo data";
     return { success: false as const, error, smsSent: 0, errors: [error] };
   }

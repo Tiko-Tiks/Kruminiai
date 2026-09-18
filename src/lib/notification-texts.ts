@@ -96,6 +96,12 @@ export function formatMeetingDateTime(iso: string): string {
   return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
 }
 
+/** Ar datą apskritai galima suformatuoti (patikra prieš masinį siuntimą). */
+export function isValidMeetingDate(iso: string | null | undefined): boolean {
+  if (!iso) return false;
+  return !Number.isNaN(new Date(iso).getTime());
+}
+
 /** „2026 m. gegužės 23 d." / „23 May 2026" – laiškams ir puslapių tekstams. */
 export function formatMeetingDateLong(iso: string, locale: NotificationLocale): string {
   const p = vilniusParts(iso);

@@ -81,9 +81,11 @@ const PREVIEW_URL = `https://kruminiai.lt/deklaracija/${"0".repeat(32)}`;
 export function DeclarationAdminPanel({
   stats,
   defaultExpiresAt,
+  recipients,
 }: {
   stats: Stats;
   defaultExpiresAt: string;
+  recipients: { total: number; withPhone: number };
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -230,6 +232,15 @@ export function DeclarationAdminPanel({
         </CardHeader>
         <CardContent>
           <form ref={formRef} onSubmit={(e) => e.preventDefault()} className="space-y-4">
+            <p className="text-sm text-gray-700">
+              Gavėjai: <strong>{recipients.withPhone}</strong> skolingi nariai su telefono
+              numeriu
+              {recipients.total > recipients.withPhone
+                ? ` (iš ${recipients.total}; likusiems SMS neišsiųsime)`
+                : ""}
+              .
+            </p>
+
             <div className="max-w-xs">
               <DatePicker
                 name="expires_at"

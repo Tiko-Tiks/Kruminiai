@@ -1,4 +1,5 @@
 import { getDeclarationStats } from "@/actions/declarations";
+import { getMembersWithDebts } from "@/actions/reminders";
 import { DeclarationAdminPanel } from "./DeclarationAdminPanel";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -15,6 +16,14 @@ export default async function DeclarationAdminPage() {
   const defaultExpiresAt = isoToVilniusLocal(
     new Date(Date.now() + DEFAULT_EXPIRY_DAYS * 24 * 60 * 60 * 1000)
   ).slice(0, 10);
+
+  // Gavėjai matomi PRIEŠ siuntimą: deklaracija siunčiama tik skolingiems, o SMS
+  // pasiekia tik tuos, kurie turi telefono numerį.
+  const { members: debtors } = await getMembersWithDebts();
+  const recipients = {
+    total: debtors.length,
+    withPhone: debtors.filter((m) => !!m.phone).length,
+  };
 
   return (
     <div>
@@ -33,7 +42,11 @@ export default async function DeclarationAdminPage() {
         </p>
       </div>
 
-      <DeclarationAdminPanel stats={stats} defaultExpiresAt={defaultExpiresAt} />
+      <DeclarationAdminPanel
+        stats={stats}
+        defaultExpiresAt={defaultExpiresAt}
+        recipients={recipients}
+      />
     </div>
   );
 }
