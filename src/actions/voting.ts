@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { revalidateMeetingPaths } from "@/lib/revalidate";
 import { z } from "zod";
 import { getNutartaText, summarizeAnnouncements } from "@/lib/protocol-text";
+import { ALLOWED_DOCUMENT_EXTENSIONS, documentUploadType } from "@/lib/document-mime";
 
 const resolutionSchema = z.object({
   title: z.string().min(1, "Pavadinimas privalomas"),
@@ -203,7 +204,17 @@ export async function createResolution(meetingId: string, formData: FormData) {
     const title = (newFileTitles[i] || file.name.replace(/\.[^.]+$/, "")).trim();
     const fileName = `${Date.now()}-${i}-${file.name}`;
 
-    const { error: uploadErr } = await supabase.storage.from("documents").upload(fileName, file);
+    // Tipų sąrašas – vienas šaltinis su `/api/dokumentai` atidavimu
+    // (`src/lib/document-mime.ts`): įkeltas HTML/SVG vykdytųsi mūsų kilmėje.
+    const uploadContentType = documentUploadType(file.name);
+    if (!uploadContentType) {
+      console.error("Neleistinas failo tipas:", file.name);
+      continue;
+    }
+
+    const { error: uploadErr } = await supabase.storage
+      .from("documents")
+      .upload(fileName, file, { contentType: uploadContentType });
     if (uploadErr) {
       console.error("Upload klaida:", uploadErr);
       continue;
@@ -602,11 +613,18 @@ export async function uploadAndAttachDocument(
   if (!file || !file.size) return { error: "Nepasirinktas failas" };
   const finalTitle = title || file.name.replace(/\.[^.]+$/, "");
 
-  // 1. Įkelti į Storage
+  // 1. Įkelti į Storage (tipų sąrašas – `src/lib/document-mime.ts`)
+  const uploadContentType = documentUploadType(file.name);
+  if (!uploadContentType) {
+    return {
+      error: `Neleistinas failo tipas. Galimi plėtiniai: ${ALLOWED_DOCUMENT_EXTENSIONS.join(", ")}`,
+    };
+  }
+
   const fileName = `${Date.now()}-${file.name}`;
   const { error: uploadErr } = await supabase.storage
     .from("documents")
-    .upload(fileName, file);
+    .upload(fileName, file, { contentType: uploadContentType });
   if (uploadErr) return { error: `Nepavyko įkelti failo: ${uploadErr.message}` };
 
   // 2. Sukurti documents įrašą

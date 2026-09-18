@@ -5,6 +5,7 @@ import { readFile } from "fs/promises";
 import path from "path";
 import { getLocale } from "@/lib/i18n-server";
 import { escapeAttr, escapeHtml } from "@/lib/html";
+import { resolveDocumentDelivery, type DocumentDelivery } from "@/lib/document-mime";
 import type { Locale } from "@/lib/i18n";
 
 /**
@@ -51,14 +52,6 @@ const SIGNED_URL_TTL_SECONDS = 60;
 // Repo failams leidžiam tik paprastus failų vardus/aplankus – jokių „..",
 // slash'ų ar ne-ASCII simbolių.
 const SAFE_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
-
-const CONTENT_TYPES: Record<string, string> = {
-  ".pdf": "application/pdf",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".txt": "text/plain; charset=utf-8",
-};
 
 interface ErrorCopy {
   heading: string;
@@ -181,8 +174,12 @@ function asciiFileName(name: string): string {
   return cleaned.trim() || "dokumentas";
 }
 
-function contentDisposition(downloadName: string, asciiFallback: string): string {
-  return `inline; filename="${asciiFileName(asciiFallback)}"; filename*=UTF-8''${encodeURIComponent(downloadName)}`;
+function contentDisposition(
+  downloadName: string,
+  asciiFallback: string,
+  disposition: DocumentDelivery["disposition"]
+): string {
+  return `${disposition}; filename="${asciiFileName(asciiFallback)}"; filename*=UTF-8''${encodeURIComponent(downloadName)}`;
 }
 
 /**
@@ -289,14 +286,21 @@ export async function GET(
     return errorPage("missing", 404, locale, relativePath);
   }
 
+  // Ta pati tipų taisyklė kaip Storage failams – repo aplanke šiandien yra tik
+  // PDF, bet HTML ten patekęs taip pat neturi būti rodomas iš mūsų kilmės.
   const baseName = path.basename(relativePath);
-  const ext = path.extname(relativePath).toLowerCase();
+  const delivery = resolveDocumentDelivery(baseName);
 
   return new NextResponse(file as unknown as BodyInit, {
     headers: {
-      "Content-Type": CONTENT_TYPES[ext] || "application/octet-stream",
-      "Content-Disposition": contentDisposition(doc?.file_name || baseName, baseName),
+      "Content-Type": delivery.contentType,
+      "Content-Disposition": contentDisposition(
+        doc?.file_name || baseName,
+        baseName,
+        delivery.disposition
+      ),
       "Cache-Control": cacheControl(isPublicDoc),
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }
@@ -343,16 +347,22 @@ async function serveStorageObject(
       : errorPage("unavailable", 502, locale);
   }
 
+  // Tipą sprendžia plėtinys, ne Storage saugomas MIME: įkeltas `text/html`
+  // iš mūsų kilmės su `inline` būtų vykdomas kaip puslapio dalis
+  // (žr. `src/lib/document-mime.ts`).
   const baseName = filePath.split("/").pop() || "dokumentas";
-  const ext = path.extname(baseName).toLowerCase();
-  const contentType =
-    CONTENT_TYPES[ext] || upstream.headers.get("content-type") || "application/octet-stream";
+  const delivery = resolveDocumentDelivery(baseName, upstream.headers.get("content-type"));
   const contentLength = upstream.headers.get("content-length");
 
   const headers = new Headers({
-    "Content-Type": contentType,
-    "Content-Disposition": contentDisposition(fileName || baseName, baseName),
+    "Content-Type": delivery.contentType,
+    "Content-Disposition": contentDisposition(
+      fileName || baseName,
+      baseName,
+      delivery.disposition
+    ),
     "Cache-Control": cacheControl(isPublicDoc),
+    "X-Content-Type-Options": "nosniff",
     // Range užklausų nepersiunčiam, todėl ir `Accept-Ranges` neskelbiam –
     // kitaip pdf.js bandytų dalinius parsiuntimus, kurių route'as nepalaiko.
     "Accept-Ranges": "none",
