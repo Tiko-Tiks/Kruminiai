@@ -56,6 +56,39 @@ function defaultExpiresAtDate(): string {
 }
 
 /**
+ * Pratęsia ESAMO tokeno galiojimą iki šios kampanijos pabaigos.
+ *
+ * Grąžina `true` tik tada, kai eilutė tikrai atnaujinta. Nepavykus siųsti
+ * NEGALIMA: gavėjas gautų nuorodą su senu, jau pasibaigusiu tokenu, o žurnale
+ * liktų įrašas „išsiųsta". Todėl tikrinam ir klaidą, ir kad grąžinta būtent
+ * viena eilutė (`.select("id")`).
+ */
+async function extendDeclarationExpiry(
+  supabase: ReturnType<typeof createServerSupabaseClient>,
+  token: string,
+  expiresAtIso: string
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("membership_declarations")
+    .update({ expires_at: expiresAtIso })
+    .eq("token", token)
+    .select("id");
+
+  if (error) {
+    console.error("[declarations] Nepavyko pratęsti tokeno galiojimo:", error.message);
+    return false;
+  }
+  if (!data || data.length !== 1) {
+    console.error(
+      "[declarations] Tokeno galiojimas nepratęstas – atnaujinta eilučių:",
+      data?.length ?? 0
+    );
+    return false;
+  }
+  return true;
+}
+
+/**
  * Paskutinė galiojimo diena („YYYY-MM-DD") → momentas 23:59 Europe/Vilnius
  * laiku (DB stulpelis yra `timestamptz`, serveris – UTC; žr. CLAUDE.md
  * „Datos ir laikai formose").
@@ -99,6 +132,9 @@ export async function generateAndSendDeclarations(expiresAtInput: string) {
   const batchId = crypto.randomUUID();
   let smsSent = 0;
   let smsSkipped = 0;
+  // Praleisti dėl DB klaidos pratęsiant galiojimą – skaičiuojami atskirai, kad
+  // administratorius matytų, jog tai ne „be telefono", o nepavykęs įrašas
+  let expiryFailed = 0;
   const errors: string[] = [];
 
   for (const m of members) {
@@ -135,10 +171,12 @@ export async function generateAndSendDeclarations(expiresAtInput: string) {
       continue;
     } else {
       // Ankstesnės kampanijos tokenas – nuoroda turi galioti iki naujos datos
-      await supabase
-        .from("membership_declarations")
-        .update({ expires_at: expiry.iso })
-        .eq("token", token!);
+      const extended = await extendDeclarationExpiry(supabase, token!, expiry.iso);
+      if (!extended) {
+        expiryFailed++;
+        errors.push(`${m.first_name} ${m.last_name}: nepavyko pratęsti nuorodos galiojimo`);
+        continue;
+      }
     }
 
     const url = `${baseUrl}/deklaracija/${token}`;
@@ -181,12 +219,13 @@ export async function generateAndSendDeclarations(expiresAtInput: string) {
       batch_kind: "membership_declaration",
       smsSent,
       smsSkipped,
+      expiryFailed,
       errorsCount: errors.length,
     },
   });
 
   revalidatePath("/admin/nariai/deklaracija");
-  return { success: true as const, smsSent, smsSkipped, errors };
+  return { success: true as const, smsSent, smsSkipped, expiryFailed, errors };
 }
 
 // =============================================================================
@@ -200,6 +239,8 @@ export interface ReminderResultDecl {
   emailErrors: number;
   smsErrors: number;
   skipped: number;
+  /** Praleista, nes nepavyko pratęsti nuorodos galiojimo (DB klaida) */
+  expiryFailed: number;
   errors: string[];
 }
 
@@ -239,6 +280,7 @@ export async function sendOverdueDeclarationReminders(
     emailErrors: 0,
     smsErrors: 0,
     skipped: 0,
+    expiryFailed: 0,
     errors: [],
   };
 
@@ -270,10 +312,14 @@ export async function sendOverdueDeclarationReminders(
       continue;
     } else {
       // Senas tokenas – nuoroda turi galioti iki šios kampanijos pabaigos
-      await supabase
-        .from("membership_declarations")
-        .update({ expires_at: expiry.iso })
-        .eq("token", token);
+      const extended = await extendDeclarationExpiry(supabase, token, expiry.iso);
+      if (!extended) {
+        result.expiryFailed++;
+        result.errors.push(
+          `${m.first_name} ${m.last_name}: nepavyko pratęsti nuorodos galiojimo`
+        );
+        continue;
+      }
     }
 
     const url = `${baseUrl}/deklaracija/${token}`;
@@ -370,6 +416,7 @@ export async function sendOverdueDeclarationReminders(
       email_errors: result.emailErrors,
       sms_errors: result.smsErrors,
       skipped: result.skipped,
+      expiry_failed: result.expiryFailed,
     },
   });
 
@@ -386,12 +433,12 @@ export async function resendDeclarationSms(expiresAtInput: string) {
   // SAUGUMAS: siunčia masinį SMS (Infobip kaina) – privalo būti admin (žr. authz)
   const auth = await requireAdmin(supabase);
   if (auth.error) {
-    return { success: false as const, smsSent: 0, skipped: 0, errors: [auth.error] };
+    return { success: false as const, smsSent: 0, skipped: 0, expiryFailed: 0, errors: [auth.error] };
   }
 
   const expiry = resolveExpiresAt(expiresAtInput);
   if ("error" in expiry) {
-    return { success: false as const, smsSent: 0, skipped: 0, errors: [expiry.error] };
+    return { success: false as const, smsSent: 0, skipped: 0, expiryFailed: 0, errors: [expiry.error] };
   }
 
   const { data: tokens } = await supabase
@@ -400,7 +447,7 @@ export async function resendDeclarationSms(expiresAtInput: string) {
     .is("submitted_at", null);
 
   if (!tokens || tokens.length === 0) {
-    return { success: true as const, smsSent: 0, skipped: 0, errors: [] };
+    return { success: true as const, smsSent: 0, skipped: 0, expiryFailed: 0, errors: [] };
   }
 
   // Skolininkų aibė perskaičiuojama KIEKVIENAM siuntimui (kaip
@@ -413,6 +460,7 @@ export async function resendDeclarationSms(expiresAtInput: string) {
   const baseUrl = getBaseUrl();
   let smsSent = 0;
   let skipped = 0;
+  let expiryFailed = 0;
   const errors: string[] = [];
 
   const batchId = crypto.randomUUID();
@@ -428,10 +476,12 @@ export async function resendDeclarationSms(expiresAtInput: string) {
     }
 
     // Priminimo nuoroda turi galioti – pratęsiam iki šios kampanijos pabaigos
-    await supabase
-      .from("membership_declarations")
-      .update({ expires_at: expiry.iso })
-      .eq("token", t.token);
+    const extended = await extendDeclarationExpiry(supabase, t.token as string, expiry.iso);
+    if (!extended) {
+      expiryFailed++;
+      errors.push(`${member.first_name} ${member.last_name}: nepavyko pratęsti nuorodos galiojimo`);
+      continue;
+    }
 
     const url = `${baseUrl}/deklaracija/${t.token}`;
     const text = declarationReminderSmsText({
@@ -458,7 +508,7 @@ export async function resendDeclarationSms(expiresAtInput: string) {
   }
 
   revalidatePath("/admin/nariai/deklaracija");
-  return { success: true as const, smsSent, skipped, errors };
+  return { success: true as const, smsSent, skipped, expiryFailed, errors };
 }
 
 // =============================================================================

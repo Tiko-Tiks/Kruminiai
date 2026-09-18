@@ -79,6 +79,17 @@ const INTENT_STYLE: Record<string, string> = {
 const PREVIEW_NAME = "Vardas";
 const PREVIEW_URL = `https://kruminiai.lt/deklaracija/${"0".repeat(32)}`;
 
+/**
+ * Praleistųjų paaiškinimas pranešime. `expiryFailed` rodomas atskirai – tai ne
+ * „be telefono", o nepavykęs galiojimo įrašas, todėl SMS sąmoningai nesiųsta.
+ */
+function skippedSuffix(skipped: number, expiryFailed: number): string {
+  const parts: string[] = [];
+  if (skipped > 0) parts.push(`${skipped} praleista`);
+  if (expiryFailed > 0) parts.push(`${expiryFailed} be galiojimo įrašo – nesiųsta`);
+  return parts.length > 0 ? ` (${parts.join(", ")})` : "";
+}
+
 export function DeclarationAdminPanel({
   stats,
   defaultExpiresAt,
@@ -138,7 +149,7 @@ export function DeclarationAdminPanel({
       return;
     }
     toast.success(
-      `Išsiųsta ${result.smsSent} SMS${result.smsSkipped ? ` (${result.smsSkipped} praleisti)` : ""}`
+      `Išsiųsta ${result.smsSent} SMS${skippedSuffix(result.smsSkipped, result.expiryFailed)}`
     );
     router.refresh();
   }
@@ -161,9 +172,7 @@ export function DeclarationAdminPanel({
       return;
     }
     toast.success(
-      `Priminimo SMS išsiųsta: ${result.smsSent}${
-        result.skipped ? ` (praleista ${result.skipped} – be skolos arba be telefono)` : ""
-      }`
+      `Priminimo SMS išsiųsta: ${result.smsSent}${skippedSuffix(result.skipped, result.expiryFailed)}`
     );
     router.refresh();
   }
