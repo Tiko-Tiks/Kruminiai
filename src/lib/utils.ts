@@ -149,14 +149,12 @@ export function getImagePublicUrl(path: string): string {
 // HTML escape – naudotojo įvesties įterpimui į HTML (pvz. el. laiškus).
 // Būtina anon srautuose (registracija), kur vardai/laukai ateina iš formos ir
 // gali turėti HTML/script (phishing turinio injekcija į brand'intą laišką).
-export function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
+//
+// Įgyvendinimas gyvena `src/lib/html.ts` kartu su kitais konteksto kodavimo
+// pagalbininkais (`escapeAttr`, `escapeHtmlLines`, `safeUrl`) – čia paliktas
+// re-eksportas, kad esami importai iš `@/lib/utils` nesikeistų ir kad
+// neatsirastų antra tos pačios funkcijos kopija.
+export { escapeHtml } from "@/lib/html";
 
 // Ar dokumentas yra server-generuojamas HTML (ne PDF failas)?
 // Naudojama nuspręsti, ar peržiūrai naudoti iframe ar PdfViewer.

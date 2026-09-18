@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 import { COMMUNITY_LEGAL } from "@/lib/constants";
 import { canViewMeetingDoc } from "@/lib/meeting-doc-auth";
+import { escapeHtml } from "@/lib/html";
 
 export async function GET(
   request: Request,
@@ -53,9 +54,13 @@ export async function GET(
   const generatedAt = new Date();
 
   const allRoles = data.roles ?? [];
-  const memberName = (r: RoleRow) => {
-    return r.first_name && r.last_name ? `${r.first_name} ${r.last_name}` : "—";
-  };
+  // `...Html` galūnė reiškia, kad eilutė JAU užkoduota (`src/lib/html.ts`) ir į
+  // dokumentą dedama be pakartotinio kodavimo. Kadencijų metai gaunami iš
+  // `getFullYear()`, todėl jie visada skaitiniai.
+  const memberNameHtml = (r: RoleRow) =>
+    r.first_name && r.last_name
+      ? `${escapeHtml(r.first_name)} ${escapeHtml(r.last_name)}`
+      : "—";
   const fmtTermYears = (r: RoleRow) => {
     const start = r.term_start ? new Date(r.term_start).getFullYear() : "—";
     const end = r.term_end ? new Date(r.term_end).getFullYear() : "—";
@@ -66,14 +71,14 @@ export async function GET(
   const councilRows = allRoles.filter((r) => r.role === "tarybos_narys");
   const auditorRow = allRoles.find((r) => r.role === "revizorius");
 
-  const chairman = chairmanRow ? memberName(chairmanRow) : "Mindaugas Mameniškis";
+  const chairmanHtml = chairmanRow ? memberNameHtml(chairmanRow) : "Mindaugas Mameniškis";
 
   const html = `<!DOCTYPE html>
 <html lang="lt">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>2027 m. valdymo organų rinkimai – ${meeting.title}</title>
+  <title>2027 m. valdymo organų rinkimai – ${escapeHtml(meeting.title)}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -188,14 +193,14 @@ export async function GET(
   <button class="print-btn" onclick="window.print()">Spausdinti / PDF</button>
 
   <div class="header">
-    <h1>${COMMUNITY_LEGAL.name.toUpperCase()}</h1>
-    <div class="subtitle">Juridinio asmens kodas: ${COMMUNITY_LEGAL.code}</div>
-    <div class="subtitle">Buveinė: ${COMMUNITY_LEGAL.address}</div>
+    <h1>${escapeHtml(COMMUNITY_LEGAL.name.toUpperCase())}</h1>
+    <div class="subtitle">Juridinio asmens kodas: ${escapeHtml(COMMUNITY_LEGAL.code)}</div>
+    <div class="subtitle">Buveinė: ${escapeHtml(COMMUNITY_LEGAL.address)}</div>
   </div>
 
   <div class="doc-title">
     <h2>Pasiruošimas 2027 m. valdymo organų rinkimams</h2>
-    <div class="meta">Pranešimas dėl Pirmininko ir Tarybos kadencijos pabaigos<br>${meeting.title}, ${meetingDate.toLocaleDateString("lt-LT", { year: "numeric", month: "long", day: "numeric" })}</div>
+    <div class="meta">Pranešimas dėl Pirmininko ir Tarybos kadencijos pabaigos<br>${escapeHtml(meeting.title)}, ${escapeHtml(meetingDate.toLocaleDateString("lt-LT", { year: "numeric", month: "long", day: "numeric" }))}</div>
   </div>
 
   <p>
@@ -221,7 +226,7 @@ export async function GET(
     <tbody>
       <tr>
         <td><strong>Pirmininkas</strong></td>
-        <td>${chairmanRow ? memberName(chairmanRow) : `<em style="color:#888">Neįvestas (numatomas ${chairman})</em>`}</td>
+        <td>${chairmanRow ? memberNameHtml(chairmanRow) : `<em style="color:#888">Neįvestas (numatomas ${chairmanHtml})</em>`}</td>
         <td>${chairmanRow ? fmtTermYears(chairmanRow) : "2023 – 2027"}</td>
       </tr>
       ${
@@ -235,7 +240,7 @@ export async function GET(
                 (r, i) =>
                   `<tr>
         <td>${i === 0 ? "<strong>Tarybos nariai</strong>" : ""}</td>
-        <td>${memberName(r)}</td>
+        <td>${memberNameHtml(r)}</td>
         <td>${fmtTermYears(r)}</td>
       </tr>`
               )
@@ -245,7 +250,7 @@ export async function GET(
         <td><strong>Revizorius</strong></td>
         <td colspan="2">${
           auditorRow
-            ? `${memberName(auditorRow)} (${fmtTermYears(auditorRow)})`
+            ? `${memberNameHtml(auditorRow)} (${fmtTermYears(auditorRow)})`
             : `<em style="color:#9a3412">Šiuo metu Revizorius nėra išrinktas. 2027 m. rinkimuose turi būti renkamas (įstatų 6.2 p.).</em>`
         }</td>
       </tr>
@@ -333,7 +338,7 @@ export async function GET(
   <p>
     Visus klausimus dėl kandidatavimo, atsakomybės ar procedūros prašome
     siųsti adresu <strong>info@kruminiai.lt</strong> arba kreiptis tiesiai į
-    dabartinį pirmininką ${chairman}. Diskutuoti galima ir per artimiausius
+    dabartinį pirmininką ${chairmanHtml}. Diskutuoti galima ir per artimiausius
     bendruomenės renginius.
   </p>
 
@@ -346,7 +351,7 @@ export async function GET(
   </p>
 
   <p class="generated">
-    Dokumentas sugeneruotas: ${generatedAt.toLocaleString("lt-LT", { timeZone: "Europe/Vilnius" })}
+    Dokumentas sugeneruotas: ${escapeHtml(generatedAt.toLocaleString("lt-LT", { timeZone: "Europe/Vilnius" }))}
   </p>
 </body>
 </html>`;

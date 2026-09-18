@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 import { COMMUNITY_LEGAL } from "@/lib/constants";
 import { canViewMeetingDoc } from "@/lib/meeting-doc-auth";
+import { escapeHtml } from "@/lib/html";
 
 export async function GET(
   request: Request,
@@ -66,7 +67,7 @@ export async function GET(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${year} m. veiklos planas – ${meeting.title}</title>
+  <title>${year} m. veiklos planas – ${escapeHtml(meeting.title)}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -210,14 +211,14 @@ export async function GET(
   <button class="print-btn" onclick="window.print()">Spausdinti / PDF</button>
 
   <div class="header">
-    <h1>${COMMUNITY_LEGAL.name.toUpperCase()}</h1>
-    <div class="subtitle">Juridinio asmens kodas: ${COMMUNITY_LEGAL.code}</div>
-    <div class="subtitle">Buveinė: ${COMMUNITY_LEGAL.address}</div>
+    <h1>${escapeHtml(COMMUNITY_LEGAL.name.toUpperCase())}</h1>
+    <div class="subtitle">Juridinio asmens kodas: ${escapeHtml(COMMUNITY_LEGAL.code)}</div>
+    <div class="subtitle">Buveinė: ${escapeHtml(COMMUNITY_LEGAL.address)}</div>
   </div>
 
   <div class="doc-title">
     <h2>${year} m. veiklos planas</h2>
-    <div class="meta">${meeting.title}, ${meetingDate.toLocaleDateString("lt-LT", { year: "numeric", month: "long", day: "numeric" })}</div>
+    <div class="meta">${escapeHtml(meeting.title)}, ${escapeHtml(meetingDate.toLocaleDateString("lt-LT", { year: "numeric", month: "long", day: "numeric" }))}</div>
   </div>
 
   <p>
@@ -455,7 +456,7 @@ export async function GET(
   </p>
 
   <p class="generated">
-    Dokumentas sugeneruotas: ${generatedAt.toLocaleString("lt-LT", { timeZone: "Europe/Vilnius" })}
+    Dokumentas sugeneruotas: ${escapeHtml(generatedAt.toLocaleString("lt-LT", { timeZone: "Europe/Vilnius" }))}
   </p>
 </body>
 </html>`;

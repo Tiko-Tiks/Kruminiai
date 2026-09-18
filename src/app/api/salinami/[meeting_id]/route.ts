@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 import { COMMUNITY_LEGAL } from "@/lib/constants";
 import { canViewMeetingDoc } from "@/lib/meeting-doc-auth";
+import { escapeHtml } from "@/lib/html";
 
 interface ContactEvent {
   when: Date;
@@ -117,7 +118,12 @@ export async function GET(
 
   const candidateBlocks = candidates
     .map((r, i) => {
-      const name = r.first_name && r.last_name ? `${r.first_name} ${r.last_name}` : "—";
+      // `...Html` galūnė reiškia, kad eilutė JAU užkoduota (`src/lib/html.ts`)
+      // ir į dokumentą dedama be pakartotinio kodavimo.
+      const nameHtml =
+        r.first_name && r.last_name
+          ? `${escapeHtml(r.first_name)} ${escapeHtml(r.last_name)}`
+          : "—";
       const debtEur = ((r.debt_cents || 0) / 100).toFixed(0);
       const years = r.debt_years || "";
       const events: ContactEvent[] = (r.events || []).map((n) => ({
@@ -131,21 +137,21 @@ export async function GET(
       const contactRows = events
         .map(
           (e) =>
-            `<tr><td>${fmtDateTime(e.when)}</td><td>${e.channel}</td><td>${e.kind}</td><td>${
+            `<tr><td>${escapeHtml(fmtDateTime(e.when))}</td><td>${escapeHtml(e.channel)}</td><td>${escapeHtml(e.kind)}</td><td>${
               e.status === "sent" ? "✓ sėkmingai" : "✗ nepavyko"
             }</td></tr>`
         )
         .join("");
 
-      let declSummary = "";
+      let declSummaryHtml = "";
       if (decl) {
         const parts: string[] = [];
-        if (decl.sent_at) parts.push(`Deklaracijos SMS išsiųsta ${fmtDate(new Date(decl.sent_at as string))}`);
+        if (decl.sent_at) parts.push(`Deklaracijos SMS išsiųsta ${escapeHtml(fmtDate(new Date(decl.sent_at as string)))}`);
         if (decl.viewed_at) {
           parts.push(
-            `<strong>Atidarė nuorodą</strong> ${fmtDateTime(new Date(decl.viewed_at as string))}` +
+            `<strong>Atidarė nuorodą</strong> ${escapeHtml(fmtDateTime(new Date(decl.viewed_at as string)))}` +
               (decl.view_count && (decl.view_count as number) > 1
-                ? ` (peržiūrėjo ${decl.view_count}×)`
+                ? ` (peržiūrėjo ${escapeHtml(decl.view_count as number)}×)`
                 : "")
           );
         } else {
@@ -161,12 +167,12 @@ export async function GET(
                 : decl.intent === "withdraw"
                 ? "išstoja iš bendruomenės"
                 : "nenurodyta"
-            } (${fmtDate(new Date(decl.submitted_at as string))})`
+            } (${escapeHtml(fmtDate(new Date(decl.submitted_at as string)))})`
           );
         } else {
           parts.push("<strong>Atsakymo nepateikta</strong>");
         }
-        declSummary = parts.join("<br>");
+        declSummaryHtml = parts.join("<br>");
       }
 
       // Pagrindimas
@@ -177,10 +183,13 @@ export async function GET(
       } else if (parseInt(debtEur) >= 24) {
         justifications.push("2 metų sistematinis nemokėjimas");
       }
-      if (sentCount > 0)
-        justifications.push(
-          `priminimų išsiųsta ${sentCount} (${events.map((e) => e.channel).filter((v, i, a) => a.indexOf(v) === i).join(" + ")})`
-        );
+      if (sentCount > 0) {
+        const usedChannels = events
+          .map((e) => e.channel)
+          .filter((v, i, a) => a.indexOf(v) === i)
+          .join(" + ");
+        justifications.push(`priminimų išsiųsta ${sentCount} (${usedChannels})`);
+      }
       if (decl && !decl.viewed_at && decl.sent_at)
         justifications.push("į pranešimus nereagavo");
       if (!r.has_contacts) justifications.push("neturi kontaktinių duomenų – nepasiekiamas");
@@ -189,7 +198,7 @@ export async function GET(
       const memberRoles = (r.roles || []).map((role) => roleLabels[role] || role);
       const roleBadge =
         memberRoles.length > 0
-          ? `<div class="role-badge"><strong>⚠ Pastaba:</strong> šis narys šiuo metu eina <strong>${memberRoles.join(", ")}</strong> pareigas valdymo organe. Prieš narystės nutraukimą rekomenduojama svarstyti atsistatydinimą iš pareigų arba atskirą Tarybos sprendimą dėl pareigybės sustabdymo.</div>`
+          ? `<div class="role-badge"><strong>⚠ Pastaba:</strong> šis narys šiuo metu eina <strong>${escapeHtml(memberRoles.join(", "))}</strong> pareigas valdymo organe. Prieš narystės nutraukimą rekomenduojama svarstyti atsistatydinimą iš pareigų arba atskirą Tarybos sprendimą dėl pareigybės sustabdymo.</div>`
           : "";
 
       return `
@@ -197,8 +206,8 @@ export async function GET(
     <div class="cand-head">
       <span class="num">${i + 1}</span>
       <div>
-        <h3>${name}</h3>
-        <div class="cand-meta">Skola: <strong>${debtEur} EUR</strong> · Neapmokėti metai: ${years}</div>
+        <h3>${nameHtml}</h3>
+        <div class="cand-meta">Skola: <strong>${escapeHtml(debtEur)} EUR</strong> · Neapmokėti metai: ${escapeHtml(years)}</div>
       </div>
     </div>
 
@@ -220,14 +229,14 @@ export async function GET(
       decl
         ? `<div class="cand-section">
       <h4>Narystės patvirtinimo deklaracija</h4>
-      <p>${declSummary}</p>
+      <p>${declSummaryHtml}</p>
     </div>`
         : ""
     }
 
     <div class="cand-section justification">
       <h4>Pagrindimas dėl įtraukimo į kandidatų sąrašą</h4>
-      <p>${justificationText}.</p>
+      <p>${escapeHtml(justificationText)}.</p>
     </div>
   </div>`;
     })
@@ -238,7 +247,7 @@ export async function GET(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kandidatų į šalinamų narių sąrašą sąrašas – ${meeting.title}</title>
+  <title>Kandidatų į šalinamų narių sąrašą sąrašas – ${escapeHtml(meeting.title)}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -388,14 +397,14 @@ export async function GET(
   <button class="print-btn" onclick="window.print()">Spausdinti / PDF</button>
 
   <div class="header">
-    <h1>${COMMUNITY_LEGAL.name.toUpperCase()}</h1>
-    <div class="subtitle">Juridinio asmens kodas: ${COMMUNITY_LEGAL.code}</div>
-    <div class="subtitle">Buveinė: ${COMMUNITY_LEGAL.address}</div>
+    <h1>${escapeHtml(COMMUNITY_LEGAL.name.toUpperCase())}</h1>
+    <div class="subtitle">Juridinio asmens kodas: ${escapeHtml(COMMUNITY_LEGAL.code)}</div>
+    <div class="subtitle">Buveinė: ${escapeHtml(COMMUNITY_LEGAL.address)}</div>
   </div>
 
   <div class="doc-title">
     <h2>Kandidatų į šalinamų narių sąrašą sąrašas</h2>
-    <div class="meta">${meeting.title}, ${meetingDate.toLocaleDateString("lt-LT", { year: "numeric", month: "long", day: "numeric" })}</div>
+    <div class="meta">${escapeHtml(meeting.title)}, ${escapeHtml(meetingDate.toLocaleDateString("lt-LT", { year: "numeric", month: "long", day: "numeric" }))}</div>
   </div>
 
   <p class="preamble">
@@ -427,7 +436,7 @@ export async function GET(
   </p>
 
   <p class="generated">
-    Dokumentas sugeneruotas: ${generatedAt.toLocaleString("lt-LT", { timeZone: "Europe/Vilnius" })}
+    Dokumentas sugeneruotas: ${escapeHtml(generatedAt.toLocaleString("lt-LT", { timeZone: "Europe/Vilnius" }))}
   </p>
 </body>
 </html>`;

@@ -9,6 +9,7 @@ import {
   summarizeAnnouncements,
 } from "@/lib/protocol-text";
 import { hasQuorum as computeHasQuorum } from "@/lib/quorum";
+import { escapeAttr, escapeHtml } from "@/lib/html";
 
 // Protokolas turi visada atspindėti naujausius nutarimų rezultatus ir
 // pirmininko/sekretoriaus pavardes – jokio cache'avimo.
@@ -98,7 +99,12 @@ export async function GET(
   );
   const announcementParagraph = announcementSummary.paragraph;
 
-  // Etiketės pagal organą: Tarybos posėdis vs visuotinis susirinkimas
+  // Etiketės pagal organą: Tarybos posėdis vs visuotinis susirinkimas.
+  //
+  // `protocolLabels`, `protocolHeading` ir `signatureLabel` grąžina fiksuotas
+  // eilutes (pavardė lemia tik giminę, į tekstą nepatenka), todėl jų koduoti
+  // nereikia. Visos kitos į HTML dedamos DB reikšmės eina per `escapeHtml`
+  // (`src/lib/html.ts`) – šis dokumentas sudaromas eilutėmis, ne per React.
   const labels = protocolLabels(meeting.meeting_type);
 
   // Suskirstyti dalyvius
@@ -118,11 +124,14 @@ export async function GET(
   // organo protokole dalyviai vardijami (jų keli), o visuotinio susirinkimo
   // dalyvių sąrašas yra atskiras pasirašomas priedas
   // (/api/dalyviu-sarasas) – 80 pavardžių protokolo tekste netelpa.
-  const attendeeNames = labels.isCouncil
+  //
+  // `...Html` galūnė reiškia, kad eilutė JAU užkoduota ir į dokumentą dedama
+  // be pakartotinio kodavimo (žr. `src/lib/html.ts`).
+  const attendeeNamesHtml = labels.isCouncil
     ? (attendance || [])
         .map((a: { member: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null }) => {
           const m = Array.isArray(a.member) ? a.member[0] : a.member;
-          return m ? `${m.first_name} ${m.last_name}` : null;
+          return m ? `${escapeHtml(m.first_name)} ${escapeHtml(m.last_name)}` : null;
         })
         .filter((n): n is string => !!n)
     : [];
@@ -145,7 +154,7 @@ export async function GET(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Protokolas ${meeting.protocol_number || ""} - ${meeting.title}</title>
+  <title>Protokolas ${escapeHtml(meeting.protocol_number || "")} - ${escapeHtml(meeting.title)}</title>
   <style>
     /* Multi-sheet layout: kiekvienas .sheet = 1 A4 puslapis.
        LT raštvedybos paraštės: kairė 30mm, dešinė 10mm, viršus/apačia 20mm.
@@ -313,7 +322,7 @@ export async function GET(
 </head>
 <body>
   <div class="toolbar">
-    <a href="/api/dalyviu-sarasas/${params.id}" target="_blank">Dalyvių sąrašas (parašams)</a>
+    <a href="/api/dalyviu-sarasas/${escapeAttr(encodeURIComponent(params.id))}" target="_blank">Dalyvių sąrašas (parašams)</a>
     <button onclick="window.print()">Spausdinti / PDF</button>
   </div>
 
@@ -354,14 +363,16 @@ export async function GET(
       // BALSUOTA – beasmenė forma pagal LR raštvedybos taisykles
       // (LR CK 2.90–2.92 str.). Eilės tvarka: SVARSTYTA → BALSUOTA → NUTARTA.
       const balsuotaLine = totalVotes > 0
-        ? `<span class="balsuota">BALSUOTA:</span> UŽ <strong>${r.result_for}</strong>, PRIEŠ <strong>${r.result_against}</strong>, SUSILAIKĖ <strong>${r.result_abstain}</strong>.`
+        ? `<span class="balsuota">BALSUOTA:</span> UŽ <strong>${escapeHtml(r.result_for)}</strong>, PRIEŠ <strong>${escapeHtml(r.result_against)}</strong>, SUSILAIKĖ <strong>${escapeHtml(r.result_abstain)}</strong>.`
         : `<span class="balsuota">BALSUOTA:</span> nebalsuota.`;
+      // `nutarta` (iš `src/lib/protocol-text.ts`) ir `discussion_text` yra
+      // grynas tekstas be žymių – į dokumentą dedam užkoduotą.
       return `
       <div class="decision-item">
-        <p><strong>${r.resolution_number}. <span class="svarstyta">SVARSTYTA:</span></strong> ${r.title}.</p>
-        ${r.discussion_text ? `<p class="discussion">${r.discussion_text}</p>` : ""}
+        <p><strong>${escapeHtml(r.resolution_number)}. <span class="svarstyta">SVARSTYTA:</span></strong> ${escapeHtml(r.title)}.</p>
+        ${r.discussion_text ? `<p class="discussion">${escapeHtml(r.discussion_text)}</p>` : ""}
         <p>${balsuotaLine}</p>
-        <p><strong><span class="nutarta">NUTARTA:</span></strong> ${nutarta}</p>
+        <p><strong><span class="nutarta">NUTARTA:</span></strong> ${escapeHtml(nutarta)}</p>
       </div>`;
     };
 
@@ -387,30 +398,30 @@ export async function GET(
 
     const coverContent = `
       <div class="header">
-        <h1>${COMMUNITY_LEGAL.name.toUpperCase()}</h1>
-        <div class="subtitle">Juridinio asmens kodas: ${COMMUNITY_LEGAL.code}</div>
-        <div class="subtitle">Buveinė: ${COMMUNITY_LEGAL.address}</div>
+        <h1>${escapeHtml(COMMUNITY_LEGAL.name.toUpperCase())}</h1>
+        <div class="subtitle">Juridinio asmens kodas: ${escapeHtml(COMMUNITY_LEGAL.code)}</div>
+        <div class="subtitle">Buveinė: ${escapeHtml(COMMUNITY_LEGAL.address)}</div>
       </div>
       <div class="protocol-title">
         <h2>${protocolHeading(meeting.meeting_type)}</h2>
-        ${meeting.protocol_number ? `<div class="nr">${meeting.protocol_number}</div>` : ""}
-        <div class="date">${meetingDate.toLocaleDateString("lt-LT", { year: "numeric", month: "long", day: "numeric", timeZone: "Europe/Vilnius" })}</div>
-        <div class="location">${meeting.location}</div>
+        ${meeting.protocol_number ? `<div class="nr">${escapeHtml(meeting.protocol_number)}</div>` : ""}
+        <div class="date">${escapeHtml(meetingDate.toLocaleDateString("lt-LT", { year: "numeric", month: "long", day: "numeric", timeZone: "Europe/Vilnius" }))}</div>
+        <div class="location">${escapeHtml(meeting.location)}</div>
       </div>
       <div class="info-block">
-        <p><span class="label">${labels.startLabel}:</span> ${meetingDate.toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vilnius" })} val.</p>
-        ${endDate ? `<p><span class="label">${labels.endLabel}:</span> ${endDate.toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vilnius" })} val.</p>` : ""}
+        <p><span class="label">${labels.startLabel}:</span> ${escapeHtml(meetingDate.toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vilnius" }))} val.</p>
+        ${endDate ? `<p><span class="label">${labels.endLabel}:</span> ${escapeHtml(endDate.toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vilnius" }))} val.</p>` : ""}
         <p></p>
-        <p><span class="label">${labels.totalLabel}:</span> ${meeting.total_members_at_time}</p>
+        <p><span class="label">${labels.totalLabel}:</span> ${escapeHtml(meeting.total_members_at_time)}</p>
         <p><span class="label">${labels.attendingLabel}:</span> ${totalAttending}${attendanceSummaryParts.length > 0 ? ` (iš jų ${attendanceSummaryParts.join(", ")})` : ""}.</p>
-        ${attendeeNames.length > 0 ? `<p><span class="label">DALYVAVO:</span> ${attendeeNames.join(", ")}.</p>` : ""}
+        ${attendeeNamesHtml.length > 0 ? `<p><span class="label">DALYVAVO:</span> ${attendeeNamesHtml.join(", ")}.</p>` : ""}
         <p><span class="label">Kvorumas:</span> ${hasQuorum ? "YRA" : "NĖRA"}${meeting.is_repeat ? " (pakartotinis susirinkimas)" : ""}.</p>
-        ${announcementParagraph ? `<p style="margin-top:8pt;"><span class="label">Skelbimas apie susirinkimą:</span> ${announcementParagraph}</p>` : ""}
+        ${announcementParagraph ? `<p style="margin-top:8pt;"><span class="label">Skelbimas apie susirinkimą:</span> ${escapeHtml(announcementParagraph)}</p>` : ""}
       </div>
       <div class="agenda">
         <h3>${labels.agendaHeading}</h3>
         <ol>
-          ${resList.map((r) => `<li>${r.title}.</li>`).join("\n        ")}
+          ${resList.map((r) => `<li>${escapeHtml(r.title)}.</li>`).join("\n        ")}
         </ol>
       </div>
     `;
@@ -435,12 +446,12 @@ export async function GET(
             <td style="width:50%;padding:16pt 0">
               <p>${chairLabel}</p>
               <br><br>
-              <p>${meeting.chairperson_name || "___________________"}</p>
+              <p>${meeting.chairperson_name ? escapeHtml(meeting.chairperson_name) : "___________________"}</p>
             </td>
             <td style="width:50%;padding:16pt 0">
               <p>${secretaryLabel}</p>
               <br><br>
-              <p>${meeting.secretary_name || "___________________"}</p>
+              <p>${meeting.secretary_name ? escapeHtml(meeting.secretary_name) : "___________________"}</p>
             </td>
           </tr>
         </table>
