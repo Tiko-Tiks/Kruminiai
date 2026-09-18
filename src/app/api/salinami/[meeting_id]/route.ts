@@ -89,6 +89,8 @@ export async function GET(
   };
   const { data: expulsionsData } = await supabase.rpc("get_meeting_expulsions_data", {
     p_meeting_id: params.meeting_id,
+    // Nuo migr. 047 prieigą tikrina ir pati RPC (žr. canViewMeetingDoc).
+    p_token: token,
   });
   const data = (expulsionsData ?? {}) as ExpulsionsData;
 

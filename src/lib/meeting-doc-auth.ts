@@ -6,33 +6,32 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // nėra paslaptis (viešas pagrindiniame puslapyje ir balsavimo nuorodose).
 //
 // Leidžiame tik jei:
-//   (a) prisijungęs patvirtintas narys arba adminas (portalo / archyvo peržiūra), ARBA
+//   (a) prisijungęs PATVIRTINTAS narys arba adminas (portalo / archyvo peržiūra), ARBA
 //   (b) anon su galiojančiu BALSAVIMO tokenu TAM PAČIAM susirinkimui (balsavimo iframe).
 //
 // Grynas anon su vien meeting_id – atmetamas (403).
+//
+// Nuo migr. 047 tą pačią taisyklę taiko ir pačios RPC funkcijos (`p_token`
+// argumentas), kad tiesioginis kvietimas per PostgREST elgtųsi vienodai. Ši
+// patikra lieka tam, kad route'as atsakytų 403 dar nekviesdamas RPC.
 export async function canViewMeetingDoc(
   supabase: SupabaseClient,
   meetingId: string,
   token: string | null
 ): Promise<boolean> {
-  // (a) prisijungusi sesija – patvirtintas narys arba adminas
+  // (a) prisijungusi sesija – patvirtintas narys arba adminas.
+  // Rolė atskirai netikrinama: nuo migr. 048 administratorius pagal apibrėžimą
+  // yra PATVIRTINTAS profilis, o nepatvirtintam prieigos nėra.
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("is_approved, role")
+      .select("is_approved")
       .eq("id", user.id)
       .maybeSingle();
-    if (
-      profile &&
-      (profile.is_approved ||
-        profile.role === "admin" ||
-        profile.role === "super_admin")
-    ) {
-      return true;
-    }
+    if (profile?.is_approved === true) return true;
   }
 
   // (b) galiojantis balsavimo tokenas, priklausantis būtent šiam susirinkimui
