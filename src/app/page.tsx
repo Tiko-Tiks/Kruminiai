@@ -262,7 +262,10 @@ export default async function HomePage() {
             {/* Statistikos juostelė */}
             <dl className="mt-16 pt-9 border-t border-white/20 grid grid-cols-3 gap-4 max-w-2xl">
               {[
-                { value: "70+", label: t.statMembersLabel },
+                // Narių skaičius patikrintas 2026-09-18 (DB: aktyvūs + garbės
+                // narys, be išstojusių). Rankomis prižiūrimas skaičius – kito
+                // patikrinimo metu perskaičiuoti iš naujo, ne tiesiog didinti.
+                { value: "79", label: t.statMembersLabel },
                 { value: "25", label: t.statVolunteersLabel },
                 { value: "14", label: t.statYearsLabel },
               ].map((stat, i) => (
