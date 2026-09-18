@@ -30,6 +30,16 @@ export interface EmailResult {
   error?: string;
 }
 
+/**
+ * Produkcijoje trūkstami kredencialai yra KLAIDA, ne „mock'as": tyliai
+ * grąžintas `success: true` reikštų, kad žurnale matome „išsiųsta", o narys
+ * laiško negavo. Vietinėje ar preview aplinkoje mock'as lieka – taip galima
+ * dirbti be SMTP prieigos.
+ */
+function isProductionRuntime(): boolean {
+  return process.env.VERCEL_ENV === "production";
+}
+
 export async function sendEmail(
   to: string,
   subject: string,
@@ -38,6 +48,10 @@ export async function sendEmail(
 ): Promise<EmailResult> {
   const t = getTransporter();
   if (!t) {
+    if (isProductionRuntime()) {
+      console.error("[Email] Trūksta SMTP_USER/SMTP_PASSWORD – laiškas NEIŠSIŲSTAS");
+      return { success: false, error: "not_configured" };
+    }
     console.warn("[Email] Trūksta SMTP_USER/SMTP_PASSWORD – siuntimas praleistas");
     console.log(`[Email MOCK] Į ${to}: ${subject}`);
     return { success: true, messageId: "mock-" + Date.now() };
