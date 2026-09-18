@@ -292,8 +292,29 @@ test('Peržiūra: saugomo priedo trynimo atmetimas nepasiekia failo saugyklos',a
 test('Peržiūra: protokolo dalyvavimas iš užfiksuoto sprendimo, ne pataisyto registro',()=>{
   const {protocolAttendance,decisionParticipation}=loadSource('src/lib/protocol-attendance.ts');
   const rows=[{member_id:'first',attendance_type:'fizinis',member:{first_name:'Testas',last_name:'Narys'}}];
-  const basis={participants:6,total_members:10,meeting_type:'visuotinis',attendance:rows};
+  const basis={participants:6,total_members:10,meeting_type:'visuotinis',attendance:rows,recorded_at:'2026-09-18T10:00:00Z'};
   const result=protocolAttendance([{status:'patvirtintas',decision_basis:basis}],Array(10).fill({member_id:'later'}));
   assert.deepEqual(result.rows,rows);assert.match(decisionParticipation(basis),/6 iš 10/);assert.match(decisionParticipation(basis),/YRA/);
   assert.equal(protocolAttendance([{status:'patvirtintas'}],rows).source,'missing');
+});
+
+test('Peržiūra: pirmą protokolo dalyvavimą lemia sprendimo laikas, ne darbotvarkės numeris',()=>{
+  const {firstDecision,protocolAttendance}=loadSource('src/lib/protocol-attendance.ts');
+  const make=(n,at,participants)=>({resolution_number:n,status:'patvirtintas',decision_basis:{recorded_at:at,participants,total_members:10,meeting_type:'visuotinis',attendance:Array(participants).fill({member_id:'test'})}});
+  const rows=[make(1,'2026-09-18T11:00:00Z',10),make(5,'2026-09-18T10:00:00Z',6)];
+  assert.equal(firstDecision(rows).resolution_number,5);assert.equal(protocolAttendance(rows,[]).rows.length,6);
+});
+for(const method of ['getMeetingExpulsions','addExpulsion','getMembersWithDebts']) test(`Peržiūra: metų be narystės nėra skoloje ${method}`,async()=>{
+  const seed=debtSeed([]);seed.members[0].admission_date='2026-01-01';seed.bylaws_membership_periods=[{member_id:'member',started_on:'2020-01-01',ended_on:'2023-12-31'}];
+  seed.fee_periods=[2023,2024,2025,2026].map(year=>({id:`fee-${year}`,year,name:'Metinis',fee_type:'metinis',amount_cents:1200,due_date:`${year}-01-01`}));
+  const h=actionHarness(method==='getMembersWithDebts'?'src/actions/reminders.ts':'src/actions/expulsions.ts',seed);const result=await h.actions[method]('meeting','member');
+  if(method==='getMembersWithDebts') {assert.equal(result.members[0].totalCents,2400);assert.deepEqual(result.members[0].unpaidPeriods.map(p=>p.year),[2023,2026]);}
+  else {const row=method==='addExpulsion'?h.tables.meeting_expulsions[0]:result.candidates[0];assert.equal(row.debt_cents,2400);assert.equal(row.debt_years,'2023, 2026');}
+});
+test('Peržiūra: vien tarpo tarp narystės laikotarpių mokestis nesukuria pašalinimo kandidato',async()=>{
+  const seed=debtSeed([]);seed.members[0].admission_date='2026-01-01';seed.bylaws_membership_periods=[{member_id:'member',started_on:'2020-01-01',ended_on:'2023-12-31'}];seed.fee_periods=[{id:'gap',year:2024,fee_type:'metinis',amount_cents:1200,due_date:'2024-01-01'}];
+  const h=actionHarness('src/actions/expulsions.ts',seed);assert.equal((await h.actions.getMeetingExpulsions('meeting')).candidates.length,0);assert.ok((await h.actions.addExpulsion('meeting','member')).error);
+});
+test('Peržiūra: narystės laikotarpių skaitymo klaida nesukuria pašalinimo įrodymo',async()=>{
+  const h=actionHarness('src/actions/expulsions.ts',debtSeed([]),{rpc:{bylaws_fee_eligibility:{error:{message:'Neprieinama'},data:null}}});assert.ok((await h.actions.addExpulsion('meeting','member')).error);assert.equal(h.writes.length,0);
 });

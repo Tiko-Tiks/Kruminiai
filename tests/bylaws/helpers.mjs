@@ -7,7 +7,7 @@ import ts from 'typescript';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const require = createRequire(import.meta.url);
 const packages = new Set(['zod', 'clsx', 'tailwind-merge', 'date-fns', 'date-fns/locale']);
-const localLibraries = new Set(['authz', 'constants', 'quorum', 'protocol-text', 'protocol-attendance', 'utils', 'voting-window', 'bylaws', 'decision-validation', 'portal-approval-email', 'payment-info']);
+const localLibraries = new Set(['authz', 'constants', 'quorum', 'protocol-text', 'protocol-attendance', 'fee-eligibility', 'utils', 'voting-window', 'bylaws', 'decision-validation', 'portal-approval-email', 'payment-info']);
 
 /** Execute the real TS implementation. All I/O modules must be explicitly replaced.
  * This is an application unit-test boundary, NOT an emulation of Postgres/RLS.
@@ -44,6 +44,13 @@ export function fakeDatabase(seed = {}, { userId = 'test-admin', errors = {}, rp
   const calls = [];
   const client = {
     async rpc(name,args) {
+      if (name==='bylaws_fee_eligibility' && !Object.hasOwn(rpc,name)) {
+        const periods=tables.fee_periods || [];
+        return {data:(tables.members || []).filter(m=>!args.p_member_ids || args.p_member_ids.includes(m.id)).map(m=>({member_id:m.id,fee_period_ids:periods.filter(p=>{
+          const spans=[{started_on:m.admission_date || m.join_date || '2012-01-01',ended_on:m.status==='išstojęs'?m.termination_date:null},...(tables.bylaws_membership_periods || []).filter(h=>h.member_id===m.id)];
+          return !p.year || spans.some(h=>h.started_on<=`${p.year}-12-31` && (!h.ended_on || h.ended_on>=`${p.year}-01-01`));
+        }).map(p=>p.id)})),error:null};
+      }
       if (!Object.hasOwn(rpc,name)) throw new Error(`Unmocked RPC blocked: ${name}`);
       calls.push({rpc:name,args});return rpc[name];
     },

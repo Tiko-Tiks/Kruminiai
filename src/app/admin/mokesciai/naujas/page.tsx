@@ -1,5 +1,6 @@
 "use client";
 
+import { fetchFeeEligibility } from "@/lib/fee-eligibility";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createPayment } from "@/actions/payments";
@@ -73,8 +74,8 @@ export default function NewPaymentPage() {
     const loadUnpaid = async () => {
       setLoadingPeriods(true);
       const supabase = createClient();
-      const [memberRes, periodsRes, paymentsRes] = await Promise.all([
-        supabase.from("members").select("join_date").eq("id", memberId).single(),
+      const [eligibility, periodsRes, paymentsRes] = await Promise.all([
+        fetchFeeEligibility(supabase, [memberId]),
         supabase
           .from("fee_periods")
           .select("id, name, year, amount_cents")
@@ -88,13 +89,10 @@ export default function NewPaymentPage() {
 
       if (cancelled) return;
 
-      const joinYear = memberRes.data?.join_date
-        ? new Date(memberRes.data.join_date as string).getFullYear()
-        : 2012;
       const paidAmounts=new Map<string,number>();
       for(const p of paymentsRes.data || []) paidAmounts.set(p.fee_period_id,(paidAmounts.get(p.fee_period_id)||0)+p.amount_cents);
       const unpaid: UnpaidPeriod[] = (periodsRes.data || [])
-        .filter((p) => p.year >= joinYear && p.amount_cents > (paidAmounts.get(p.id) || 0))
+        .filter((p) => eligibility.get(memberId)?.has(p.id) && p.amount_cents > (paidAmounts.get(p.id) || 0))
         .map((p) => ({
           id: p.id as string,
           year: p.year as number,
@@ -113,7 +111,7 @@ export default function NewPaymentPage() {
       }
       setLoadingPeriods(false);
     };
-    loadUnpaid();
+    loadUnpaid().catch(() => { if (!cancelled) { setUnpaidPeriods([]); setFeePeriodId(""); setAmountEur(""); setLoadingPeriods(false); toast.error("Nepavyko patikrinti mokesčių narystės laikotarpių."); } });
     return () => {
       cancelled = true;
     };

@@ -8,7 +8,7 @@ import {
   signatureLabel,
   summarizeAnnouncements,
 } from "@/lib/protocol-text";
-import { protocolAttendance, decisionParticipation, type DecisionBasis, type ProtocolAttendee } from "@/lib/protocol-attendance";
+import { firstDecision, protocolAttendance, decisionParticipation, type DecisionBasis, type ProtocolAttendee } from "@/lib/protocol-attendance";
 import { hasQuorum as computeHasQuorum } from "@/lib/quorum";
 
 // Protokolas rodo užfiksuotus galutinių sprendimų faktus ir dabartinius projektus – jokio cache'avimo.
@@ -86,7 +86,7 @@ export async function GET(
   const labels = protocolLabels(meeting.meeting_type);
 
   const protocolRoster = protocolAttendance(resolutions || [], (attendance || []) as ProtocolAttendee[]);
-  const firstBasis = (resolutions || []).find(r => ["patvirtintas", "atmestas"].includes(r.status))?.decision_basis as DecisionBasis | undefined;
+  const firstBasis = firstDecision(resolutions || [])?.decision_basis as DecisionBasis | undefined;
   const attendanceContext = protocolRoster.source === "decision" ? " (pirmojo užfiksuoto sprendimo metu)" : protocolRoster.source === "missing" ? " (istoriniai duomenys neužfiksuoti)" : "";
   // Suskirstyti dalyvius
   const attendByType = {

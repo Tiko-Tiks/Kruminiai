@@ -28,10 +28,12 @@ export async function validateDecision(db: Client, resolutionId: string, meeting
   if (m.meeting_type === 'valdybos' && GENERAL_DECISION_TYPES.includes(r.decision_type)) return "Šis sprendimas priklauso Visuotinio susirinkimo kompetencijai (4.8, 7.1 p.).";
   const eligibleIds = new Set<string>(m.electorate_snapshot.member_ids || []);
   if (eligibleIds.size !== m.electorate_snapshot.total || attendees.some(a => !eligibleIds.has(a.member_id))) return "Dalyvis nepriklauso užfiksuotam susirinkimo narių sąrašui.";
+  let effectiveChairVote = chairVote;
   if (m.meeting_type === 'valdybos') {
     if (totals.result_for === totals.result_against && !(QUALIFIED_DECISION_TYPES as readonly string[]).includes(r.decision_type)) {
       const { data: ballot, error: ballotError } = await db.from('vote_ballots').select('vote').eq('resolution_id', r.id).eq('member_id', m.chairperson_member_id).maybeSingle();
-      if (ballotError || !ballot || ballot.vote !== chairVote || !eligibleIds.has(m.chairperson_member_id) || !attendees.some(a => a.member_id === m.chairperson_member_id)) return "Reikia dalyvaujančio posėdžio pirmininko vardinio balso.";
+      if (ballotError || !ballot || (chairVote && ballot.vote !== chairVote) || !eligibleIds.has(m.chairperson_member_id) || !attendees.some(a => a.member_id === m.chairperson_member_id)) return "Reikia dalyvaujančio posėdžio pirmininko vardinio balso.";
+      effectiveChairVote = ballot.vote;
     }
   }
   if (m.meeting_type === 'neeilinis') {
@@ -57,6 +59,6 @@ export async function validateDecision(db: Client, resolutionId: string, meeting
     participants: new Set(attendees.map(a => a.member_id)).size, totalMembers: m.electorate_snapshot.total,
     repeat: m.meeting_type === 'pakartotinis', repeatValidated, qualified: (QUALIFIED_DECISION_TYPES as readonly string[]).includes(r.decision_type),
     council: m.meeting_type === 'valdybos', majorityRule: m.majority_rule, majorityReference: m.majority_reference,
-    for: totals.result_for, against: totals.result_against, abstain: totals.result_abstain, status, chairVote,
+    for: totals.result_for, against: totals.result_against, abstain: totals.result_abstain, status, chairVote: effectiveChairVote,
   });
 }

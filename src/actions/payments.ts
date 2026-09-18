@@ -1,5 +1,6 @@
 "use server";
 
+import { fetchFeeEligibility } from "@/lib/fee-eligibility";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { requireAdmin } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
@@ -182,7 +183,8 @@ export async function getFeeReport(feePeriodId: string) {
     paidMap.set(p.member_id, (paidMap.get(p.member_id) || 0) + p.amount_cents);
   }
 
-  const report = membersRes.data.map((m) => ({
+  const eligibility = await fetchFeeEligibility(supabase, membersRes.data.map(m => m.id));
+  const report = membersRes.data.filter(m => eligibility.get(m.id)?.has(feePeriodId)).map((m) => ({
     ...m,
     paid: paidMap.get(m.id) || 0,
     owed: periodRes.data.amount_cents,
@@ -193,7 +195,7 @@ export async function getFeeReport(feePeriodId: string) {
     period: periodRes.data,
     members: report,
     totalCollected: paymentsRes.data.reduce((s, p) => s + p.amount_cents, 0),
-    totalOwed: membersRes.data.length * periodRes.data.amount_cents,
+    totalOwed: report.length * periodRes.data.amount_cents,
     paidCount: report.filter(m=>m.hasPaid).length,
     unpaidCount: report.filter(m=>!m.hasPaid).length,
   };

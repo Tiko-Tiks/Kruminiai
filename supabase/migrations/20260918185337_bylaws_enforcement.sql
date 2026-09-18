@@ -25,6 +25,7 @@ ALTER TABLE public.meetings
   ADD COLUMN electorate_snapshot jsonb,
   ADD COLUMN convening_snapshot jsonb,
   ADD COLUMN convening_date date,
+  ADD COLUMN convening_same_day_reference text,
   ADD COLUMN convening_total_members integer CHECK (convening_total_members > 0);
 
 -- Evidence that cannot be inferred from an administrator's status checkbox.
@@ -65,6 +66,29 @@ CREATE TABLE public.bylaws_membership_periods (
 CREATE INDEX bylaws_membership_periods_member_idx ON public.bylaws_membership_periods(member_id,started_on,ended_on);
 ALTER TABLE public.bylaws_membership_periods ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.bylaws_membership_periods FROM PUBLIC,anon,authenticated;
+
+-- Annual fees may not cover entire years when membership did not exist.
+-- This preserves existing annual-period amounts; it does not invent proration.
+CREATE FUNCTION public.bylaws_fee_applies(p_member_id uuid,p_year integer) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
+  SELECT EXISTS(SELECT 1 FROM public.members m WHERE m.id=p_member_id
+    AND coalesce(m.admission_date,m.join_date,DATE '2012-01-01') <= make_date(p_year,12,31)
+    AND (m.status IN ('aktyvus','pasyvus','garbes_narys') OR m.termination_date>=make_date(p_year,1,1)))
+    OR EXISTS(SELECT 1 FROM public.bylaws_membership_periods mp WHERE mp.member_id=p_member_id
+      AND mp.started_on<=make_date(p_year,12,31) AND mp.ended_on>=make_date(p_year,1,1));
+$$;
+REVOKE ALL ON FUNCTION public.bylaws_fee_applies(uuid,integer) FROM PUBLIC,anon,authenticated;
+
+CREATE FUNCTION public.bylaws_fee_eligibility(p_member_ids uuid[] DEFAULT NULL) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+  IF public.is_admin() IS NOT TRUE THEN RAISE EXCEPTION 'Tik administratorius'; END IF;
+  RETURN (SELECT coalesce(jsonb_agg(jsonb_build_object('member_id',m.id,'fee_period_ids',
+    (SELECT coalesce(jsonb_agg(fp.id),'[]'::jsonb) FROM public.fee_periods fp WHERE public.bylaws_fee_applies(m.id,fp.year)))),'[]'::jsonb)
+    FROM public.members m WHERE p_member_ids IS NULL OR m.id=ANY(p_member_ids));
+END; $$;
+REVOKE ALL ON FUNCTION public.bylaws_fee_eligibility(uuid[]) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.bylaws_fee_eligibility(uuid[]) TO authenticated;
 
 CREATE FUNCTION public.bylaws_admission_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
@@ -168,6 +192,11 @@ BEGIN
   IF TG_OP='UPDATE' AND OLD.status IN ('baigtas','atšauktas') AND NEW.status IS DISTINCT FROM OLD.status THEN
     RAISE EXCEPTION 'Uždaryto susirinkimo atidaryti negalima; būtinas atskiras dokumentuotas taisymas';
   END IF;
+  IF TG_OP='UPDATE' AND NEW.status IS DISTINCT FROM OLD.status AND NEW.status NOT IN ('vyksta','baigtas')
+    AND EXISTS(SELECT 1 FROM public.resolutions WHERE meeting_id=OLD.id AND status IN ('patvirtintas','atmestas')) THEN
+    RAISE EXCEPTION 'Priėmus nutarimą susirinkimo atšaukti ar grąžinti į ankstesnę būseną negalima';
+  END IF;
+  IF TG_OP='UPDATE' AND OLD.status='baigtas' AND NEW.ended_at IS DISTINCT FROM OLD.ended_at THEN RAISE EXCEPTION 'Protokolo pabaigos laikas užfiksuotas'; END IF;
   capture := NEW.electorate_snapshot IS NULL AND NEW.status='vyksta' AND (TG_OP='INSERT' OR OLD.status<>'vyksta');
   IF capture OR ((TG_OP='INSERT' OR OLD.electorate_snapshot IS NULL) AND NEW.electorate_snapshot IS NOT NULL) THEN
     IF capture OR NEW.electorate_snapshot = '{"capture":true}'::jsonb THEN
@@ -237,30 +266,34 @@ BEGIN
     RAISE EXCEPTION 'Tarybos sušaukimo sprendimas turi būti priimtas iki susirinkimo';
   END IF;
   IF TG_OP='UPDATE' AND (OLD.status IN ('baigtas','atšauktas') OR EXISTS(SELECT 1 FROM public.resolutions WHERE meeting_id=OLD.id AND status IN ('patvirtintas','atmestas')))
-    AND (NEW.chairperson_member_id,NEW.chairperson_name,NEW.secretary_name,NEW.convening_kind,NEW.convening_reference,NEW.convening_date)
-      IS DISTINCT FROM (OLD.chairperson_member_id,OLD.chairperson_name,OLD.secretary_name,OLD.convening_kind,OLD.convening_reference,OLD.convening_date) THEN
-    RAISE EXCEPTION 'Posėdžio pareigūnai ir sušaukimo pagrindas užfiksuoti';
+    AND (NEW.title,NEW.location,NEW.protocol_number,NEW.chairperson_member_id,NEW.chairperson_name,NEW.secretary_name,NEW.convening_kind,NEW.convening_reference,NEW.convening_date)
+      IS DISTINCT FROM (OLD.title,OLD.location,OLD.protocol_number,OLD.chairperson_member_id,OLD.chairperson_name,OLD.secretary_name,OLD.convening_kind,OLD.convening_reference,OLD.convening_date) THEN
+    RAISE EXCEPTION 'Protokolo tapatybė, posėdžio pareigūnai ir sušaukimo pagrindas užfiksuoti';
   END IF;
   NEW.convening_requesters := ARRAY(SELECT DISTINCT id FROM unnest(NEW.convening_requesters) id ORDER BY id);
   -- A member demand is checked once, for the dated demand, and then preserved.
   IF TG_OP='UPDATE' AND OLD.convening_snapshot IS NOT NULL AND
-    (NEW.convening_snapshot,NEW.convening_kind,NEW.convening_reference,NEW.convening_requesters,NEW.convening_date,NEW.convening_total_members)
-    IS DISTINCT FROM (OLD.convening_snapshot,OLD.convening_kind,OLD.convening_reference,OLD.convening_requesters,OLD.convening_date,OLD.convening_total_members) THEN
+    (NEW.convening_snapshot,NEW.convening_kind,NEW.convening_reference,NEW.convening_requesters,NEW.convening_date,NEW.convening_total_members,NEW.convening_same_day_reference)
+    IS DISTINCT FROM (OLD.convening_snapshot,OLD.convening_kind,OLD.convening_reference,OLD.convening_requesters,OLD.convening_date,OLD.convening_total_members,OLD.convening_same_day_reference) THEN
     RAISE EXCEPTION 'Narių reikalavimo pagrindas užfiksuotas; jo pakeitimui registruokite naują reikalavimą';
   END IF;
   IF (TG_OP='INSERT' OR OLD.convening_snapshot IS NULL) THEN
     IF NEW.convening_snapshot IS NOT NULL THEN RAISE EXCEPTION 'Reikalavimo patikros išvados tiesiogiai įrašyti negalima'; END IF;
     IF NEW.convening_kind='members' AND nullif(btrim(NEW.convening_reference),'') IS NOT NULL AND NEW.convening_date IS NOT NULL THEN
       IF NEW.convening_date > (now() AT TIME ZONE 'Europe/Vilnius')::date THEN RAISE EXCEPTION 'Reikalavimo data dar neatėjo'; END IF;
+      IF nullif(btrim(NEW.convening_same_day_reference),'') IS NULL AND EXISTS(SELECT 1 FROM public.members mb WHERE mb.id=ANY(NEW.convening_requesters)
+        AND (mb.termination_date=NEW.convening_date OR EXISTS(SELECT 1 FROM public.bylaws_membership_periods mp WHERE mp.member_id=mb.id AND mp.ended_on=NEW.convening_date))) THEN
+        RAISE EXCEPTION 'Tos pačios dienos narystės pabaigai reikia pasirašymo ir pasibaigimo eiliškumo dokumento';
+      END IF;
       SELECT array_agg(DISTINCT mb.id) INTO signers FROM public.members mb
         WHERE mb.id=ANY(NEW.convening_requesters) AND (
           (coalesce(mb.admission_date,mb.join_date)<=NEW.convening_date
-            AND (mb.status IN ('aktyvus','pasyvus','garbes_narys') OR mb.termination_date>NEW.convening_date))
+            AND (mb.status IN ('aktyvus','pasyvus','garbes_narys') OR mb.termination_date>=NEW.convening_date))
           OR EXISTS(SELECT 1 FROM public.bylaws_membership_periods mp WHERE mp.member_id=mb.id AND mp.started_on<=NEW.convening_date AND mp.ended_on>=NEW.convening_date));
       IF coalesce(cardinality(signers),0) <> (SELECT count(DISTINCT id) FROM unnest(NEW.convening_requesters) id) THEN
         RAISE EXCEPTION 'Pasirašiusio asmens narystė reikalavimo dieną nepatvirtinta registre';
       END IF;
-      IF NEW.convening_date=(now() AT TIME ZONE 'Europe/Vilnius')::date THEN
+      IF NEW.convening_date=(now() AT TIME ZONE 'Europe/Vilnius')::date AND nullif(btrim(NEW.convening_same_day_reference),'') IS NULL THEN
         SELECT count(*) INTO total FROM public.members WHERE status IN ('aktyvus','pasyvus','garbes_narys');
       ELSE
         -- No membership history is guessed retrospectively: the referenced demand
@@ -270,7 +303,7 @@ BEGIN
       IF total IS NULL OR total<1 OR coalesce(cardinality(signers),0)*5<total OR coalesce(cardinality(signers),0)>total THEN
         RAISE EXCEPTION 'Reikia dokumentuotos reikalavimo dienos narių bazės ir bent 1/5 pasirašiusių narių';
       END IF;
-      NEW.convening_snapshot := jsonb_build_object('total',total,'requester_ids',signers,'demand_date',NEW.convening_date,'reference',NEW.convening_reference,'recorded_at',now());
+      NEW.convening_snapshot := jsonb_build_object('total',total,'requester_ids',signers,'demand_date',NEW.convening_date,'same_day_reference',NEW.convening_same_day_reference,'reference',NEW.convening_reference,'recorded_at',now());
     END IF;
   END IF;
   IF TG_OP = 'UPDATE' AND NEW.meeting_type IS DISTINCT FROM OLD.meeting_type THEN
@@ -394,7 +427,7 @@ BEGIN
   IF NEW.decision_type IS NOT NULL THEN
     NEW.requires_qualified_majority := NEW.decision_type IN ('statutes', 'transformation', 'liquidation');
   END IF;
-  IF NEW.status NOT IN ('patvirtintas', 'atmestas') THEN RETURN NEW; END IF;
+  IF NEW.status NOT IN ('patvirtintas', 'atmestas') THEN NEW.chair_vote:=NULL; RETURN NEW; END IF;
   IF m.meeting_type='valdybos' AND NEW.decision_type IN ('statutes','transformation','liquidation','council_election','council_removal','auditor_election','reports','fees','seat') THEN
     RAISE EXCEPTION 'Šis sprendimas priklauso Visuotinio susirinkimo kompetencijai (4.8, 7.1 p.)';
   END IF;
@@ -493,10 +526,10 @@ BEGIN
       SELECT vb.vote INTO chair_ballot FROM public.vote_ballots vb
         JOIN public.meeting_attendance ma ON ma.meeting_id=m.id AND ma.member_id=vb.member_id
         WHERE vb.resolution_id=NEW.id AND vb.member_id=m.chairperson_member_id;
-      IF NOT FOUND OR NEW.chair_vote IS DISTINCT FROM chair_ballot THEN
+      IF NOT FOUND OR (NEW.chair_vote IS NOT NULL AND NEW.chair_vote IS DISTINCT FROM chair_ballot) THEN
         RAISE EXCEPTION 'Būtinas dalyvaujančio posėdžio pirmininko vardinis, jau įskaičiuotas balsas (5.5 p.)';
       END IF;
-      passed := NEW.chair_vote = 'uz';
+      passed := chair_ballot = 'uz';
     ELSE
       passed := CASE m.majority_rule WHEN 'participants' THEN NEW.result_for * 2 > participants ELSE NEW.result_for > NEW.result_against END;
     END IF;
@@ -539,9 +572,10 @@ BEGIN
     'majority_reference', m.majority_reference, 'previous_meeting_id', m.previous_meeting_id,
     'notice', notice, 'notice_channels', m.notice_channels, 'notice_reference', m.notice_reference,
     'notice_day_rule', m.notice_day_rule, 'notice_day_reference', m.notice_day_reference, 'notice_days', threshold, 'repeat_notice_reference', m.repeat_notice_reference,
-    'decision_type', NEW.decision_type, 'chairperson_member_id', m.chairperson_member_id, 'chair_vote', chair_ballot,
+    'decision_type', NEW.decision_type, 'chairperson_member_id', m.chairperson_member_id,
     'convening_kind', m.convening_kind, 'convening_date',m.convening_date, 'convening_reference', m.convening_reference,
-    'convening_requesters', m.convening_requesters, 'convening_snapshot', m.convening_snapshot, 'electorate_snapshot', m.electorate_snapshot, 'recorded_at', now());
+    'convening_requesters', m.convening_requesters, 'convening_snapshot', m.convening_snapshot, 'electorate_snapshot', m.electorate_snapshot, 'recorded_at', clock_timestamp());
+  NEW.chair_vote := NULL; -- The immutable ballot remains the restricted proof; public resolution data never carries it.
   NEW.early_voting_open := false;
   RETURN NEW;
 END; $$;
@@ -622,6 +656,10 @@ BEGIN
       AND ((NEW.role='revizorius' AND cm.role IN ('pirmininkas','tarybos_narys'))
         OR (NEW.role IN ('pirmininkas','tarybos_narys') AND cm.role='revizorius'))
   ) THEN RAISE EXCEPTION 'Revizorius negali būti Tarybos nariu ar Pirmininku (6.2 p.)'; END IF;
+  IF NEW.is_current AND NEW.role IN ('pirmininkas','tarybos_narys') AND
+    (SELECT count(DISTINCT member_id) FROM (SELECT cm.member_id FROM public.community_management cm WHERE cm.id<>NEW.id AND cm.is_current AND cm.role IN ('pirmininkas','tarybos_narys') UNION SELECT NEW.member_id) council)>6 THEN
+    RAISE EXCEPTION 'Taryboje kartu su Pirmininku gali būti ne daugiau kaip šeši asmenys (5.2 p.)';
+  END IF;
   IF NEW.is_current AND NEW.role IN ('pirmininkas','revizorius') AND EXISTS(SELECT 1 FROM public.community_management cm WHERE cm.is_current AND cm.role=NEW.role AND cm.id<>NEW.id) THEN
     RAISE EXCEPTION 'Vienu metu gali būti tik vienas Pirmininkas ir vienas Revizorius';
   END IF;
@@ -731,6 +769,10 @@ BEGIN
       AND d.file_path ~ '^__api__/(salinami|rinkimai|veiklos-planai)/' LOOP
     v_kind:=split_part(doc.file_path,'/',2);
     source_id:=split_part(doc.file_path,'/',3)::uuid;
+    IF source_id<>target_id AND NOT EXISTS(SELECT 1 FROM public.meetings m WHERE m.id=target_id AND m.meeting_type='pakartotinis' AND m.previous_meeting_id=source_id
+      AND EXISTS(SELECT 1 FROM public.bylaws_document_snapshots ds WHERE ds.meeting_id=source_id AND ds.kind=v_kind)) THEN
+      RAISE EXCEPTION 'Generuojamo priedo susirinkimas nesutampa; galima tik užfiksuoto ankstesnio neįvykusio susirinkimo kopija';
+    END IF;
     IF NOT EXISTS(SELECT 1 FROM public.bylaws_document_snapshots ds WHERE ds.meeting_id=source_id AND ds.kind=v_kind) THEN
       payload:=CASE v_kind WHEN 'salinami' THEN public.get_meeting_expulsions_data(source_id)
         WHEN 'rinkimai' THEN public.get_meeting_elections_data(source_id)
@@ -997,7 +1039,7 @@ BEGIN
     FROM members m
     CROSS JOIN metiniai fp
     WHERE m.status IN ('aktyvus','pasyvus')
-      AND fp.year >= EXTRACT(YEAR FROM COALESCE(m.join_date,'2012-01-01'::date))
+      AND public.bylaws_fee_applies(m.id,fp.year)
       AND greatest(fp.amount_cents-coalesce((SELECT sum(p.amount_cents) FROM public.payments p WHERE p.member_id=m.id AND p.fee_period_id=fp.id),0),0)>0
   )
   SELECT
@@ -1078,7 +1120,7 @@ BEGIN
   INTO v_unpaid, v_total_cents
   FROM fee_periods fp
   WHERE fp.fee_type = 'metinis'
-    AND fp.year >= v_join_year
+    AND public.bylaws_fee_applies(v_decl.member_id,fp.year)
     AND greatest(fp.amount_cents-coalesce((SELECT sum(px.amount_cents) FROM public.payments px WHERE px.fee_period_id=fp.id AND px.member_id=v_decl.member_id),0),0)>0;
 
   RETURN jsonb_build_object(
@@ -1152,13 +1194,13 @@ BEGIN
     ) INTO v_unpaid
     FROM fee_periods fp
     WHERE fp.fee_type = 'metinis'
-      AND fp.year >= COALESCE(EXTRACT(YEAR FROM v_member_join_date)::INT, 2012)
+      AND public.bylaws_fee_applies(v_member_id,fp.year)
       AND greatest(fp.amount_cents-coalesce((SELECT sum(px.amount_cents) FROM public.payments px WHERE px.fee_period_id=fp.id AND px.member_id=v_member_id),0),0)>0;
 
     SELECT COALESCE(SUM(greatest(fp.amount_cents-coalesce((SELECT sum(px.amount_cents) FROM public.payments px WHERE px.fee_period_id=fp.id AND px.member_id=v_member_id),0),0)), 0) INTO v_total_debt
     FROM fee_periods fp
     WHERE fp.fee_type = 'metinis'
-      AND fp.year >= COALESCE(EXTRACT(YEAR FROM v_member_join_date)::INT, 2012)
+      AND public.bylaws_fee_applies(v_member_id,fp.year)
       AND greatest(fp.amount_cents-coalesce((SELECT sum(px.amount_cents) FROM public.payments px WHERE px.fee_period_id=fp.id AND px.member_id=v_member_id),0),0)>0;
   END IF;
 
@@ -1197,6 +1239,7 @@ CREATE OR REPLACE FUNCTION public.get_transparency_fee_stats()
  SET search_path TO 'public'
 AS $function$
   SELECT jsonb_build_object(
+    'eligible_counts',(SELECT coalesce(jsonb_agg(jsonb_build_object('fee_period_id',fp.id,'count',(SELECT count(*) FROM public.members m WHERE m.status IN ('aktyvus','pasyvus') AND public.bylaws_fee_applies(m.id,fp.year)))),'[]'::jsonb) FROM public.fee_periods fp),
     'paid_counts', COALESCE((SELECT jsonb_agg(jsonb_build_object('fee_period_id',t.fee_period_id,'count',t.n)) FROM (
       SELECT paid.fee_period_id,count(*) as n FROM (
         SELECT p.fee_period_id,p.member_id FROM public.payments p JOIN public.fee_periods fp ON fp.id=p.fee_period_id

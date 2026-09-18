@@ -1,5 +1,6 @@
 "use server";
 
+import { fetchFeeEligibility } from "@/lib/fee-eligibility";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
@@ -99,14 +100,14 @@ export async function getMeetingExpulsions(
     paidMap.set(p.member_id, sums);
   }
 
+  const eligibility = await fetchFeeEligibility(supabase, (members || []).map(m => m.id));
   const existingIds = new Set(list.map((l) => l.member_id));
   const candidates: DebtorCandidate[] = [];
   for (const m of members || []) {
     if (existingIds.has(m.id)) continue;
-    const joinYear = m.join_date ? new Date(m.join_date).getFullYear() : 2012;
     const paid = paidMap.get(m.id) || new Map<string, number>();
     const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vilnius" });
-    const unpaid = (periods || []).filter(p => p.year >= joinYear && p.due_date && p.due_date < today)
+    const unpaid = (periods || []).filter(p => eligibility.get(m.id)?.has(p.id) && p.due_date && p.due_date < today)
       .map(p => ({ ...p, outstanding: Math.max(0, p.amount_cents - (paid.get(p.id) || 0)) }))
       .filter(p => p.outstanding > 0);
     if (!unpaid.some(p => overdueMoreThanTwelveMonths(p.due_date, today))) continue;
@@ -148,7 +149,9 @@ export async function addExpulsion(
     .single();
   if (!member) return { error: "Narys nerastas" };
 
-  const joinYear = member.join_date ? new Date(member.join_date).getFullYear() : 2012;
+  let eligibility: Map<string, Set<string>>;
+  try { eligibility = await fetchFeeEligibility(supabase, [memberId]); }
+  catch { return { error: "Nepavyko patikrinti nario mokesčių laikotarpių." }; }
 
   const [{ data: periods, error: periodsError }, { data: payments, error: paymentsError }] = await Promise.all([
     supabase.from("fee_periods").select("id, year, amount_cents, due_date").eq("fee_type", "metinis"),
@@ -159,7 +162,7 @@ export async function addExpulsion(
   const paid = new Map<string, number>();
   for (const p of payments) paid.set(p.fee_period_id, (paid.get(p.fee_period_id) || 0) + p.amount_cents);
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vilnius" });
-  const unpaid = periods.filter(p => p.year >= joinYear && p.due_date && p.due_date < today)
+  const unpaid = periods.filter(p => eligibility.get(memberId)?.has(p.id) && p.due_date && p.due_date < today)
     .map(p => ({ ...p, outstanding: Math.max(0, p.amount_cents - (paid.get(p.id) || 0)) }))
     .filter(p => p.outstanding > 0);
 

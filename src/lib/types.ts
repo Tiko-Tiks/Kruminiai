@@ -129,6 +129,7 @@ export interface Meeting {
   electorate_snapshot?: {total:number;reference?:string;recorded_at?:string} | null;
   convening_snapshot?: {total:number;requester_ids:string[];demand_date:string} | null;
   convening_date?: string | null;
+  convening_same_day_reference?: string | null;
   convening_total_members?: number | null;
   notice_channels?: string[] | null;
   notice_reference?: string | null;

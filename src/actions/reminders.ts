@@ -1,5 +1,6 @@
 "use server";
 
+import { fetchFeeEligibility } from "@/lib/fee-eligibility";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { requireAdmin } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
@@ -62,6 +63,7 @@ export async function getMembersWithDebts() {
     return { members: [] as MemberWithDebt[] };
   }
 
+  const eligibility = await fetchFeeEligibility(supabase, members.map(m => m.id));
   const paidByMember = new Map<string, Map<string,number>>();
   for (const p of payments) {
     const sums = paidByMember.get(p.member_id) || new Map<string,number>();
@@ -71,9 +73,8 @@ export async function getMembersWithDebts() {
 
   const result: MemberWithDebt[] = [];
   for (const m of members) {
-    const joinYear = m.join_date ? new Date(m.join_date).getFullYear() : 2012;
     const paid = paidByMember.get(m.id) || new Map<string,number>();
-    const unpaid = periods.filter(p=>p.year>=joinYear).map(p=>({...p,amount_cents:Math.max(0,p.amount_cents-(paid.get(p.id)||0))})).filter(p=>p.amount_cents>0);
+    const unpaid = periods.filter(p=>eligibility.get(m.id)?.has(p.id)).map(p=>({...p,amount_cents:Math.max(0,p.amount_cents-(paid.get(p.id)||0))})).filter(p=>p.amount_cents>0);
     if (unpaid.length === 0) continue;
 
     result.push({
