@@ -38,13 +38,22 @@ interface DonationRow {
   donated_at: string;
 }
 
+/**
+ * Aukų dalis. `null` reiškia „nepavyko užkrauti" – tada sumų NErodom visai.
+ * Nuliai čia būtų melas: puslapis parodytų „surinkta 0 €" ir 0 % progresą,
+ * lyg tiek iš tikrųjų ir būtų surinkta.
+ */
+interface DonationSummary {
+  totalDonations: number;
+  donations: DonationRow[];
+  projects: ProjectSummary[];
+}
+
 interface Props {
   ataskaitos: DocumentRow[];
   yearStats: YearStats[];
   totalDebt: number;
-  donations: DonationRow[];
-  totalDonations: number;
-  projects: ProjectSummary[];
+  donationSummary: DonationSummary | null;
 }
 
 interface ProjectSummary {
@@ -89,18 +98,21 @@ export function SkaidrumasTabs({
   ataskaitos,
   yearStats,
   totalDebt,
-  donations,
-  totalDonations,
-  projects,
+  donationSummary,
 }: Props) {
-  const t = useT().transparency;
+  const dict = useT();
+  const t = dict.transparency;
   const currentYear = new Date().getFullYear();
   const currentYearStats = yearStats.find((y) => y.year === currentYear);
   // Bendras tikslas – tik iš tų projektų, kurie tikslą turi
-  const combinedGoalCents = projects.reduce((s, p) => s + p.goalCents, 0);
+  const combinedGoalCents =
+    donationSummary?.projects.reduce((s, p) => s + p.goalCents, 0) ?? 0;
   const combinedPercent =
-    combinedGoalCents > 0
-      ? Math.min(100, Math.round((totalDonations / combinedGoalCents) * 100))
+    donationSummary && combinedGoalCents > 0
+      ? Math.min(
+          100,
+          Math.round((donationSummary.totalDonations / combinedGoalCents) * 100)
+        )
       : 0;
 
   return (
@@ -142,13 +154,21 @@ export function SkaidrumasTabs({
               {t.summaryDonated}
             </p>
           </div>
-          <p className="text-2xl font-bold text-amber-700">{eur(totalDonations)} €</p>
-          {combinedGoalCents > 0 && (
-            <p className="text-xs text-gray-500 mt-1">
-              {t.summaryDonatedMeta
-                .replace("{goal}", eur(combinedGoalCents))
-                .replace("{percent}", String(combinedPercent))}
-            </p>
+          {donationSummary ? (
+            <>
+              <p className="text-2xl font-bold text-amber-700">
+                {eur(donationSummary.totalDonations)} €
+              </p>
+              {combinedGoalCents > 0 && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {t.summaryDonatedMeta
+                    .replace("{goal}", eur(combinedGoalCents))
+                    .replace("{percent}", String(combinedPercent))}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-gray-500">{dict.common.dataUnavailable}</p>
           )}
         </div>
       </div>
@@ -223,8 +243,21 @@ export function SkaidrumasTabs({
         </div>
       </div>
 
-      {/* Projektai – po kortelę kiekvienam, su nuoroda į pilną puslapį */}
-      {projects.map((project) => {
+      {/* Projektai – po kortelę kiekvienam, su nuoroda į pilną puslapį.
+          Be aukų duomenų kortelių NErodom: jose viskas yra suma ir progresas. */}
+      {!donationSummary && (
+        <div className="bg-white rounded-2xl border border-amber-200 px-6 py-5">
+          <div className="flex items-center gap-2 mb-1">
+            <Heart className="h-4 w-4 text-amber-600" />
+            <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
+              {t.donationsTitle}
+            </h2>
+          </div>
+          <p className="text-sm text-gray-500">{dict.common.dataUnavailable}</p>
+        </div>
+      )}
+
+      {(donationSummary?.projects ?? []).map((project) => {
         const percent =
           project.goalCents > 0
             ? Math.min(100, Math.round((project.totalCents / project.goalCents) * 100))
@@ -277,14 +310,17 @@ export function SkaidrumasTabs({
       })}
 
       {/* Aukotojų sąrašas */}
-      {donations.length > 0 && (
+      {donationSummary && donationSummary.donations.length > 0 && (
         <div className="bg-white rounded-2xl border border-amber-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-amber-100 bg-amber-50/40 flex items-center justify-between">
             <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
               {t.donationsTitle}
             </h2>
             <span className="text-xs text-amber-700 font-semibold">
-              {donations.length} {donations.length === 1 ? t.donationSingular : t.donationPlural}
+              {donationSummary.donations.length}{" "}
+              {donationSummary.donations.length === 1
+                ? t.donationSingular
+                : t.donationPlural}
             </span>
           </div>
           <div className="overflow-x-auto">
@@ -303,7 +339,7 @@ export function SkaidrumasTabs({
                 </tr>
               </thead>
               <tbody>
-                {donations.map((d) => (
+                {donationSummary.donations.map((d) => (
                   <tr
                     key={d.id}
                     className="border-b border-gray-100 hover:bg-gray-50/50"

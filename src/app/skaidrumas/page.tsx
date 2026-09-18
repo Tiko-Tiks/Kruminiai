@@ -123,13 +123,28 @@ async function getFinansaiData(locale: Locale) {
   const donationsResult = await loadDonations({
     projectIds: (projectRows || []).map((p) => p.id as string),
   });
+  // Skola = metinis potential - metinis collected (stojamieji NEAtimti
+  // iš metinio potencialo). Niekada neigiama.
+  const totalDebt = yearStats.reduce(
+    (s, y) =>
+      s + Math.max(0, y.potential_cents - y.metinis_collected_cents),
+    0
+  );
+
+  // Nepavykus užkrauti aukų grąžinam `null`, o NE nulines sumas: tuščias
+  // sąrašas puslapyje virstų „surinkta 0 €" ir 0 % progresu, t. y. atrodytų
+  // kaip tikras rezultatas. `null` verčia UI parodyti nepasiekiamumo būseną.
   if (!donationsResult.ok) {
     console.error("[/skaidrumas] Nepavyko užkrauti aukų:", donationsResult.error);
+    return {
+      ataskaitos: documents || [],
+      yearStats,
+      totalDebt,
+      donationSummary: null,
+    };
   }
-  const donationsAvailable = donationsResult.ok;
-  const donationRecords = donationsResult.ok ? donationsResult.rows : [];
 
-  const totalDonations = donationTotals(donationRecords).totalCents;
+  const donationRecords = donationsResult.rows;
   const totalsByProject = donationTotalsByProject(donationRecords);
 
   // Kiekvieno projekto suvestinė – atskira kortelė su savo progresu
@@ -145,14 +160,6 @@ async function getFinansaiData(locale: Locale) {
       donorCount: own?.donorCount ?? 0,
     };
   });
-
-  // Skola = metinis potential - metinis collected (stojamieji NEAtimti
-  // iš metinio potencialo). Niekada neigiama.
-  const totalDebt = yearStats.reduce(
-    (s, y) =>
-      s + Math.max(0, y.potential_cents - y.metinis_collected_cents),
-    0
-  );
 
   // Aukotojų vardai per bendrą kaukę (žr. src/lib/donor-name.ts). Auditorija –
   // `members`: puslapis už middleware, jį mato tik patvirtinti nariai.
@@ -171,10 +178,11 @@ async function getFinansaiData(locale: Locale) {
     ataskaitos: documents || [],
     yearStats,
     totalDebt,
-    donationsAvailable,
-    donations: donationRows,
-    totalDonations,
-    projects,
+    donationSummary: {
+      totalDonations: donationTotals(donationRecords).totalCents,
+      donations: donationRows,
+      projects,
+    },
   };
 }
 
@@ -215,21 +223,14 @@ export default async function SkaidrumasPage() {
             </p>
           </div>
 
-          {/* Aukų dalis gali būti nepasiekiama (DB klaida) – tada apie tai
-              pasakom atvirai, o ne rodom nulius kaip tikrą rezultatą. */}
-          {!data.donationsAvailable && (
-            <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              {getDict().common.dataUnavailable}
-            </div>
-          )}
-
+          {/* Aukų dalis gali būti nepasiekiama (DB klaida). Tada
+              `donationSummary` yra `null` ir komponentas sumų NErodo – nei
+              kortelėje, nei projektų progrese, nei aukotojų lentelėje. */}
           <SkaidrumasTabs
             ataskaitos={data.ataskaitos}
             yearStats={data.yearStats}
             totalDebt={data.totalDebt}
-            donations={data.donations}
-            totalDonations={data.totalDonations}
-            projects={data.projects}
+            donationSummary={data.donationSummary}
           />
         </div>
       </main>
