@@ -11,6 +11,18 @@ import { SupabaseClient } from "@supabase/supabase-js";
  * Klaida čia NEnutraukia mutacijos (ji jau įvykdyta), bet ir NEnutylima:
  * tylus audito praradimas yra blogesnis už triukšmą žurnale.
  */
+/**
+ * Žurnalo eilutei skirta reikšmė be eilučių lūžių ir valdymo simbolių: iš
+ * parametrų (pvz. įrašo ID iš formos) atėjęs tekstas negali suformuoti
+ * netikros atskiros žurnalo eilutės. Ilgis ribojamas, kad viena klaida
+ * neužverstų žurnalo.
+ */
+function logSafe(value: unknown): string {
+  return String(value ?? "")
+    .replace(/[\r\n\t\u0000-\u001f\u007f]+/g, " ")
+    .slice(0, 200);
+}
+
 export async function logAudit(
   supabase: SupabaseClient,
   params: {
@@ -33,7 +45,7 @@ export async function logAudit(
 
   if (error) {
     console.error(
-      `[audit_log] Neįrašyta: ${params.action} ${params.tableName}/${params.recordId} – ${error.message}`
+      `[audit_log] Neįrašyta: ${logSafe(params.action)} ${logSafe(params.tableName)}/${logSafe(params.recordId)} – ${logSafe(error.message)}`
     );
   }
 }
