@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { COMMUNITY_LEGAL } from "@/lib/constants";
 import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
 import { protocolLabels, signatureLabel } from "@/lib/protocol-text";
+import { requireAdmin } from "@/lib/authz";
 
 // Dalyvių sąrašas turi visada atspindėti naujausius dalyvavimo įrašus
 // ir pirmininko/sekretoriaus pavardes – jokio cache'avimo.
@@ -33,18 +34,15 @@ export async function GET(
 ) {
   const supabase = createServerSupabaseClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Neautorizuotas" }, { status: 401 });
-  }
-  // Dokumente – pilnos narių pavardės ir balsavimo faktai, todėl tik admin
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (!profile || !["admin", "super_admin"].includes(profile.role)) {
-    return NextResponse.json({ error: "Trūksta teisių" }, { status: 403 });
+  // Dokumente – pilnos narių pavardės ir balsavimo faktai, todėl tik
+  // administratorius. Vienas teisių kontraktas su `public.is_admin()` –
+  // rolė IR `is_approved` (žr. requireAdmin).
+  const auth = await requireAdmin(supabase);
+  if (auth.error) {
+    return NextResponse.json(
+      { error: auth.error },
+      { status: auth.error === "Neautorizuotas" ? 401 : 403 }
+    );
   }
 
   const url = new URL(request.url);

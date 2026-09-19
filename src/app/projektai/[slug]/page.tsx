@@ -3,7 +3,7 @@ import { generateSepaQrSvg } from "@/lib/sepa-qr";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { formatDate, getImagePublicUrl } from "@/lib/utils";
-import { formatDonorName } from "@/lib/donor-name";
+import { donationTotals, loadDonations, toDonationViews } from "@/lib/donations-data";
 import { getDict, getLocale } from "@/lib/i18n-server";
 import { Heart, Phone, Mail, Hammer, Wallet, ChevronDown } from "lucide-react";
 import { CopyButton } from "./CopyButton";
@@ -80,6 +80,7 @@ export async function generateMetadata({
 export default async function ProjectPage({ params }: { params: { slug: string } }) {
   const locale = getLocale();
   const t = getDict().lieptas;
+  const tCommon = getDict().common;
 
   const project = await getProject(params.slug);
   if (!project) notFound();
@@ -87,13 +88,20 @@ export default async function ProjectPage({ params }: { params: { slug: string }
   const supabase = createServerSupabaseClient();
   const assets = PROJECT_ASSETS[params.slug] ?? {};
 
-  const { data: donations } = await supabase
-    .from("donations")
-    .select(
-      "id, donor_name, donor_first_name, donor_last_name, display_mode, amount_cents, donated_at, is_anonymous, donor_message"
-    )
-    .eq("project_id", project.id)
-    .order("donated_at", { ascending: false });
+  // Aukos – per serverio kroviklį (žr. src/lib/donations-data.ts). `donations`
+  // lentelė anon raktui nebeprieinama, nes joje guli žali aukotojų vardai;
+  // į šį puslapį patenka tik `formatDonorName()` rezultatas (auditorija
+  // `public` – puslapis atviras visam internetui).
+  const donationsResult = await loadDonations({ projectIds: [project.id as string] });
+  const donationsAvailable = donationsResult.ok;
+  if (!donationsResult.ok) {
+    console.error(
+      `[/projektai/${params.slug}] Nepavyko užkrauti aukų:`,
+      donationsResult.error
+    );
+  }
+  const donationRows = donationsResult.ok ? donationsResult.rows : [];
+  const donations = toDonationViews(donationRows, locale, "public");
 
   // II etapas: statybų eigos įrašai + viešos išlaidos (RLS leidžia anon skaityti)
   const { data: updates } = await supabase
@@ -122,11 +130,10 @@ export default async function ProjectPage({ params }: { params: { slug: string }
   // Projektas gali būti jau finansuotas iš išorės – tada paramos bloko nerodom.
   const acceptsDonations = project.accepts_donations !== false;
 
-  const totalCents = (donations || []).reduce((s, d) => s + (d.amount_cents as number), 0);
+  const { totalCents, donorCount } = donationTotals(donationRows);
   const goalCents = project.goal_cents as number;
   const percent = goalCents > 0 ? Math.round((totalCents / goalCents) * 100) : 0;
   const barPercent = Math.min(100, percent);
-  const donorCount = (donations || []).length;
   const goalReached = goalCents > 0 && totalCents >= goalCents;
   const surplusCents = Math.max(0, totalCents - goalCents);
 
@@ -152,27 +159,23 @@ export default async function ProjectPage({ params }: { params: { slug: string }
   const hasBeforeAfter = Boolean(assets.beforeImage && assets.afterImage);
 
   // Rėmėjų sąrašas: matomi naujausi, likusieji – po „Rodyti visus".
-  const visibleDonations = (donations || []).slice(0, DONORS_VISIBLE);
-  const hiddenDonations = (donations || []).slice(DONORS_VISIBLE);
+  const visibleDonations = donations.slice(0, DONORS_VISIBLE);
+  const hiddenDonations = donations.slice(DONORS_VISIBLE);
 
-  const renderDonor = (d: (typeof visibleDonations)[number]) => (
-    <div key={d.id as string} className="py-3 flex items-start justify-between gap-3">
+  const renderDonor = (d: (typeof donations)[number]) => (
+    <div key={d.id} className="py-3 flex items-start justify-between gap-3">
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-ink">
-          {/* Be auditorijos – viešas puslapis, tad tik inicialai („V. K.") */}
-          {formatDonorName(d, locale)}
-        </p>
-        {d.donor_message && (
+        {/* Vardas jau užmaskuotas serveryje (auditorija `public` – tik inicialai) */}
+        <p className="font-medium text-ink">{d.donor}</p>
+        {d.message && (
           <p className="text-sm text-ink-muted italic mt-0.5">
-            &bdquo;{d.donor_message as string}&ldquo;
+            &bdquo;{d.message}&ldquo;
           </p>
         )}
-        <p className="text-xs text-ink-subtle mt-0.5">
-          {formatDate(d.donated_at as string)}
-        </p>
+        <p className="text-xs text-ink-subtle mt-0.5">{formatDate(d.donatedAt)}</p>
       </div>
       <span className="font-bold text-brand whitespace-nowrap">
-        {((d.amount_cents as number) / 100).toFixed(0)} €
+        {(d.amountCents / 100).toFixed(0)} €
       </span>
     </div>
   );
@@ -231,9 +234,14 @@ export default async function ProjectPage({ params }: { params: { slug: string }
             </section>
           )}
 
-          {/* Progresas */}
+          {/* Progresas. Nepavykus užkrauti aukų rodom žinutę – „0 €" atrodytų
+              kaip tikras rezultatas ir klaidintų aukotojus. */}
           <section className="bg-surface-card rounded-2xl border border-line p-6 sm:p-8 shadow-sm">
-            {goalCents > 0 ? (
+            {!donationsAvailable ? (
+              <p className="text-sm text-ink-subtle text-center py-4">
+                {tCommon.dataUnavailable}
+              </p>
+            ) : goalCents > 0 ? (
               <>
                 <div className="flex items-end justify-between flex-wrap gap-3 mb-3">
                   <div>
@@ -362,26 +370,30 @@ export default async function ProjectPage({ params }: { params: { slug: string }
             </h2>
             <p className="text-sm text-ink-muted mb-6">{t.spendingIntro}</p>
 
-            <div className="grid grid-cols-3 gap-3 mb-6">
-              <div className="bg-brand-soft border border-brand-line rounded-xl p-3 sm:p-4 text-center">
-                <div className="text-lg sm:text-2xl font-bold text-brand">
-                  {(totalCents / 100).toFixed(0)} €
+            {donationsAvailable ? (
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                <div className="bg-brand-soft border border-brand-line rounded-xl p-3 sm:p-4 text-center">
+                  <div className="text-lg sm:text-2xl font-bold text-brand">
+                    {(totalCents / 100).toFixed(0)} €
+                  </div>
+                  <p className="text-xs text-ink-subtle mt-0.5">{t.statCollected}</p>
                 </div>
-                <p className="text-xs text-ink-subtle mt-0.5">{t.statCollected}</p>
-              </div>
-              <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 sm:p-4 text-center">
-                <div className="text-lg sm:text-2xl font-bold text-amber-700">
-                  {(spentCents / 100).toFixed(2).replace(/\.00$/, "")} €
+                <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 sm:p-4 text-center">
+                  <div className="text-lg sm:text-2xl font-bold text-amber-700">
+                    {(spentCents / 100).toFixed(2).replace(/\.00$/, "")} €
+                  </div>
+                  <p className="text-xs text-ink-subtle mt-0.5">{t.statSpent}</p>
                 </div>
-                <p className="text-xs text-ink-subtle mt-0.5">{t.statSpent}</p>
-              </div>
-              <div className="bg-surface-muted border border-line rounded-xl p-3 sm:p-4 text-center">
-                <div className="text-lg sm:text-2xl font-bold text-ink">
-                  {(fundsRemainingCents / 100).toFixed(2).replace(/\.00$/, "")} €
+                <div className="bg-surface-muted border border-line rounded-xl p-3 sm:p-4 text-center">
+                  <div className="text-lg sm:text-2xl font-bold text-ink">
+                    {(fundsRemainingCents / 100).toFixed(2).replace(/\.00$/, "")} €
+                  </div>
+                  <p className="text-xs text-ink-subtle mt-0.5">{t.statRemaining}</p>
                 </div>
-                <p className="text-xs text-ink-subtle mt-0.5">{t.statRemaining}</p>
               </div>
-            </div>
+            ) : (
+              <p className="text-sm text-ink-subtle mb-6">{tCommon.dataUnavailable}</p>
+            )}
 
             {(expenses || []).length === 0 ? (
               <p className="text-sm text-ink-subtle text-center py-4">{t.expensesEmpty}</p>
@@ -535,11 +547,16 @@ export default async function ProjectPage({ params }: { params: { slug: string }
           {/* Rėmėjų sąrašas */}
           <section className="bg-surface-card rounded-2xl border border-line p-6 sm:p-8 shadow-sm">
             <h2 className="text-xl font-bold text-ink mb-1">
-              {t.supportersHeading} ({donorCount})
+              {t.supportersHeading}
+              {donationsAvailable ? ` (${donorCount})` : ""}
             </h2>
             <p className="text-sm text-ink-subtle mb-5">{t.supportersTransparency}</p>
 
-            {donorCount === 0 ? (
+            {!donationsAvailable ? (
+              <p className="text-sm text-ink-subtle text-center py-10">
+                {tCommon.dataUnavailable}
+              </p>
+            ) : donorCount === 0 ? (
               <div className="text-center py-10">
                 <p className="text-ink-subtle mb-2">{t.noDonorsTitle}</p>
                 <p className="text-sm text-ink-subtle">{t.noDonorsSubtitle}</p>

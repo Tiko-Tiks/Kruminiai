@@ -24,7 +24,7 @@ await db.exec(`alter table meetings add column is_published boolean default true
   create function public.is_voting_status(text) returns boolean language sql as $$ select $1 in ('aktyvus','pasyvus','garbes_narys') $$;`);
 await db.exec(migration('046_token_lifetime_hardening.sql'));
 await db.exec(migration('047_meeting_doc_rpc_access.sql'));
-await db.exec(migration('20260918185337_bylaws_enforcement.sql'));
+await db.exec(migration('048_bylaws_enforcement.sql'));
 await db.exec(`create trigger members_status_change_sync after update of status on members for each row execute function public.on_member_status_change();`);
 const uuid=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 async function setup({members=10,attendees=10,type='visuotinis',qualified=type!=='valdybos',notice=true,started=true,historical=false,date=null}={}) {

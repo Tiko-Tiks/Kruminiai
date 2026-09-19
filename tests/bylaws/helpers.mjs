@@ -1,10 +1,18 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import ts from 'typescript';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const migrationsDir = resolve(root, 'supabase/migrations');
+
+/** Migration files from `first` (inclusive) in the order a clean database applies them:
+ * the directory listing sorted by file name. A hand-written list can drift from that order
+ * (a later file may silently overwrite what an earlier one added); this cannot. */
+export function migrationsFrom(first) {
+  return readdirSync(migrationsDir).filter(file => file.endsWith('.sql') && file >= first).sort();
+}
 const require = createRequire(import.meta.url);
 const packages = new Set(['zod', 'clsx', 'tailwind-merge', 'date-fns', 'date-fns/locale']);
 const localLibraries = new Set(['authz', 'constants', 'quorum', 'protocol-text', 'protocol-attendance', 'fee-eligibility', 'utils', 'voting-window', 'bylaws', 'decision-validation', 'portal-approval-email', 'payment-info']);

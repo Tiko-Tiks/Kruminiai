@@ -1,5 +1,8 @@
 -- Bylaws adopted 2025-12-07: new decisions are checked, historical facts are not rewritten.
 -- Application and database guards deliberately agree. Deploy with the matching application.
+-- Renamed from 20260918185337_bylaws_enforcement.sql so that file order equals apply order
+-- (048 -> 049 -> 050); production already holds it under the MCP timestamp version, so the
+-- rename changes nothing there.
 ALTER TABLE public.members
   ADD COLUMN application_reference text,
   ADD COLUMN admission_reference text,

@@ -31,6 +31,8 @@ export async function GET(
   };
   const { data: planData } = await supabase.rpc("get_meeting_plan_data", {
     p_meeting_id: params.meeting_id,
+    // Nuo migr. 047 prieigą tikrina ir pati RPC – tokenas perduodamas, kad
+    // anon balsuotojas praeitų tą pačią patikrą, kurią route'as jau atliko.
     p_token: token,
   });
   const plan = (planData ?? {}) as PlanData;

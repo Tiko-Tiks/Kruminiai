@@ -16,6 +16,10 @@ export function normalizeLocale(value: string | undefined | null): Locale {
 }
 
 export interface Dictionary {
+  /** Bendri, kelių puslapių dalinami tekstai. */
+  common: {
+    dataUnavailable: string;
+  };
   nav: {
     home: string;
     news: string;
@@ -486,6 +490,8 @@ export interface Dictionary {
   };
   voteErrors: {
     notEligible: string;
+    councilOnly: string;
+    notApproved: string;
     votingClosed: string;
     incompleteBallot: string;
     alreadyVoted: string;
@@ -562,6 +568,9 @@ export interface Dictionary {
 }
 
 const lt: Dictionary = {
+  common: {
+    dataUnavailable: "Duomenų šiuo metu nepavyko užkrauti. Pabandykite vėliau.",
+  },
   nav: {
     home: "Pradžia",
     news: "Naujienos",
@@ -1112,6 +1121,9 @@ const lt: Dictionary = {
   },
   voteErrors: {
     notEligible: "Pagal dabartinį narystės statusą balso teisės neturite.",
+    councilOnly: "Šiame Tarybos posėdyje balsuoja tik Tarybos nariai.",
+    notApproved:
+      "Jūsų paskyra dar nepatvirtinta arba prieiga atšaukta. Kreipkitės į bendruomenės pirmininką.",
     votingClosed:
       "Nuotolinis balsavimas šiam susirinkimui neaktyvus – laikotarpis dar neprasidėjo arba jau pasibaigė.",
     incompleteBallot: "Pateikite atsakymą į visus darbotvarkės klausimus.",
@@ -1194,6 +1206,9 @@ const lt: Dictionary = {
 };
 
 const en: Dictionary = {
+  common: {
+    dataUnavailable: "This data could not be loaded right now. Please try again later.",
+  },
   nav: {
     home: "Home",
     news: "News",
@@ -1742,6 +1757,9 @@ const en: Dictionary = {
   voteErrors: {
     notEligible:
       "Your current membership status does not include voting rights.",
+    councilOnly: "Only Council members vote at this Council meeting.",
+    notApproved:
+      "Your account is not approved yet, or access has been revoked. Please contact the community chairperson.",
     votingClosed:
       "Remote voting for this meeting is not open — the period has not started yet or has already ended.",
     incompleteBallot: "Please answer every item on the agenda.",

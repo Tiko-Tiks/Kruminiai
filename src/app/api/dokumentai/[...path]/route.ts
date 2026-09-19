@@ -176,13 +176,16 @@ export async function GET(
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("is_approved, role")
+      .select("is_approved")
       .eq("id", user.id)
       .maybeSingle();
 
-    const allowed =
-      !!profile &&
-      (profile.is_approved || profile.role === "admin" || profile.role === "super_admin");
+    // Vienintelis kriterijus – PATVIRTINTAS profilis. Rolės išimties čia nėra:
+    // nuo migr. 049 administratorius pagal apibrėžimą yra patvirtintas
+    // (`public.is_admin()` / `requireAdmin()`), o failas skaitomas tiesiai iš
+    // repo `private/documents/`, todėl RLS šio kelio neapsaugo – atšaukta
+    // prieiga (`is_approved = false`) su dar gyva sesija turi baigtis 403.
+    const allowed = !!profile && profile.is_approved === true;
     if (!allowed) return errorPage("denied", 403, locale);
   }
 

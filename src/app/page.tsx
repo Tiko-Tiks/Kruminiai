@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { donationTotalsByProject, loadDonations } from "@/lib/donations-data";
 import { formatDateLong } from "@/lib/utils";
 import { SITE_NAME, COMMUNITY_LEGAL } from "@/lib/constants";
 import { getDict, getLocale } from "@/lib/i18n-server";
@@ -95,26 +96,18 @@ async function getFundraisingProjects() {
 
   if (!projects || projects.length === 0) return [];
 
-  // Visos aukos vienoje užklausoje – sugrupuojam per project_id
-  const { data: donations } = await supabase
-    .from("donations")
-    .select("project_id, amount_cents")
-    .in(
-      "project_id",
-      projects.map((p) => p.id)
-    );
-
-  const byProject = new Map<string, { total: number; count: number }>();
-  for (const d of donations ?? []) {
-    const cur = byProject.get(d.project_id as string) || { total: 0, count: 0 };
-    cur.total += d.amount_cents as number;
-    cur.count += 1;
-    byProject.set(d.project_id as string, cur);
+  // Aukos – per serverio kroviklį (žr. src/lib/donations-data.ts): `donations`
+  // lentelė anon raktui nebeprieinama, nes joje guli žali aukotojų vardai.
+  // Čia reikia tik agregatų, bet kelias tas pats – vienas šaltinis.
+  const donations = await loadDonations({ projectIds: projects.map((p) => p.id as string) });
+  const byProject = donations.ok ? donationTotalsByProject(donations.rows) : null;
+  if (!donations.ok) {
+    console.error("[/] Nepavyko užkrauti aukų suvestinės:", donations.error);
   }
 
   const locale = getLocale();
   return projects.map((project) => {
-    const agg = byProject.get(project.id as string) || { total: 0, count: 0 };
+    const agg = byProject?.get(project.id as string) ?? null;
     return {
       id: project.id as string,
       title:
@@ -126,8 +119,9 @@ async function getFundraisingProjects() {
       slug: project.slug as string,
       goalCents: project.goal_cents as number,
       acceptsDonations: project.accepts_donations !== false,
-      totalCents: agg.total,
-      donorCount: agg.count,
+      // `null` = sumos nepavyko užkrauti. Nulis čia meluotų („nieko nesurinkta").
+      totalCents: byProject ? (agg?.totalCents ?? 0) : null,
+      donorCount: byProject ? (agg?.donorCount ?? 0) : null,
     };
   });
 }
@@ -139,6 +133,7 @@ export default async function HomePage() {
     getFundraisingProjects(),
   ]);
   const t = getDict().home;
+  const tCommon = getDict().common;
 
   const organizationLd = {
     "@context": "https://schema.org",
@@ -301,7 +296,7 @@ export default async function HomePage() {
                 // peržiūra, PR #17) – juolab kad šioje kortelėje skaičius
                 // niekur tekstu nerodomas, tik juostos plotis.
                 const percent =
-                  project.goalCents > 0
+                  project.totalCents !== null && project.goalCents > 0
                     ? Math.min(100, Math.round((project.totalCents / project.goalCents) * 100))
                     : 0;
                 return (
@@ -328,39 +323,46 @@ export default async function HomePage() {
                       </p>
                     )}
 
-                    {/* Progresas */}
+                    {/* Progresas. Nepavykus užkrauti sumų rodom žinutę, o ne
+                        nulius – „0 €" atrodytų kaip tikras rezultatas. */}
                     <div className="mt-auto space-y-2">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="text-2xl font-semibold text-brand-strong">
-                          {(project.totalCents / 100).toFixed(0)} €
-                          {project.goalCents > 0 && (
-                            <span className="text-sm font-sans font-normal text-ink-subtle">
-                              {" "}
-                              {t.lieptasProgressOf.replace("{goal}", (project.goalCents / 100).toFixed(0))}
+                      {project.totalCents === null ? (
+                        <p className="text-sm text-ink-subtle">{tCommon.dataUnavailable}</p>
+                      ) : (
+                        <>
+                          <div className="flex items-baseline justify-between gap-3">
+                            <span className="text-2xl font-semibold text-brand-strong">
+                              {(project.totalCents / 100).toFixed(0)} €
+                              {project.goalCents > 0 && (
+                                <span className="text-sm font-sans font-normal text-ink-subtle">
+                                  {" "}
+                                  {t.lieptasProgressOf.replace("{goal}", (project.goalCents / 100).toFixed(0))}
+                                </span>
+                              )}
                             </span>
+                            {project.acceptsDonations && project.donorCount !== null && (
+                              <span className="text-xs text-ink-subtle">
+                                {project.donorCount}{" "}
+                                {project.donorCount === 1 ? t.lieptasDonorSingular : t.lieptasDonorPlural}
+                              </span>
+                            )}
+                          </div>
+                          {project.goalCents > 0 && (
+                            <div
+                              className="h-2 bg-brand-soft rounded-full overflow-hidden"
+                              role="progressbar"
+                              aria-valuenow={percent}
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                              aria-label={project.title}
+                            >
+                              <div
+                                className="h-full bg-brand rounded-full"
+                                style={{ width: `${percent}%` }}
+                              />
+                            </div>
                           )}
-                        </span>
-                        {project.acceptsDonations && (
-                          <span className="text-xs text-ink-subtle">
-                            {project.donorCount}{" "}
-                            {project.donorCount === 1 ? t.lieptasDonorSingular : t.lieptasDonorPlural}
-                          </span>
-                        )}
-                      </div>
-                      {project.goalCents > 0 && (
-                        <div
-                          className="h-2 bg-brand-soft rounded-full overflow-hidden"
-                          role="progressbar"
-                          aria-valuenow={percent}
-                          aria-valuemin={0}
-                          aria-valuemax={100}
-                          aria-label={project.title}
-                        >
-                          <div
-                            className="h-full bg-brand rounded-full"
-                            style={{ width: `${percent}%` }}
-                          />
-                        </div>
+                        </>
                       )}
                       <span className="inline-flex items-center gap-1.5 pt-2 text-sm font-semibold text-brand-strong">
                         {project.acceptsDonations ? t.lieptasCta : t.readMoreCta}

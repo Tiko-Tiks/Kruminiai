@@ -10,6 +10,7 @@ import {
 } from "@/lib/protocol-text";
 import { firstDecision, protocolAttendance, decisionParticipation, type DecisionBasis, type ProtocolAttendee } from "@/lib/protocol-attendance";
 import { hasQuorum as computeHasQuorum } from "@/lib/quorum";
+import { requireAdmin } from "@/lib/authz";
 
 // Protokolas rodo užfiksuotus galutinių sprendimų faktus ir dabartinius projektus – jokio cache'avimo.
 export const dynamic = "force-dynamic";
@@ -21,19 +22,15 @@ export async function GET(
 ) {
   const supabase = createServerSupabaseClient();
 
-  // Patikrinti autentifikaciją + admin rolę (dokumente – dalyvių pavardės
-  // ir balsų suvestinės; nariams skirta pasirašyto PDF versija /dokumentai)
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Neautorizuotas" }, { status: 401 });
-  }
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (!profile || !["admin", "super_admin"].includes(profile.role)) {
-    return NextResponse.json({ error: "Trūksta teisių" }, { status: 403 });
+  // Dokumente – dalyvių pavardės ir balsų suvestinės, todėl tik administratorius
+  // (nariams skirta pasirašyto PDF versija gyvena /dokumentai). Vienas teisių
+  // kontraktas su `public.is_admin()` – rolė IR `is_approved` (žr. requireAdmin).
+  const auth = await requireAdmin(supabase);
+  if (auth.error) {
+    return NextResponse.json(
+      { error: auth.error },
+      { status: auth.error === "Neautorizuotas" ? 401 : 403 }
+    );
   }
 
   // Gauti susirinkimo duomenis
