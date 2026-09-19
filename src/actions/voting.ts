@@ -10,6 +10,7 @@ import { validateDecision } from "@/lib/decision-validation";
 import { DECISION_TYPES, QUALIFIED_DECISION_TYPES } from "@/lib/bylaws";
 import type { DecisionType } from "@/lib/types";
 import { getNutartaText, summarizeAnnouncements } from "@/lib/protocol-text";
+import { ALLOWED_DOCUMENT_EXTENSIONS, documentUploadType } from "@/lib/document-mime";
 
 const resolutionSchema = z.object({
   title: z.string().min(1, "Pavadinimas privalomas"),
@@ -144,6 +145,26 @@ export async function createResolution(meetingId: string, formData: FormData) {
   const newFiles = formData.getAll("new_files").filter((f) => f instanceof File && f.size > 0) as File[];
   const newFileTitles = formData.getAll("new_file_titles") as string[];
 
+  // Failų tipai tikrinami PRIEŠ nutarimo įrašymą (tipų sąrašas –
+  // `src/lib/document-mime.ts`). Anksčiau neleistinas failas būdavo tyliai
+  // praleidžiamas jau sukūrus nutarimą, o forma parodydavo sėkmę su per dideliu
+  // dokumentų skaičiumi. Dabar nutarimas nesukuriamas, o admin'as sužino, kuris
+  // failas netinka.
+  const newFileTypes: string[] = [];
+  for (const file of newFiles) {
+    const contentType = documentUploadType(file.name);
+    if (!contentType) {
+      return {
+        error: {
+          _form: [
+            `Neleistinas failo tipas: „${file.name}". Galimi plėtiniai: ${ALLOWED_DOCUMENT_EXTENSIONS.join(", ")}`,
+          ],
+        },
+      };
+    }
+    newFileTypes.push(contentType);
+  }
+
   // Sekantis numeris
   const { data: existing } = await supabase
     .from("resolutions")
@@ -179,7 +200,9 @@ export async function createResolution(meetingId: string, formData: FormData) {
     const title = (newFileTitles[i] || file.name.replace(/\.[^.]+$/, "")).trim();
     const fileName = `${Date.now()}-${i}-${file.name}`;
 
-    const { error: uploadErr } = await supabase.storage.from("documents").upload(fileName, file);
+    const { error: uploadErr } = await supabase.storage
+      .from("documents")
+      .upload(fileName, file, { contentType: newFileTypes[i] });
     if (uploadErr) {
       console.error("Upload klaida:", uploadErr);
       continue;
@@ -612,11 +635,18 @@ export async function uploadAndAttachDocument(
   if (!file || !file.size) return { error: "Nepasirinktas failas" };
   const finalTitle = title || file.name.replace(/\.[^.]+$/, "");
 
-  // 1. Įkelti į Storage
+  // 1. Įkelti į Storage (tipų sąrašas – `src/lib/document-mime.ts`)
+  const uploadContentType = documentUploadType(file.name);
+  if (!uploadContentType) {
+    return {
+      error: `Neleistinas failo tipas. Galimi plėtiniai: ${ALLOWED_DOCUMENT_EXTENSIONS.join(", ")}`,
+    };
+  }
+
   const fileName = `${Date.now()}-${file.name}`;
   const { error: uploadErr } = await supabase.storage
     .from("documents")
-    .upload(fileName, file);
+    .upload(fileName, file, { contentType: uploadContentType });
   if (uploadErr) return { error: `Nepavyko įkelti failo: ${uploadErr.message}` };
 
   // 2. Sukurti documents įrašą

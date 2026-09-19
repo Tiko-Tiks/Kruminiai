@@ -28,7 +28,9 @@ for (const file of ['001_initial_schema.sql', '002_voting_schema.sql', '003_voti
 }
 // Stand-ins for objects the intervening (not loaded) migrations provide. 049
 // replaces `is_admin()` with its real body, which reads `profiles.is_approved`.
-await db.exec(`create schema storage; create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text,metadata jsonb);
+await db.exec(`create schema storage; create table storage.buckets(id text primary key, public boolean);
+    insert into storage.buckets values ('documents', true), ('images', true);
+    create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text,metadata jsonb);
   alter table storage.objects enable row level security;
   create policy test_storage_access on storage.objects for all to authenticated using(true) with check(true);
   grant usage on schema storage to authenticated; grant select,update,delete on storage.objects to authenticated;
@@ -44,7 +46,7 @@ await db.exec(`create schema storage; create table storage.objects(id uuid prima
   create or replace function public._is_complete_ballot(p_meeting_id uuid, p_votes jsonb) returns boolean
     language sql stable as $$ select true $$;`);
 
-// Clean-database order, straight from the directory: 046, 047, 048 bylaws, 049, 050.
+// Clean-database order, straight from the directory: 046, 047, 048 bylaws, 049, 050, 051.
 const chain = migrationsFrom('046');
 for (const file of chain) await db.exec(migration(file));
 
@@ -127,3 +129,9 @@ test('EXECUTE teisės: authenticated gali, anon negali', async () => {
 });
 
 test.after(async () => db.close());
+
+
+test('051: dokumentų bucket privatus, paveikslėlių lieka viešas', async () => {
+  const { rows } = await db.query('select id, public from storage.buckets order by id');
+  assert.deepEqual(rows, [{ id: 'documents', public: false }, { id: 'images', public: true }]);
+});

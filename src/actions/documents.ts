@@ -3,6 +3,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { requireAdmin } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
+import { ALLOWED_DOCUMENT_EXTENSIONS, documentUploadType } from "@/lib/document-mime";
 import { revalidatePath } from "next/cache";
 
 export interface DocumentsFilter {
@@ -67,6 +68,17 @@ export async function createDocument(formData: FormData) {
 
   if (!file || !title) return { error: "Failas ir pavadinimas privalomi" };
 
+  // SAUGUMAS: dokumentai atiduodami iš PROGRAMOS kilmės (`/api/dokumentai/...`),
+  // todėl įkeltas HTML ar SVG su skriptu vykdytųsi mūsų puslapio kontekste.
+  // Tipą lemia plėtinys, o ne naršyklės paskelbtas `file.type` – jį lengva
+  // suklastoti (žr. `src/lib/document-mime.ts`).
+  const uploadContentType = documentUploadType(file.name);
+  if (!uploadContentType) {
+    return {
+      error: `Neleistinas failo tipas. Galimi plėtiniai: ${ALLOWED_DOCUMENT_EXTENSIONS.join(", ")}`,
+    };
+  }
+
   // Sanitarizuojam failo vardą Supabase Storage'ui – jis priima tik ASCII
   // (be lietuviškų diakritikos ąčęėįšųūž), be tarpų ir specialių simbolių.
   // Originalų vardą išsaugom file_name lauke (vartotojui rodom gražiai).
@@ -80,7 +92,7 @@ export async function createDocument(formData: FormData) {
 
   const { error: uploadError } = await supabase.storage
     .from("documents")
-    .upload(fileName, file);
+    .upload(fileName, file, { contentType: uploadContentType });
 
   if (uploadError) return { error: `Nepavyko įkelti failo: ${uploadError.message}` };
 
@@ -145,11 +157,9 @@ export async function deleteDocument(id: string) {
   return { success: true };
 }
 
-export async function getDocumentUrl(filePath: string) {
-  const supabase = createServerSupabaseClient();
-  const { data } = supabase.storage.from("documents").getPublicUrl(filePath);
-  return data.publicUrl;
-}
+// `getDocumentUrl()` pašalintas: `documents` bucket'as privatus, viešo URL
+// nebėra. Nuorodą į dokumentą konstruoja `getDocumentPublicUrl()`
+// (`src/lib/utils.ts`) – ji veda į prieigą tikrinantį `/api/dokumentai` route'ą.
 
 export async function toggleDocumentVisibility(id: string, isPublic: boolean) {
   const supabase = createServerSupabaseClient();

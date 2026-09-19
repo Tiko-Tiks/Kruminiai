@@ -15,7 +15,7 @@ export function migrationsFrom(first) {
 }
 const require = createRequire(import.meta.url);
 const packages = new Set(['zod', 'clsx', 'tailwind-merge', 'date-fns', 'date-fns/locale']);
-const localLibraries = new Set(['authz', 'constants', 'quorum', 'protocol-text', 'protocol-attendance', 'fee-eligibility', 'utils', 'voting-window', 'bylaws', 'decision-validation', 'portal-approval-email', 'payment-info']);
+const localLibraries = new Set(['authz', 'constants', 'quorum', 'protocol-text', 'protocol-attendance', 'document-mime', 'html', 'fee-eligibility', 'utils', 'voting-window', 'bylaws', 'decision-validation', 'portal-approval-email', 'payment-info']);
 
 /** Execute the real TS implementation. All I/O modules must be explicitly replaced.
  * This is an application unit-test boundary, NOT an emulation of Postgres/RLS.

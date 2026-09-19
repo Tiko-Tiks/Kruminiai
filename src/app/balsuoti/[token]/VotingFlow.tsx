@@ -323,10 +323,15 @@ function DocPreviewModal({
 }) {
   const baseUrl = getDocumentPublicUrl(doc.file_path);
   const isHtml = isServerGeneratedDoc(doc.file_path);
-  // Server-generuoti (__api__) dokumentai (šalinami/planai/rinkimai) yra
-  // token-gated (žr. canViewMeetingDoc) – anon balsuotojas perduoda savo tokeną.
+  // Anon balsuotojas sesijos neturi, todėl prieigą liudija jo tokenas. Jis
+  // reikalingas VISIEMS mūsų route'ams: ir server-generuotiems dokumentams
+  // (šalinami/planai/rinkimai – `canViewMeetingDoc`), ir prie darbotvarkės
+  // prikabintiems failams `/api/dokumentai/...`, jei tie nėra vieši.
+  // `__public__/` keliai lieka be tokeno – jie statiniai ir vieši.
   const url =
-    isHtml && token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
+    token && baseUrl.startsWith("/api/")
+      ? `${baseUrl}?token=${encodeURIComponent(token)}`
+      : baseUrl;
   return (
     <div
       // fullscreen overlay. 100dvh = dynamic viewport height – atsižvelgia

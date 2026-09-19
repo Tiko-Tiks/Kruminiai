@@ -24,7 +24,9 @@ for (const file of ['001_initial_schema.sql', '002_voting_schema.sql', '003_voti
 // The bylaws migration installs `bylaws_document_guard` on `resolution_documents` (005 above)
 // and RESTRICTIVE policies on `storage.objects`, which Supabase owns. The same local stand-in
 // as tests/bylaws/database.test.mjs: a bare table with RLS, so the policies can be created.
-await db.exec(`create schema storage; create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text,metadata jsonb);
+await db.exec(`create schema storage; create table storage.buckets(id text primary key, public boolean);
+    insert into storage.buckets values ('documents', true), ('images', true);
+    create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text,metadata jsonb);
   alter table storage.objects enable row level security;
   create policy test_storage_access on storage.objects for all to authenticated using(true) with check(true);
   grant usage on schema storage to authenticated; grant select,update,delete on storage.objects to authenticated;`);

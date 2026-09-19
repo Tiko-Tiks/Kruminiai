@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { COMMUNITY_LEGAL } from "@/lib/constants";
 import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
 import { protocolLabels, signatureLabel } from "@/lib/protocol-text";
+import { escapeHtml } from "@/lib/html";
 import { requireAdmin } from "@/lib/authz";
 
 // Dalyvių sąrašas turi visada atspindėti naujausius dalyvavimo įrašus
@@ -59,6 +60,10 @@ export async function GET(
 
   // Parašų skilties etiketės – giminė pagal vardą, organas pagal posėdžio tipą
   // (bendras šaltinis su protokolu: `src/lib/protocol-text.ts`).
+  //
+  // `protocolLabels` ir `signatureLabel` grąžina fiksuotas eilutes (pavardė
+  // lemia tik giminę, į tekstą nepatenka), todėl jų koduoti nereikia. Visos
+  // kitos į HTML dedamos DB reikšmės eina per `escapeHtml` (`src/lib/html.ts`).
   const labels = protocolLabels(meeting.meeting_type);
   const chairLabel = signatureLabel("chair", meeting.chairperson_name, meeting.meeting_type);
   const secretaryLabel = signatureLabel(
@@ -248,52 +253,52 @@ export async function GET(
     chunk.map((m, i) => `
     <tr>
       <td class="num">${startIdx + i + 1}.</td>
-      <td class="name">${m.first_name} ${m.last_name}${m.status === "pasyvus" ? ' <span class="pasyvus">(pasyvus)</span>' : ""}</td>
+      <td class="name">${escapeHtml(m.first_name)} ${escapeHtml(m.last_name)}${m.status === "pasyvus" ? ' <span class="pasyvus">(pasyvus)</span>' : ""}</td>
       <td class="signature"></td>
     </tr>`).join("");
 
   const remoteRows = remoteVoters.map((m, i) => `
     <tr>
       <td class="num">${i + 1}.</td>
-      <td class="name">${m.first_name} ${m.last_name}${m.status === "pasyvus" ? ' <span class="pasyvus">(pasyvus)</span>' : ""}</td>
-      <td class="vote-time">${m.voted_at ? fmtVoteTime(m.voted_at) : "—"}</td>
+      <td class="name">${escapeHtml(m.first_name)} ${escapeHtml(m.last_name)}${m.status === "pasyvus" ? ' <span class="pasyvus">(pasyvus)</span>' : ""}</td>
+      <td class="vote-time">${m.voted_at ? escapeHtml(fmtVoteTime(m.voted_at)) : "—"}</td>
     </tr>`).join("");
 
   const writtenRows = writtenVoters.map((m, i) => `
     <tr>
       <td class="num">${i + 1}.</td>
-      <td class="name">${m.first_name} ${m.last_name}${m.status === "pasyvus" ? ' <span class="pasyvus">(pasyvus)</span>' : ""}</td>
-      <td class="vote-time">${m.voted_at ? fmtVoteTime(m.voted_at) : "—"}</td>
+      <td class="name">${escapeHtml(m.first_name)} ${escapeHtml(m.last_name)}${m.status === "pasyvus" ? ' <span class="pasyvus">(pasyvus)</span>' : ""}</td>
+      <td class="vote-time">${m.voted_at ? escapeHtml(fmtVoteTime(m.voted_at)) : "—"}</td>
     </tr>`).join("");
 
   // Doc header + meta (rodomas tik pirmame puslapyje)
   const docHeader = `
     <div class="doc-label">
-      ${meeting.protocol_number ? `Priedas prie protokolo ${meeting.protocol_number}` : (labels.isCouncil ? "Priedas prie posėdžio protokolo" : "Priedas prie susirinkimo protokolo")}
+      ${meeting.protocol_number ? `Priedas prie protokolo ${escapeHtml(meeting.protocol_number)}` : (labels.isCouncil ? "Priedas prie posėdžio protokolo" : "Priedas prie susirinkimo protokolo")}
     </div>
     <div class="header">
-      <h1>${COMMUNITY_LEGAL.name.toUpperCase()}</h1>
-      <div class="subtitle">Juridinio asmens kodas: ${COMMUNITY_LEGAL.code}</div>
-      <div class="subtitle">Buveinė: ${COMMUNITY_LEGAL.address}</div>
+      <h1>${escapeHtml(COMMUNITY_LEGAL.name.toUpperCase())}</h1>
+      <div class="subtitle">Juridinio asmens kodas: ${escapeHtml(COMMUNITY_LEGAL.code)}</div>
+      <div class="subtitle">Buveinė: ${escapeHtml(COMMUNITY_LEGAL.address)}</div>
     </div>
 
     <h2>${labels.isCouncil ? "Posėdžio dalyvių sąrašas" : "Susirinkimo dalyvių sąrašas"}</h2>
     <div class="meta">
-      <div class="line"><strong>${meeting.title}</strong></div>
-      <div class="line">${dateStr}, ${timeStr} val.</div>
-      <div class="line">${meeting.location}</div>
+      <div class="line"><strong>${escapeHtml(meeting.title)}</strong></div>
+      <div class="line">${escapeHtml(dateStr)}, ${escapeHtml(timeStr)} val.</div>
+      <div class="line">${escapeHtml(meeting.location)}</div>
       ${effectiveMode === "signed" ? `
       <div class="quorum-info ${hasQuorum ? "has" : "no"}">
-        ${labels.totalLabel}: <strong>${meeting.total_members_at_time}</strong> ·
+        ${labels.totalLabel}: <strong>${escapeHtml(meeting.total_members_at_time)}</strong> ·
         Dalyvavo iš viso: <strong>${totalActual}</strong>
         (${liveAttendees.length} gyvai${remoteVoters.length > 0 ? `, ${remoteVoters.length} nuotoliu` : ""}${writtenVoters.length > 0 ? `, ${writtenVoters.length} raštu` : ""}) ·
-        Kvorumui reikia: <strong>${meeting.quorum_required}</strong> ·
+        Kvorumui reikia: <strong>${escapeHtml(meeting.quorum_required)}</strong> ·
         Kvorumas: <strong>${hasQuorum ? "YRA" : "NĖRA"}</strong>${meeting.is_repeat ? " (pakartotinis)" : ""}
       </div>
       ` : `
       <div class="quorum-info">
-        ${labels.totalLabel}: <strong>${meeting.total_members_at_time}</strong> ·
-        Kvorumui reikia: <strong>${meeting.quorum_required}</strong>${meeting.is_repeat ? " (pakartotinis – kvorumas neribojamas)" : ""}
+        ${labels.totalLabel}: <strong>${escapeHtml(meeting.total_members_at_time)}</strong> ·
+        Kvorumui reikia: <strong>${escapeHtml(meeting.quorum_required)}</strong>${meeting.is_repeat ? " (pakartotinis – kvorumas neribojamas)" : ""}
       </div>
       `}
     </div>
@@ -380,11 +385,11 @@ export async function GET(
           <tr>
             <td style="width:50%">
               <div class="label">${chairLabel}</div>
-              <div class="name-line">${meeting.chairperson_name || "(vardas, pavardė, parašas)"}</div>
+              <div class="name-line">${meeting.chairperson_name ? escapeHtml(meeting.chairperson_name) : "(vardas, pavardė, parašas)"}</div>
             </td>
             <td style="width:50%">
               <div class="label">${secretaryLabel}</div>
-              <div class="name-line">${meeting.secretary_name || "(vardas, pavardė, parašas)"}</div>
+              <div class="name-line">${meeting.secretary_name ? escapeHtml(meeting.secretary_name) : "(vardas, pavardė, parašas)"}</div>
             </td>
           </tr>
         </table>
@@ -425,7 +430,7 @@ export async function GET(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dalyvių sąrašas – ${meeting.title}</title>
+  <title>Dalyvių sąrašas – ${escapeHtml(meeting.title)}</title>
   <style>
     /* Kadangi server-side padalintame į atskirus .sheet div'us (vienas
        sheet = vienas A4 puslapis), .sheet padding'as veikia kiekvienam

@@ -24,7 +24,9 @@ async function engine(chain) {
     create table auth.users(id uuid primary key, email text, raw_user_meta_data jsonb);
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.user_id',true),'')::uuid $$;`);
   for (const file of BASE) await db.exec(migration(file));
-  await db.exec(`create schema storage; create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text,metadata jsonb);
+  await db.exec(`create schema storage; create table storage.buckets(id text primary key, public boolean);
+    insert into storage.buckets values ('documents', true), ('images', true);
+    create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text,metadata jsonb);
     alter table storage.objects enable row level security;
     create policy test_storage_access on storage.objects for all to authenticated using(true) with check(true);
     grant usage on schema storage to authenticated; grant select,update,delete on storage.objects to authenticated;
@@ -67,7 +69,7 @@ const elections = async (db, token) =>
 const chains = {
   'tik #16 grandinė (046 → 047 → 049, be įstatų migracijos)': { bylaws: false,
     files: ['046_token_lifetime_hardening.sql', '047_meeting_doc_rpc_access.sql', '049_access_contract_hardening.sql'] },
-  'pilna grandinė katalogo eile (046 → 047 → 048 įstatai → 049 → 050)': { bylaws: true,
+  'pilna grandinė katalogo eile (046 → 047 → 048 įstatai → 049 → 050 → 051)': { bylaws: true,
     files: migrationsFrom('046') },
 };
 
