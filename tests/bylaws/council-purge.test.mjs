@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
+import { migrationsFrom } from './helpers.mjs';
 
 const migration = name => readFileSync(new URL(`../../supabase/migrations/${name}`, import.meta.url), 'utf8');
 const db = new PGlite();
@@ -14,7 +15,8 @@ await db.exec(`create role anon; create role authenticated; create schema auth;
 for (const file of ['001_initial_schema.sql', '002_voting_schema.sql', '003_voting_tokens.sql',
   '005_resolution_documents.sql', '008_membership_declarations.sql', '009_notification_log.sql',
   '010_declaration_view_tracking.sql', '011_meeting_expulsions.sql',
-  '013_vote_comments_and_management.sql', '024_meeting_announcements_and_doc_linkage.sql',
+  '013_vote_comments_and_management.sql', '015_donations_and_projects.sql',
+  '024_meeting_announcements_and_doc_linkage.sql',
   '026_procedural_type_pranesimas.sql', '027_contact_update_tokens.sql',
   '036_honorary_member_status.sql']) {
   await db.exec(migration(file));
@@ -27,12 +29,16 @@ await db.exec(`create schema storage; create table storage.objects(id uuid prima
   create policy test_storage_access on storage.objects for all to authenticated using(true) with check(true);
   grant usage on schema storage to authenticated; grant select,update,delete on storage.objects to authenticated;`);
 
-// Prerequisites that 049 expects from migrations outside this subset. They are
+// Prerequisites that 049 and 050 expect from migrations outside this subset. They are
 // stubbed rather than loaded, because the intervening migrations carry RLS
 // policies for tables this subset does not create. The stubs keep exactly the
-// behaviour 049 relies on; they are not what is under test.
+// behaviour 050 relies on; they are not what is under test. 049 replaces
+// `is_admin()` / `is_approved_member()` with bodies that read `profiles.is_approved`.
 await db.exec(`
   alter table public.meetings add column if not exists is_published boolean not null default true;
+  alter table public.profiles add column is_approved boolean not null default false;
+  alter table public.profiles add column member_id uuid references public.members(id);
+  alter table public.profiles drop constraint profiles_role_check;
   create or replace function public.is_voting_status(p_status text) returns boolean
     language sql immutable as $$ select p_status in ('aktyvus','pasyvus','garbes_narys') $$;
   create or replace function public.is_admin() returns boolean language sql stable as $$ select false $$;
@@ -40,17 +46,15 @@ await db.exec(`
   create or replace function public._is_complete_ballot(p_meeting_id uuid, p_votes jsonb) returns boolean
     language sql stable as $$ select true $$;`);
 
-// Production order: 046 and 047 (token lifetime, document-access RPCs – already deployed and
-// now carried by the bylaws PR), then the bylaws migration, then 049 on top of it. 047 is the
-// real `_can_view_meeting_doc`, which the bylaws migration replaces (same signature).
-await db.exec(migration('046_token_lifetime_hardening.sql'));
-await db.exec(migration('047_meeting_doc_rpc_access.sql'));
-await db.exec(migration('20260918185337_bylaws_enforcement.sql'));
-await db.exec(migration('049_voting_eligibility_helper.sql'));
+// The rest is the real clean-database chain, read from the directory in file order:
+// 046 and 047 (token lifetime, document-access RPCs), 048 bylaws, 049 access contract,
+// 050 voting eligibility. 047 is the real `_can_view_meeting_doc`, which 048 and 049
+// both replace (same signature).
+for (const file of migrationsFrom('046')) await db.exec(migration(file));
 
 const uuid = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 /** Council meeting ten days ahead, still 'planuojamas': early ballots are possible and it is
- * inside the purge scope of 049 (`meeting_date > now()`, not closed). */
+ * inside the purge scope of 050 (`meeting_date > now()`, not closed). */
 const FUTURE_MEETING = uuid(100);
 /** Council meeting that started today ('vyksta'). `bylaws_meeting_guard` allows a registry
  * capture only on the meeting day once its time has come, and a decision can be closed only
@@ -65,7 +69,7 @@ const FINAL_RESOLUTION = uuid(201);  // on STARTED_MEETING
 const COUNCIL_SIZE = 6;
 
 /** Full Council, all registered for the future Council meeting. Council terms must have
- * begun (`term_start <= today`): the bylaws guard and 049 both require it. */
+ * begun (`term_start <= today`): the bylaws guard and 050 both require it. */
 async function setup({ members = COUNCIL_SIZE } = {}) {
   await db.exec('begin');
   for (let i = 1; i <= members; i++) {
@@ -198,6 +202,6 @@ scenario('Taryba: dar neprasidėjusi kadencija (term_start ateityje) nesuteikia 
   assert.equal(
     (await db.query('select public._is_current_council_member($1) as c', [uuid(1)])).rows[0].c,
     false,
-    '049 kriterijus sutampa su bylaws_participation_guard'
+    '050 kriterijus sutampa su bylaws_participation_guard'
   );
 });

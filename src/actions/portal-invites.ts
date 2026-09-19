@@ -96,7 +96,7 @@ export async function bulkCreateMemberAccounts(memberIds?: string[]): Promise<{
   const supabase = createServerSupabaseClient();
   // Paskyrų kūrimas per service-role + laiškų siuntimas – vien RLS neapsaugo
   // (CLAUDE.md „RLS modelis"). `requireAdmin` tikrina rolę IR `is_approved` –
-  // tas pats kontraktas kaip `public.is_admin()` (migr. 048).
+  // tas pats kontraktas kaip `public.is_admin()` (migr. 049).
   const auth = await requireAdmin(supabase);
   if (!auth.user) return { error: auth.error };
   const user = auth.user;

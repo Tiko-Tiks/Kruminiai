@@ -20,7 +20,7 @@ export async function canViewMeetingDoc(
   token: string | null
 ): Promise<boolean> {
   // (a) prisijungusi sesija – patvirtintas narys arba adminas.
-  // Rolė atskirai netikrinama: nuo migr. 048 administratorius pagal apibrėžimą
+  // Rolė atskirai netikrinama: nuo migr. 049 administratorius pagal apibrėžimą
   // yra PATVIRTINTAS profilis, o nepatvirtintam prieigos nėra.
   const {
     data: { user },

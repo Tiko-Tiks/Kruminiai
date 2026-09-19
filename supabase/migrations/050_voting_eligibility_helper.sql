@@ -1,5 +1,5 @@
 -- ============================================================================
--- 049: Balso teisė susiejama su konkrečiu susirinkimu – vienas SQL šaltinis
+-- 050: Balso teisė susiejama su konkrečiu susirinkimu – vienas SQL šaltinis
 --
 -- KODĖL: `cast_votes_as_member` ir `cast_votes_with_token` tikrindavo nario
 -- statusą, balsavimo langą ir pilną biuletenį, bet NE:
@@ -23,7 +23,7 @@
 -- → `vote_ballots`. Helper'is nario eilutės NErakina – ją rakina kvietėjas
 -- PRIEŠ jį iškviesdamas.
 --
--- Čia pat šios trys funkcijos gauna ir migr. 048 patvirtinimo vartus
+-- Čia pat šios trys funkcijos gauna ir migr. 049 patvirtinimo vartus
 -- (`not_approved`), kad ta pati funkcija nebūtų apibrėžta dukart iš eilės.
 --
 -- PAPILDYTA (Codex recenzija):
@@ -37,7 +37,7 @@
 --     patikra istorijoje pašalindavo pasibaigusios kadencijos nario paties
 --     Tarybos posėdžius.
 --
--- SUDERINTA su įstatų atitikties migracija (`bylaws_enforcement`), kuri taikoma
+-- SUDERINTA su įstatų atitikties migracija (`048_bylaws_enforcement`), kuri taikoma
 -- PRIEŠ šią produkcijoje:
 --   * Tarybos nario kriterijus `_is_current_council_member` toks pat kaip
 --     `bylaws_participation_guard`: `pirmininkas`/`tarybos_narys` su jau
@@ -53,8 +53,8 @@
 --     (`electorate_snapshot`, `total_members_at_time`, `quorum_required`)
 --     fiksuojama posėdžio pradžioje ir `bylaws_meeting_guard` jos keisti
 --     neleidžia – Tarybos nario netekimas yra vėlesnis įvykis, ne bazės klaida.
--- Migracija veikia ir tuo atveju, jei būtų taikoma prieš `bylaws_enforcement`
--- (švarioje DB pagal versijų eilę) – tada tų trigger'ių paprasčiausiai dar nėra.
+-- Failų eilė sutampa su gamybos eile (048 įstatai → 049 → 050). Migracija veiktų
+-- ir taikoma prieš `048_bylaws_enforcement` – tada tų trigger'ių tiesiog dar nėra.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------

@@ -10,7 +10,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * `is_approved` tikrinamas kartu su role: atšaukus prieigą
  * (`revokeUser()` → `is_approved=false`) profilis nustoja būti
  * administratoriumi iškart, o ne tik pasibaigus jo access token'ui. Tą patį
- * kontraktą DB pusėje įgyvendina `public.is_admin()` (migr. 048) – abu
+ * kontraktą DB pusėje įgyvendina `public.is_admin()` (migr. 049) – abu
  * sluoksniai turi sutapti, kitaip viena pusė praleistų tai, ką kita blokuoja.
  */
 export async function requireAdmin(

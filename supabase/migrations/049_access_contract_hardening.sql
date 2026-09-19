@@ -1,5 +1,5 @@
 -- ============================================================================
--- 048: Prieigos kontraktas – patvirtinimas, žurnalų rašymas, aukų skaitymas
+-- 049: Prieigos kontraktas – patvirtinimas, žurnalų rašymas, aukų skaitymas
 --
 -- Trys susijusios spragos tame pačiame sluoksnyje („kas ką gali skaityti ir
 -- rašyti"), todėl taisomos viena migracija:
@@ -63,7 +63,7 @@ COMMENT ON FUNCTION public.is_admin() IS
   'TRUE, kai dabartinė sesija priklauso PATVIRTINTAM admin/super_admin profiliui.';
 
 -- Nario RPC vartai. `cast_votes_as_member`, `get_member_active_meetings` ir
--- `get_member_voting_history` gauna tą patį vartą migracijoje 049 (ten jie
+-- `get_member_voting_history` gauna tą patį vartą migracijoje 050 (ten jie
 -- perrašomi kartu su balso teisės helper'iu) – kad ta pati funkcija nebūtų
 -- apibrėžta du kartus iš eilės.
 
@@ -122,13 +122,14 @@ BEGIN
 END;
 $function$;
 
--- SUJUNGTA su įstatų atitikties migracija (20260918185337_bylaws_enforcement, main
+-- SUJUNGTA su įstatų atitikties migracija (048_bylaws_enforcement, main
 -- 060094d): ji tą pačią funkciją perrašo su ĮMOKOMIS DALIMIS (laikotarpio skola yra
 -- `greatest(suma − visų to laikotarpio įmokų suma, 0)`, `payments`
 -- UNIQUE(member_id, fee_period_id) ten pašalintas) ir su `bylaws_fee_applies()`
--- (mokestis taikomas tik tiems metams, kai narystė galiojo). Gamyboje 048 taikoma
--- PO jos, todėl šis kūnas privalo būti abiejų pakeitimų SĄJUNGA: tos migracijos
--- kūnas pažodžiui + 048 patvirtinimo vartai (`not_approved`). Grįžus prie senosios
+-- (mokestis taikomas tik tiems metams, kai narystė galiojo). Gamyboje 049 taikoma
+-- PO jos (failų eilė tokia pati: 048 → 049), todėl šis kūnas privalo būti abiejų
+-- pakeitimų SĄJUNGA: tos migracijos kūnas pažodžiui + 049 patvirtinimo vartai
+-- (`not_approved`). Grįžus prie senosios
 -- NOT EXISTS / join_date logikos 5 € + 7 € įmokos vėl nepadengtų 12 €, o buvusio
 -- nario laikotarpiai būtų skaičiuojami neteisingai.
 CREATE OR REPLACE FUNCTION public.get_member_financial_status()
@@ -405,7 +406,7 @@ $$;
 -- pasibaigusiam tokenui `voting_token_meeting` grąžina NULL, `NULL = uuid` yra
 -- NULL, todėl visa išraiška tampa NULL, o RPC viduje `IF NOT NULL` NEsuveikia –
 -- anon su bet kokiu netikru tokenu gaudavo paskelbto susirinkimo dokumentą.
--- Tas pats tekstas kaip įstatų atitikties migracijoje (20260918185337), kad
+-- Tas pats tekstas kaip įstatų atitikties migracijoje (048_bylaws_enforcement), kad
 -- abi migracijos, kad ir kokia tvarka taikomos, baigtųsi tuo pačiu kūnu.
 -- Parašas nekeičiamas (uuid, text), todėl 047 REVOKE lieka; pakartojam jį
 -- eksplicitiškai, kad švarioje grandinėje niekas nepriklausytų nuo eilės.

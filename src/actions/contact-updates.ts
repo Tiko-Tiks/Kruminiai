@@ -100,7 +100,7 @@ export async function sendContactUpdateSmsBatch(memberIds: string[]): Promise<{
   const supabase = createServerSupabaseClient();
   // SMS siuntimas – ne vien DB mutacija, todėl vien RLS neapsaugo (CLAUDE.md
   // „RLS modelis"). `requireAdmin` tikrina rolę IR `is_approved` – tas pats
-  // kontraktas kaip `public.is_admin()` (migr. 048).
+  // kontraktas kaip `public.is_admin()` (migr. 049).
   const auth = await requireAdmin(supabase);
   if (!auth.user) return { error: auth.error };
   const user = auth.user;

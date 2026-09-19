@@ -12,7 +12,7 @@ import type { Locale } from "@/lib/i18n";
  * `donor_last_name`. Aukotojo vardo kaukė (`formatDonorName`, žr.
  * `src/lib/donor-name.ts`) yra PATEIKIMO sluoksnis – ji nieko nekeičia tam, kas
  * lentelę skaito tiesiogiai per PostgREST su viešu anon raktu. Todėl nuo
- * migr. 048 `donations` SELECT RLS'e paliktas tik administratoriui, o visi
+ * migr. 049 `donations` SELECT RLS'e paliktas tik administratoriui, o visi
  * puslapiai eilutes ima ČIA, service-role klientu, ir į vaizdo modelius deda
  * TIK užmaskuotą vardą.
  *

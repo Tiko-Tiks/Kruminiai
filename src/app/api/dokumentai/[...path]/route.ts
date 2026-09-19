@@ -181,7 +181,7 @@ export async function GET(
       .maybeSingle();
 
     // Vienintelis kriterijus – PATVIRTINTAS profilis. Rolės išimties čia nėra:
-    // nuo migr. 048 administratorius pagal apibrėžimą yra patvirtintas
+    // nuo migr. 049 administratorius pagal apibrėžimą yra patvirtintas
     // (`public.is_admin()` / `requireAdmin()`), o failas skaitomas tiesiai iš
     // repo `private/documents/`, todėl RLS šio kelio neapsaugo – atšaukta
     // prieiga (`is_approved = false`) su dar gyva sesija turi baigtis 403.

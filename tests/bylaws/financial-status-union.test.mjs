@@ -2,13 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
+import { migrationsFrom } from './helpers.mjs';
 
-// `get_member_financial_status()` is redefined by TWO migrations: the bylaws
-// migration (installment-aware debt: sum of every payment per period) and 048
-// (approval gate: `not_approved` for a profile without `is_approved`). In
-// production 048 is applied AFTER the bylaws migration, so its body must be the
-// union of both changes. This file applies the real chain in production order
-// and checks that nothing from either side is lost at the end of it.
+// `get_member_financial_status()` is redefined by TWO migrations: 048 (bylaws;
+// installment-aware debt: sum of every payment per period) and 049 (approval
+// gate: `not_approved` for a profile without `is_approved`). 049 is applied AFTER
+// 048 – in production and, since the files carry the same numbers, on a clean
+// database as well – so its body must be the union of both changes. This file
+// applies the chain exactly as the directory orders it (no hand-written list, so a
+// renumbering cannot quietly reverse the two) and checks that nothing from either
+// side is lost at the end of it.
 const migration = name => readFileSync(new URL(`../../supabase/migrations/${name}`, import.meta.url), 'utf8');
 const db = new PGlite();
 
@@ -23,7 +26,7 @@ for (const file of ['001_initial_schema.sql', '002_voting_schema.sql', '003_voti
   '026_procedural_type_pranesimas.sql', '027_contact_update_tokens.sql', '036_honorary_member_status.sql']) {
   await db.exec(migration(file));
 }
-// Stand-ins for objects the intervening (not loaded) migrations provide. 048
+// Stand-ins for objects the intervening (not loaded) migrations provide. 049
 // replaces `is_admin()` with its real body, which reads `profiles.is_approved`.
 await db.exec(`create schema storage; create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text,metadata jsonb);
   alter table storage.objects enable row level security;
@@ -41,12 +44,9 @@ await db.exec(`create schema storage; create table storage.objects(id uuid prima
   create or replace function public._is_complete_ballot(p_meeting_id uuid, p_votes jsonb) returns boolean
     language sql stable as $$ select true $$;`);
 
-// Production apply order: 046, 047 (deployed), bylaws migration, then 048 and 049.
-for (const file of ['046_token_lifetime_hardening.sql', '047_meeting_doc_rpc_access.sql',
-  '20260918185337_bylaws_enforcement.sql', '048_access_contract_hardening.sql',
-  '049_voting_eligibility_helper.sql']) {
-  await db.exec(migration(file));
-}
+// Clean-database order, straight from the directory: 046, 047, 048 bylaws, 049, 050.
+const chain = migrationsFrom('046');
+for (const file of chain) await db.exec(migration(file));
 
 const uuid = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const MEMBER = uuid(1);
@@ -80,7 +80,7 @@ function scenario(name, options, fn) {
 }
 
 for (const amounts of [[500], [500, 700], [500, 800]]) {
-  scenario(`048 po įstatų migracijos: įmokos dalimis sumuojamos ${amounts}`, { amounts }, async () => {
+  scenario(`049 po įstatų migracijos: įmokos dalimis sumuojamos ${amounts}`, { amounts }, async () => {
     const remaining = Math.max(0, FEE_CENTS - amounts.reduce((a, b) => a + b, 0));
     const data = await status();
     assert.equal(data.error, undefined);
@@ -91,18 +91,25 @@ for (const amounts of [[500], [500, 700], [500, 800]]) {
   });
 }
 
-scenario('048 po įstatų migracijos: nepatvirtintam profiliui – not_approved', { approved: false, amounts: [500] }, async () => {
+scenario('049 po įstatų migracijos: nepatvirtintam profiliui – not_approved', { approved: false, amounts: [500] }, async () => {
   assert.equal((await status()).error, 'not_approved');
 });
 
-scenario('048 po įstatų migracijos: be sesijos – not_authenticated', { amounts: [500] }, async () => {
+scenario('049 po įstatų migracijos: be sesijos – not_authenticated', { amounts: [500] }, async () => {
   await db.exec(`select set_config('test.user_id','',true)`);
   assert.equal((await status()).error, 'not_authenticated');
 });
 
+test('Katalogo eilė: įstatų migracija (048) eina prieš prieigos kontraktą (049) ir balso teisę (050)', () => {
+  const at = name => { const i = chain.indexOf(name); assert.notEqual(i, -1, `${name} yra grandinėje`); return i; };
+  assert.ok(at('048_bylaws_enforcement.sql') < at('049_access_contract_hardening.sql'),
+    'prieigos kontraktas taikomas PO įstatų migracijos – kitaip ji perrašytų vartus');
+  assert.ok(at('049_access_contract_hardening.sql') < at('050_voting_eligibility_helper.sql'));
+});
+
 test('Galutinis funkcijos kūnas turi ir patvirtinimo vartus, ir įmokų dalių skaičiavimą', async () => {
   const def = (await db.query(`select pg_get_functiondef('public.get_member_financial_status()'::regprocedure) as def`)).rows[0].def;
-  assert.match(def, /not_approved/, '048 vartai išlikę');
+  assert.match(def, /not_approved/, '049 vartai išlikę');
   assert.match(def, /greatest\(fp\.amount_cents/, 'įstatų migracijos įmokų dalių skaičiavimas išlikęs');
   assert.doesNotMatch(def, /NOT EXISTS \(\s*SELECT 1 FROM payments/, 'senoji „yra/nėra įrašo" logika negrįžo');
 });

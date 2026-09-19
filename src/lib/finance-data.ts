@@ -25,7 +25,7 @@ import type {
  * lentelės čia neliečiam sąmoningai.
  *
  * Aukos kraunamos per `src/lib/donations-data.ts` (service-role, serverio
- * pusė): nuo migr. 048 `donations` SELECT RLS'e paliktas tik administratoriui,
+ * pusė): nuo migr. 049 `donations` SELECT RLS'e paliktas tik administratoriui,
  * nes eilutėse guli žali aukotojų vardai.
  *
  * KLAIDOS NETYLIMOS. Anksčiau bet kurios iš septynių užklausų klaida virsdavo

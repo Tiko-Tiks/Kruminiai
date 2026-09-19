@@ -2,13 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
+import { migrationsFrom } from './helpers.mjs';
 
 // 047's `_can_view_meeting_doc` compared `voting_token_meeting(p_token) = p_meeting_id`
 // without guarding NULL: an unknown or expired token yields NULL, `IF NOT NULL` does
 // not fire, and an anonymous caller with any bogus token could read a published
-// meeting's document RPCs. 048 (and, independently, the bylaws migration) wrap every
-// term in coalesce(..., false). Two engines: 048 on its own closes the hole, and the
-// full production chain ends closed as well.
+// meeting's document RPCs. 049 (and, independently, the bylaws migration 048) wrap every
+// term in coalesce(..., false). Two engines: 049 on its own closes the hole, and the
+// full clean-database chain (read from the directory) ends closed as well.
 const migration = name => readFileSync(new URL(`../../supabase/migrations/${name}`, import.meta.url), 'utf8');
 const BASE = ['001_initial_schema.sql', '002_voting_schema.sql', '003_voting_tokens.sql',
   '005_resolution_documents.sql', '008_membership_declarations.sql', '009_notification_log.sql',
@@ -64,11 +65,10 @@ const elections = async (db, token) =>
   (await db.query('select get_meeting_elections_data($1,$2) as data', [MEETING, token])).rows[0].data;
 
 const chains = {
-  'tik #16 grandinė (046 → 047 → 048, be įstatų migracijos)': { bylaws: false,
-    files: ['046_token_lifetime_hardening.sql', '047_meeting_doc_rpc_access.sql', '048_access_contract_hardening.sql'] },
-  'pilna gamybos grandinė (046 → 047 → įstatų migracija → 048 → 049)': { bylaws: true,
-    files: ['046_token_lifetime_hardening.sql', '047_meeting_doc_rpc_access.sql',
-      '20260918185337_bylaws_enforcement.sql', '048_access_contract_hardening.sql', '049_voting_eligibility_helper.sql'] },
+  'tik #16 grandinė (046 → 047 → 049, be įstatų migracijos)': { bylaws: false,
+    files: ['046_token_lifetime_hardening.sql', '047_meeting_doc_rpc_access.sql', '049_access_contract_hardening.sql'] },
+  'pilna grandinė katalogo eile (046 → 047 → 048 įstatai → 049 → 050)': { bylaws: true,
+    files: migrationsFrom('046') },
 };
 
 for (const [label, { bylaws, files }] of Object.entries(chains)) {

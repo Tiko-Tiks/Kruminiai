@@ -19,7 +19,7 @@ function logSafe(value: unknown): string {
 /**
  * Audito įrašas.
  *
- * Nuo migr. 048 `audit_log` INSERT politika reikalauja administratoriaus –
+ * Nuo migr. 049 `audit_log` INSERT politika reikalauja administratoriaus –
  * eilinio nario srautai į šią lentelę nerašo, o sisteminius įrašus (pvz.
  * narystės statuso trigger'is) daro SECURITY DEFINER funkcijos, kurioms RLS
  * negalioja.
