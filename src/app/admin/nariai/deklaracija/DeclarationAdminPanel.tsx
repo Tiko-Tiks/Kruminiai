@@ -145,7 +145,7 @@ export function DeclarationAdminPanel({
     if (!expiresAt) return;
     if (
       !confirm(
-        `Siųsti SMS skolingiems nariams su narystės patvirtinimo nuoroda?\nNuoroda galios iki ${expiresAt} (imtinai).`
+        `Siųsti SMS tik skolingiems nariams, kurie dar neturi deklaracijos?\nNuoroda galios iki ${expiresAt} (imtinai).`
       )
     )
       return;
@@ -288,7 +288,7 @@ export function DeclarationAdminPanel({
               <p className="text-xs text-gray-500 mt-1">
                 Galiojimas įrašomas kiekvienam šios kampanijos tokenui – ir naujam, ir
                 pakartotinai siunčiamam. Anksčiausia galima data – <strong>{expiry.min}</strong>,
-                nes gavėjui žadame {expiry.responseDays} d. atsakymo langą.
+                minimalus atsakymo langas yra {expiry.responseDays} d.
               </p>
             </div>
 
@@ -315,7 +315,7 @@ export function DeclarationAdminPanel({
               <div className="flex flex-wrap gap-2">
                 <Button type="button" onClick={handleSend} loading={sending} variant="outline">
                   <Send className="h-4 w-4" />
-                  Siųsti naujiems nariams
+                  Siųsti neturintiems deklaracijos
                 </Button>
                 <Button
                   type="button"

@@ -35,16 +35,10 @@ export const KNOWN_DUPLICATES = {
   "028": 2,
 };
 
-/**
- * Numeriai, rezervuoti lygiagrečiai kuriamiems PR. Jie repo dar neegzistuoja,
- * todėl sekos patikra jų vietoje tarpo nelaiko klaida, o naujas failas su tokiu
- * numeriu praeina ir tada, kai jis mažesnis už `origin/main` maksimumą.
- *
- * 052 – likęs nepanaudotas audito rezervas; 046–051 jau yra main.
- * ŠIUOS ĮRAŠUS PAŠALINTI, kai tie PR sumerginti (tada numeriai jau bus repo, o
- * sekos patikra saugos toliau).
- */
-export const RESERVED = ["052"];
+// Lygiagrečių audito PR rezervai panaikinti. 052 nebuvo panaudotas, o
+// 053/054 jau priskirti vėlesniems pakeitimams; istorinio tarpo nepildome.
+export const RESERVED = [];
+export const HISTORICAL_GAPS = ["052"];
 
 const FILE_NAME_RE = /^(\d{3})_[a-z0-9_]+\.sql$/;
 
@@ -77,6 +71,7 @@ export function checkMigrationFiles(files, context = {}) {
       continue;
     }
     const number = match[1];
+    if (HISTORICAL_GAPS.includes(number)) problems.push(`${file}: istorinis tarpas ${number} nebepernaudojamas`);
     byNumber.set(number, [...(byNumber.get(number) ?? []), file]);
   }
 
@@ -115,7 +110,7 @@ export function checkMigrationFiles(files, context = {}) {
   const missing = [];
   for (let n = 1; n <= max; n++) {
     const key = pad(n);
-    if (!byNumber.has(key) && !RESERVED.includes(key)) missing.push(key);
+    if (!byNumber.has(key) && !RESERVED.includes(key) && !HISTORICAL_GAPS.includes(key)) missing.push(key);
   }
   if (missing.length > 0) {
     problems.push(
@@ -286,7 +281,7 @@ export function fakeMigrationFiles(maxNumber = 54) {
   const files = [];
   for (let n = 1; n <= maxNumber; n++) {
     const key = pad(n);
-    if (RESERVED.includes(key)) continue;
+    if (RESERVED.includes(key) || HISTORICAL_GAPS.includes(key)) continue;
     const copies = KNOWN_DUPLICATES[key] ?? 1;
     for (let i = 0; i < copies; i++) {
       files.push(`${key}_migracija_${i}.sql`);
@@ -345,10 +340,11 @@ export function buildSelfTestCases() {
       expectMessage: "laukiamas numeris 055",
     },
     {
-      name: "naujas rezervuotas numeris – praeina",
+      name: "buvęs rezervas 052 nebepernaudojamas",
       files: [...base, "052_rezervuotas.sql"],
       context: { addedFiles: ["052_rezervuotas.sql"], mainMaxNumber: "054" },
-      expectProblem: false,
+      expectProblem: true,
+      expectMessage: "istorinis tarpas 052 nebepernaudojamas",
     },
     {
       name: "ištrinta viena istorinio dublikato dalis – klaida",

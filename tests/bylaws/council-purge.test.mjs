@@ -9,7 +9,7 @@ const db = new PGlite();
 
 // Real Postgres engine with the actual repository schemas. Supabase-owned auth
 // roles are stubbed locally; no production credentials, services or network.
-await db.exec(`create role anon; create role authenticated; create schema auth;
+await db.exec(`create role anon; create role authenticated; create role service_role; create schema auth;
   create table auth.users(id uuid primary key, email text, raw_user_meta_data jsonb);
   create function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;`);
 for (const file of ['001_initial_schema.sql', '002_voting_schema.sql', '003_voting_tokens.sql',

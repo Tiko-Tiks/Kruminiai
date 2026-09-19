@@ -20,7 +20,7 @@ const BASE = ['001_initial_schema.sql', '002_voting_schema.sql', '003_voting_tok
 /** Isolated engine with the repository schemas and local stand-ins; no network or credentials. */
 async function engine(chain) {
   const db = new PGlite();
-  await db.exec(`create role anon; create role authenticated; create schema auth;
+  await db.exec(`create role anon; create role authenticated; create role service_role; create schema auth;
     create table auth.users(id uuid primary key, email text, raw_user_meta_data jsonb);
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.user_id',true),'')::uuid $$;`);
   for (const file of BASE) await db.exec(migration(file));

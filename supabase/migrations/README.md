@@ -33,7 +33,8 @@ Trys numeriai turi po du failus – tai susidarė anksčiau ir paliekama kaip yr
 Jie įrašyti į `scripts/check-migrations.mjs` išimčių sąrašą su **tiksliu** failų
 skaičiumi: naujų dublikatų patikra nepraleidžia, o ištrynus vieną iš poros –
 praneša klaidą. Migracijų failai apskritai netrinami (tai tikrina ir PR patikra) –
-jie jau pritaikyti duomenų bazei.
+jie jau pritaikyti duomenų bazei. PR patikra atmeta ir turinio pakeitimus (`M`);
+pervadinimą vertina kaip seno failo pašalinimą ir naujo pridėjimą (`D` + `A`).
 
 ## Numerių rezervavimas lygiagretiems PR
 
@@ -46,17 +47,19 @@ surašomi į `RESERVED` sąrašą `scripts/check-migrations.mjs`. Rezervuotas nu
   maksimumą – kitaip po vieno PR merge'o kitiems tektų pernumeruoti savo jau
   peržiūrėtas migracijas.
 
-Šiuo metu rezervuota **046–052** (046–049 – PR #16, 050–052 – PR #15). **Sumerginus
-tuos PR, įrašus iš `RESERVED` pašalinti** – nuo tada jų numeriai jau bus repo ir
-seką saugos įprasta patikra.
+Audito rezervai **046–052 panaikinti**: 046–051 turi failus, o **052** niekada
+nebuvo panaudotas. Kad 053/054 išlaikytų suderintus numerius, 052 užregistruotas
+kaip nekintamas istorinis tarpas (`HISTORICAL_GAPS`), ne leidimas pridėti senesnę
+migraciją. Kitam DB pakeitimui naudoti **056**.
 
 Laukiamą kitą numerį visada parodo pati patikra: neatitikus ji rašo
 „laukiamas numeris N".
 
 ## Gyvas registras ↔ repo failai
 
-Gyvoje bazėje (`supabase_migrations.schema_migrations`) yra **55** įrašai, repo –
-**50** failų (su 053 ir 054). Skirtumą sudaro trys dalykai: kai kurie repo failai
+Repo yra **57** SQL failai iki 055 (su istoriniais dublikatais ir 052 tarpu).
+Gyvo registro įrašai turi laiko žymes, todėl jų numeriai ir kiekis nėra tiesioginis
+repo failų numerių atitikmuo. Skirtumą sudaro trys dalykai: kai kurie repo failai
 apjungia po kelis gyvus įrašus, kai kurie gyvi įrašai repo neturėjo, o vienas
 repo failas gyvame registre nefiksuotas.
 
@@ -95,3 +98,19 @@ registro įrašo – ne. Failas idempotentiškas, todėl nieko daryti nereikia.
 3. **Atkūrimo patikra.** Kai 1 ir 2 punktai padaryti – vieną kartą praverti
    `supabase db reset` ant tuščios bazės ir palyginti schemą su produkcija.
    Tik po to migracijas galima vadinti patikimu atkūrimo šaltiniu.
+
+## Audito migracijų taikymo eilė
+
+046 ir 047 bei `bylaws_enforcement` pritaikytos 2026-09-18. Pastarosios repo
+failas dabar vadinasi **048_bylaws_enforcement.sql**; tai tas pats jau pritaikytas
+SQL, todėl jo nekartoti. 049 ir 050 taikytos 2026-09-19 po PR #16 deploy.
+Toliau: PR #15 kodas → dokumentų sanity → 051; PR #14 kodas → 053 → 054 → 055.
+053 kontaktų funkcijos išlaiko 049 patvirtinimo vartus. `migrationsFrom('046')`
+testai tikrina visą dabartinę katalogo grandinę su vietine bazine schema;
+tai nėra visų istorinių migracijų atkūrimo nuo visiškai tuščios DB patikra.
+
+055 prideda atominę registracijos laiškų kvotą (3 gavėjui per 10 min., 30 visiems
+per valandą). Tik service-role RPC rezervuoja vietą prieš siuntimą; nepasiekiamas
+RPC neleidžia siųsti. Lentelė su RLS nepasiekiama anon/nariui, gavėjo adresas joje
+laikomas tik kaip normalizuoto adreso maiša. Senesnės nei valandos rezervacijos
+pašalinamos kitame kvietime. Išsiuntimo klaida rezervacijos neatšaukia.

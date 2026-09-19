@@ -19,9 +19,14 @@ export default async function DeclarationAdminPage() {
   // Gavėjai matomi PRIEŠ siuntimą: deklaracija siunčiama tik skolingiems, o SMS
   // pasiekia tik tuos, kurie turi telefono numerį.
   const { members: debtors } = await getMembersWithDebts();
+  const declaredIds = new Set(stats.declarations.flatMap((d) => {
+    const member = Array.isArray(d.member) ? d.member[0] : d.member;
+    return member ? [member.id] : [];
+  }));
+  const newDebtors = debtors.filter((m) => !declaredIds.has(m.id));
   const recipients = {
-    total: debtors.length,
-    withPhone: debtors.filter((m) => !!m.phone).length,
+    total: newDebtors.length,
+    withPhone: newDebtors.filter((m) => !!m.phone).length,
   };
 
   // Priminimas siunčiamas tik tiems, kurie DABAR yra skolingi ir turi telefoną –

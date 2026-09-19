@@ -13,14 +13,6 @@ import { createAdminSupabaseClient, isAdminClientAvailable } from "@/lib/supabas
 // neturi (migr. 009), todėl naujai reikšmei migracijos nereikia.
 const REQUEST_EMAIL_KIND = "membership_request";
 
-// Anti-bombardavimo apsauga: tam pačiam adresui – ne daugiau kaip 3 laiškai per
-// 10 min. (normali registracija siunčia 1); visiems adresams kartu – ne daugiau
-// kaip 30 per valandą, kad vien adresų keitimas apsaugos neapeitų.
-const REQUEST_EMAIL_WINDOW_MS = 10 * 60 * 1000;
-const REQUEST_EMAIL_MAX = 3;
-const GLOBAL_WINDOW_MS = 60 * 60 * 1000;
-const GLOBAL_MAX = 30;
-
 // Paskyra turi būti sukurta ką tik – laiškas #1 yra registracijos dalis, o ne
 // būdas patikrinti, ar adresas apskritai registruotas.
 const NEW_ACCOUNT_MAX_AGE_MS = 60 * 60 * 1000;
@@ -34,36 +26,16 @@ const inputSchema = z.object({
   locale: z.enum(["lt", "en"]).optional(),
 });
 
-/**
- * Dažnio ribojimas. Abu langai suskaičiuojami iš VIENOS užklausos – imamos
- * valandos eilutės, o siauresnis (gavėjo) langas filtruojamas jau atmintyje.
- */
-async function tooManyRecentRequests(email: string): Promise<boolean> {
+/** Kvota rezervuojama DB transakcijoje prieš siuntimą; klaidos atveju nesiunčiame. */
+async function reserveEmailQuota(email: string): Promise<boolean> {
   if (!isAdminClientAvailable()) return false;
   try {
-    const admin = createAdminSupabaseClient();
-    const now = Date.now();
-    const { data } = await admin
-      .from("notification_log")
-      .select("recipient, sent_at")
-      .eq("channel", "email")
-      .eq("kind", REQUEST_EMAIL_KIND)
-      .gte("sent_at", new Date(now - GLOBAL_WINDOW_MS).toISOString())
-      .order("sent_at", { ascending: false })
-      .limit(GLOBAL_MAX);
-
-    const rows = (data ?? []) as { recipient: string | null; sent_at: string }[];
-    if (rows.length >= GLOBAL_MAX) return true;
-
-    const perRecipientSince = now - REQUEST_EMAIL_WINDOW_MS;
-    const forRecipient = rows.filter(
-      (r) =>
-        (r.recipient ?? "").toLowerCase() === email.toLowerCase() &&
-        new Date(r.sent_at).getTime() >= perRecipientSince
-    ).length;
-    return forRecipient >= REQUEST_EMAIL_MAX;
+    const { data, error } = await createAdminSupabaseClient().rpc(
+      "reserve_membership_email", { p_email: email }
+    );
+    return !error && data === true;
   } catch {
-    return false; // throttle klaida neblokuoja teisėtos registracijos
+    return false;
   }
 }
 
@@ -140,9 +112,6 @@ export async function sendMembershipRequestEmail(input: {
   const firstName = parsed.data.firstName ?? "";
   const lastName = parsed.data.lastName ?? "";
 
-  // Anti-bombardavimas: neleisti spaminti nei to paties adreso, nei endpoint'o
-  if (await tooManyRecentRequests(email)) return { success: false };
-
   // Laiškas siunčiamas tik ką tik užsiregistravusiam. Atsakymas toks pat kaip
   // sėkmės atveju – neatskleidžiam, ar toks adresas registruotas.
   if (!(await hasFreshAccount(email))) return { success: true };
@@ -164,6 +133,9 @@ export async function sendMembershipRequestEmail(input: {
     isHonorary,
   });
 
+  // Atominė rezervacija (055): 3 gavėjui / 10 min., 30 visiems / val.
+  // Rezervacija lieka ir nepavykus siųsti, kad klaidos neatvertų piktnaudžiavimo.
+  if (!(await reserveEmailQuota(email))) return { success: false };
   const r = await sendEmail(email, subject, html);
 
   // ANON srautas (registracija) – žurnalas per service-role (žr. logNotificationSystem)

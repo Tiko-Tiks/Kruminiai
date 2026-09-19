@@ -46,9 +46,8 @@ function generateToken(): string {
 // ateina iš `DatePicker` teksto lauko per mygtuko veiksmą, todėl naršyklės
 // `pattern` čia nieko nesustabdo.
 //
-// Minimumas – šiandien + `DECLARATION_RESPONSE_DAYS`: deklaracijos puslapis
-// gavėjui žada tokį atsakymo langą, todėl anksčiau užsidaranti nuoroda reikštų,
-// kad viešas RPC atmeta atsakymą dar nepasibaigus pažadėtam terminui.
+// Minimumas – šiandien + `DECLARATION_RESPONSE_DAYS`: išlaikome kampanijos
+// mažiausią atsakymo langą; tai nėra narystės nutraukimo terminas.
 const expiresAtSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Netinkamas datos formatas (turi būti YYYY-MM-DD)")
@@ -124,7 +123,7 @@ function resolveExpiresAt(input: string): { iso: string } | { error: string } {
 }
 
 // =============================================================================
-// Generuoti tokenus visiems aktyviems nariams + siųsti SMS
+// Generuoti deklaracijas tik jų neturintiems skolininkams + siųsti SMS
 // =============================================================================
 export async function generateAndSendDeclarations(expiresAtInput: string) {
   const supabase = createServerSupabaseClient();
@@ -159,39 +158,29 @@ export async function generateAndSendDeclarations(expiresAtInput: string) {
     }
 
     // Patikrinti egzistuojantį tokeną
-    const { data: existing } = await supabase
+    const { data: existing, error: lookupError } = await supabase
       .from("membership_declarations")
       .select("token, submitted_at")
       .eq("member_id", m.id)
       .maybeSingle();
 
-    let token = existing?.token;
-
-    if (!existing) {
-      token = generateToken();
-      const { error: insertErr } = await supabase
-        .from("membership_declarations")
-        .insert({
-          member_id: m.id,
-          token,
-          expires_at: expiry.iso,
-        });
-      if (insertErr) {
-        errors.push(`${m.first_name} ${m.last_name}: ${insertErr.message}`);
-        continue;
-      }
-    } else if (existing.submitted_at) {
-      // Jau atsakė – nesiunčiame
+    if (lookupError) {
+      errors.push(`${m.first_name} ${m.last_name}: nepavyko patikrinti deklaracijos`);
+      continue;
+    }
+    // Pirmo siuntimo veiksmas skirtas tik neturintiems deklaracijos.
+    // Esamų tokenų nepratęsiame ir SMS nekartojame; tam yra priminimo veiksmas.
+    if (existing) {
       smsSkipped++;
       continue;
-    } else {
-      // Ankstesnės kampanijos tokenas – nuoroda turi galioti iki naujos datos
-      const extended = await extendDeclarationExpiry(supabase, token!, expiry.iso);
-      if (!extended) {
-        expiryFailed++;
-        errors.push(`${m.first_name} ${m.last_name}: nepavyko pratęsti nuorodos galiojimo`);
-        continue;
-      }
+    }
+    const token = generateToken();
+    const { error: insertErr } = await supabase
+      .from("membership_declarations")
+      .insert({ member_id: m.id, token, expires_at: expiry.iso });
+    if (insertErr) {
+      errors.push(`${m.first_name} ${m.last_name}: ${insertErr.message}`);
+      continue;
     }
 
     const url = `${baseUrl}/deklaracija/${token}`;
