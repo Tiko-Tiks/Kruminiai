@@ -140,10 +140,29 @@ export function getDocumentPublicUrl(filePath: string): string {
   return `${base}/storage/v1/object/public/documents/${filePath}`;
 }
 
-// Sukonstruoti viešą URL nuotraukai images bucket'e (pvz. projektų eigos foto)
-export function getImagePublicUrl(path: string): string {
+// Sukonstruoti viešą URL nuotraukai images bucket'e (pvz. projektų eigos foto).
+//
+// Su `width` grąžinamas Supabase transformacijų (`/render/image/`) URL – failas
+// sumažinamas serveryje (naršyklei, kuri siunčia `Accept: image/webp`, atiduodamas
+// ir WebP). Be šito į 176 px pločio
+// miniatiūrą buvo siunčiamas originalus telefono JPEG: naujienų viršeliai
+// realiai svėrė 0,5 MB vienetui, t. y. ~1,3 MB vien už tris paveikslėlius
+// sąraše. Tas pats failas su `width=400&quality=70` sveria ~30 KB.
+//
+// `width` – **CSS pločio** reikšmė; helperis pats padvigubina Retina ekranams.
+export function getImagePublicUrl(
+  path: string,
+  opts?: { width?: number; quality?: number }
+): string {
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  return `${base}/storage/v1/object/public/images/${path}`;
+  if (!opts?.width) {
+    return `${base}/storage/v1/object/public/images/${path}`;
+  }
+  const params = new URLSearchParams({
+    width: String(Math.round(opts.width * 2)),
+    quality: String(opts.quality ?? 70),
+  });
+  return `${base}/storage/v1/render/image/public/images/${path}?${params}`;
 }
 
 // HTML escape – naudotojo įvesties įterpimui į HTML (pvz. el. laiškus).

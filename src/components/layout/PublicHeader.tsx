@@ -39,7 +39,10 @@ export function PublicHeader() {
   const visibleNav = PUBLIC_NAV.filter((item) => !item.requiresAuth || isAuthenticated);
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-200">
+    <header className="sticky top-0 z-40 bg-surface/90 backdrop-blur-md border-b border-line">
+      <a href="#turinys" className="skip-link">
+        {t.header.skipToContent}
+      </a>
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16 gap-4">
           <Link href="/" className="flex items-center gap-3 flex-shrink-0">
@@ -48,11 +51,17 @@ export function PublicHeader() {
               alt={SITE_NAME}
               width={64}
               height={96}
+              priority
               className="h-12 w-auto"
             />
+            {/* xl, ne sm/md – nuo `md` rodomas pilnas nav (4 nuorodos + kalbos
+                perjungiklis + prisijungimo/registracijos mygtukai), ir kartu
+                su pavadinimo tekstu portretinio planšetės pločio (~768–900px)
+                lange nebetelpa, o `overflow-x-hidden` (globals.css) tiesiog
+                nukerpa dešinę pusę (Codex peržiūra, PR #17, antras radinys). */}
             <div className="hidden xl:block leading-tight">
-              <div className="font-semibold text-gray-900 text-sm">{t.header.communityLine1}</div>
-              <div className="text-xs text-gray-500">{t.header.communityLine2}</div>
+              <div className="font-semibold text-ink text-base leading-none">{t.header.communityLine1}</div>
+              <div className="text-sm text-ink-muted">{t.header.communityLine2}</div>
             </div>
           </Link>
 
@@ -64,19 +73,19 @@ export function PublicHeader() {
                 className={cn(
                   "px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap",
                   pathname === item.href
-                    ? "bg-green-50 text-green-700"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                    ? "bg-brand-soft text-brand-strong"
+                    : "text-ink-muted hover:text-ink hover:bg-surface-muted"
                 )}
               >
                 {navLabel(item.key, item.label)}
               </Link>
             ))}
-            <div className="ml-3 pl-3 border-l border-gray-200 flex items-center gap-2">
+            <div className="ml-3 pl-3 border-l border-line flex items-center gap-2">
               <LanguageToggle />
               {isAuthenticated ? (
                 <Link
                   href="/portalas"
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium bg-green-700 text-white hover:bg-green-600 transition-colors whitespace-nowrap shadow-sm"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold bg-brand text-brand-ink hover:bg-brand-strong transition-colors whitespace-nowrap shadow-sm"
                 >
                   {t.header.myAccount}
                 </Link>
@@ -84,13 +93,13 @@ export function PublicHeader() {
                 <>
                   <Link
                     href="/prisijungimas"
-                    className="px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors whitespace-nowrap"
+                    className="px-3 py-2 rounded-lg text-sm font-medium text-ink-muted hover:text-ink transition-colors whitespace-nowrap"
                   >
                     {t.header.login}
                   </Link>
                   <Link
                     href="/registracija"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium bg-green-700 text-white hover:bg-green-600 transition-colors whitespace-nowrap shadow-sm"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold bg-brand text-brand-ink hover:bg-brand-strong transition-colors whitespace-nowrap shadow-sm"
                   >
                     <UserPlus className="h-4 w-4" />
                     {t.header.becomeMember}
@@ -101,7 +110,7 @@ export function PublicHeader() {
           </nav>
 
           <button
-            className="md:hidden p-2 text-gray-600"
+            className="md:hidden -mr-2 p-3 text-ink-muted"
             onClick={() => setMenuOpen(!menuOpen)}
             aria-label={menuOpen ? t.header.closeMenu : t.header.openMenu}
           >
@@ -110,7 +119,7 @@ export function PublicHeader() {
         </div>
 
         {menuOpen && (
-          <div className="md:hidden pb-4 border-t border-gray-100 pt-2 space-y-0.5">
+          <div className="md:hidden pb-4 border-t border-line pt-2 space-y-0.5">
             {visibleNav.map((item) => (
               <Link
                 key={item.href}
@@ -119,14 +128,14 @@ export function PublicHeader() {
                 className={cn(
                   "block px-3 py-2.5 rounded-lg text-sm font-medium",
                   pathname === item.href
-                    ? "bg-green-50 text-green-700"
-                    : "text-gray-700 hover:bg-gray-50"
+                    ? "bg-brand-soft text-brand-strong"
+                    : "text-ink-muted hover:bg-surface-muted"
                 )}
               >
                 {navLabel(item.key, item.label)}
               </Link>
             ))}
-            <div className="border-t border-gray-100 mt-2 pt-2 space-y-2">
+            <div className="border-t border-line mt-2 pt-2 space-y-2">
               <div className="px-1">
                 <LanguageToggle />
               </div>
@@ -134,7 +143,7 @@ export function PublicHeader() {
                 <Link
                   href="/portalas"
                   onClick={() => setMenuOpen(false)}
-                  className="block px-3 py-2.5 rounded-lg text-sm font-medium bg-green-700 text-white"
+                  className="block px-3 py-2.5 rounded-lg text-sm font-semibold bg-brand text-brand-ink"
                 >
                   {t.header.myAccount}
                 </Link>
@@ -143,14 +152,14 @@ export function PublicHeader() {
                   <Link
                     href="/prisijungimas"
                     onClick={() => setMenuOpen(false)}
-                    className="block px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50"
+                    className="block px-3 py-2.5 rounded-lg text-sm font-medium text-ink-muted hover:bg-surface-muted"
                   >
                     {t.header.login}
                   </Link>
                   <Link
                     href="/registracija"
                     onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium bg-green-700 text-white"
+                    className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-semibold bg-brand text-brand-ink"
                   >
                     <UserPlus className="h-4 w-4" />
                     {t.header.becomeMember}

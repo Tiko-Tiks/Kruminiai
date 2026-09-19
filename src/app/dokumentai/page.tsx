@@ -124,7 +124,7 @@ export default async function DocumentsPage() {
     <div className="min-h-screen flex flex-col">
       <PublicHeader />
 
-      <main className="flex-1 bg-gray-50">
+      <main id="turinys" className="flex-1 bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">{t.pageHeading}</h1>
           <p className="text-gray-500 mb-8">{t.pageIntro}</p>

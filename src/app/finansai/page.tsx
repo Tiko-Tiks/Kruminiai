@@ -46,7 +46,7 @@ export default async function FinansaiPage() {
     return (
       <div className="min-h-screen flex flex-col bg-amber-50/50">
         <PublicHeader />
-        <main className="flex-1">
+        <main id="turinys" className="flex-1">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 py-16">
             <h1 className="text-2xl font-bold text-green-800 mb-2">{t.pageHeading}</h1>
             <p className="text-gray-600">
@@ -169,7 +169,7 @@ export default async function FinansaiPage() {
     <div className="min-h-screen flex flex-col bg-amber-50/50">
       <PublicHeader />
 
-      <main className="flex-1">
+      <main id="turinys" className="flex-1">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 md:py-12">
           <div className="mb-8">
             <h1 className="text-3xl md:text-4xl font-bold text-green-800">{t.pageHeading}</h1>

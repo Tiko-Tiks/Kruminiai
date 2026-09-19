@@ -19,7 +19,7 @@ export function LanguageToggle({ className }: { className?: string }) {
 
   return (
     <div
-      className={cn("inline-flex items-center rounded-lg border border-gray-200 overflow-hidden", className)}
+      className={cn("inline-flex items-center rounded-lg border border-line overflow-hidden", className)}
       role="group"
       aria-label="Language"
     >
@@ -30,10 +30,10 @@ export function LanguageToggle({ className }: { className?: string }) {
           onClick={() => setLocale(l)}
           aria-pressed={locale === l}
           className={cn(
-            "px-2 py-1 text-xs font-semibold transition-colors",
+            "min-h-[2rem] px-2.5 py-1.5 text-xs font-semibold transition-colors",
             locale === l
-              ? "bg-green-700 text-white"
-              : "bg-white text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+              ? "bg-brand text-brand-ink"
+              : "bg-surface text-ink-subtle hover:text-ink hover:bg-surface-muted"
           )}
         >
           {l.toUpperCase()}
