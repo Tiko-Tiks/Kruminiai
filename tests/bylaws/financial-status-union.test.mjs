@@ -101,6 +101,11 @@ scenario('049 po įstatų migracijos: be sesijos – not_authenticated', { amoun
 });
 
 test('Katalogo eilė: įstatų migracija (048) eina prieš prieigos kontraktą (049) ir balso teisę (050)', () => {
+  // Eilė galioja tik tol, kol visi failai turi vienodo pločio `NNN_` prefiksą: laiko žymės
+  // failas (14 skaitmenų) rikiuotųsi PO visų `0xx` – būtent taip ir atsirado ši pastaba.
+  for (const file of chain) {
+    assert.match(file, /^\d{3}_/, `${file}: migracijos failo vardas privalo prasidėti trimis skaitmenimis`);
+  }
   const at = name => { const i = chain.indexOf(name); assert.notEqual(i, -1, `${name} yra grandinėje`); return i; };
   assert.ok(at('048_bylaws_enforcement.sql') < at('049_access_contract_hardening.sql'),
     'prieigos kontraktas taikomas PO įstatų migracijos – kitaip ji perrašytų vartus');
