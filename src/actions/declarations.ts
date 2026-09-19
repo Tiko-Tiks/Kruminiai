@@ -146,9 +146,8 @@ export async function generateAndSendDeclarations(expiresAtInput: string) {
   const batchId = crypto.randomUUID();
   let smsSent = 0;
   let smsSkipped = 0;
-  // Praleisti dėl DB klaidos pratęsiant galiojimą – skaičiuojami atskirai, kad
-  // administratorius matytų, jog tai ne „be telefono", o nepavykęs įrašas
-  let expiryFailed = 0;
+  // Šis kelias esamų deklaracijų nebepratęsia; paliekama bendra rezultato forma.
+  const expiryFailed = 0;
   const errors: string[] = [];
 
   for (const m of members) {
