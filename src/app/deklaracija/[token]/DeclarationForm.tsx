@@ -12,8 +12,6 @@ import {
   Banknote,
   CreditCard,
   UserMinus,
-  Calendar,
-  MapPin,
   AlertCircle,
   ExternalLink,
   Heart,
@@ -178,17 +176,6 @@ export function DeclarationForm({ token, member, existingDeclaration, debt }: Pr
             patvirtinkite savo duomenis – kad galėtume tinkamai pasiruošti.
           </p>
         )}
-
-        <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-700 space-y-1 mt-3">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-green-700" />
-            <span className="font-medium">2026 m. gegužės 23 d. (šeštadienį) 18:00</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-green-700" />
-            Beržų g. 8, Krūminių k.
-          </div>
-        </div>
       </div>
 
       {/* Skola – jei yra */}

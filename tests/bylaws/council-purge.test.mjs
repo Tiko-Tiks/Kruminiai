@@ -9,7 +9,7 @@ const db = new PGlite();
 
 // Real Postgres engine with the actual repository schemas. Supabase-owned auth
 // roles are stubbed locally; no production credentials, services or network.
-await db.exec(`create role anon; create role authenticated; create schema auth;
+await db.exec(`create role anon; create role authenticated; create role service_role; create schema auth;
   create table auth.users(id uuid primary key, email text, raw_user_meta_data jsonb);
   create function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;`);
 for (const file of ['001_initial_schema.sql', '002_voting_schema.sql', '003_voting_tokens.sql',
@@ -52,6 +52,7 @@ await db.exec(`
 // 046 and 047 (token lifetime, document-access RPCs), 048 bylaws, 049 access contract,
 // 050 voting eligibility. 047 is the real `_can_view_meeting_doc`, which 048 and 049
 // both replace (same signature).
+await db.exec(migration('031_project_progress.sql'));
 for (const file of migrationsFrom('046')) await db.exec(migration(file));
 
 const uuid = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;

@@ -113,7 +113,12 @@ export function ReminderPanel({ period, unpaid, counts }: Props) {
       toast.error(typeof msg === "string" ? msg : "Klaida siunčiant priminimus");
       return;
     }
-    toast.success(`Išsiųsta: ${result.emailsSent} email + ${result.smsSent} SMS`);
+    toast.success(
+      `Išsiųsta: ${result.emailsSent} email + ${result.smsSent} SMS` +
+        (result.expiryFailed > 0
+          ? ` (${result.expiryFailed} nesiųsta – nepavyko įrašyti nuorodos galiojimo)`
+          : "")
+    );
     if (result.errors.length > 0) {
       console.warn("Klaidos:", result.errors);
       toast.warning(`${result.errors.length} klaidų – patikrinkite konsolę`);

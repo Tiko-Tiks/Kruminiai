@@ -20,7 +20,7 @@ const BASE = ['001_initial_schema.sql', '002_voting_schema.sql', '003_voting_tok
 /** Isolated engine with the repository schemas and local stand-ins; no network or credentials. */
 async function engine(chain) {
   const db = new PGlite();
-  await db.exec(`create role anon; create role authenticated; create schema auth;
+  await db.exec(`create role anon; create role authenticated; create role service_role; create schema auth;
     create table auth.users(id uuid primary key, email text, raw_user_meta_data jsonb);
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.user_id',true),'')::uuid $$;`);
   for (const file of BASE) await db.exec(migration(file));
@@ -41,6 +41,7 @@ async function engine(chain) {
       $$ select exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_approved) $$;
     create or replace function public._is_complete_ballot(p_meeting_id uuid, p_votes jsonb) returns boolean
       language sql stable as $$ select true $$;`);
+  await db.exec(migration('031_project_progress.sql'));
   for (const file of chain) await db.exec(migration(file));
   return db;
 }
@@ -69,7 +70,7 @@ const elections = async (db, token) =>
 const chains = {
   'tik #16 grandinė (046 → 047 → 049, be įstatų migracijos)': { bylaws: false,
     files: ['046_token_lifetime_hardening.sql', '047_meeting_doc_rpc_access.sql', '049_access_contract_hardening.sql'] },
-  'pilna grandinė katalogo eile (046 → 047 → 048 įstatai → 049 → 050 → 051)': { bylaws: true,
+  'pilna grandinė katalogo eile (046 → 047 → 048 įstatai → 049 → 050 → 051 → 053 → 054)': { bylaws: true,
     files: migrationsFrom('046') },
 };
 

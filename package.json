@@ -12,7 +12,9 @@
     "lint": "next lint",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"tests/**/*.test.mjs\"",
     "test:bylaws": "node --test tests/bylaws/*.test.mjs",
-    "test:bylaws:core": "node --test tests/bylaws/core.test.mjs"
+    "test:bylaws:core": "node --test tests/bylaws/core.test.mjs",
+    "check:pii": "node scripts/check-no-pii.mjs",
+    "check:migrations": "node scripts/check-migrations.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.0",

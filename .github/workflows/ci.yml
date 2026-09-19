@@ -44,6 +44,18 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Tests
+        run: npm test
+
+      - name: Personal data guard
+        run: npm run check:pii
+
+      - name: Fetch main for migration history check
+        run: git fetch --no-tags --depth=1 origin +refs/heads/main:refs/remotes/origin/main
+
+      - name: Migration history
+        run: npm run check:migrations
+
       - name: Build application
         run: npm run build
 

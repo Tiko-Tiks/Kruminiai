@@ -29,6 +29,13 @@ Visi naudoja tą pačią vizualinę kalbą kaip ir mūsų vidiniai el. laiškai
 - `{{ .Token }}` — vienkartinis kodas (tik reauthentication)
 - `{{ .NewEmail }}` — naujas el. paštas (tik email-change)
 
+## `legacy/`
+
+Ankstesnė šių šablonų karta (kitokia vizualinė kalba). Palikta tik kaip
+atsarginė kopija – į Supabase klijuojami failai iš šio aplanko, ne iš `legacy/`.
+Ten yra ir `invite-user.html` (Supabase „Invite user"), kurio naujoje kartoje
+kol kas nėra.
+
 ## Pakeitimai
 
 Šablonai sugeneruoti iš `scripts/generate-auth-email-templates.mjs`.

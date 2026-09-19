@@ -16,7 +16,7 @@ const migration = name => readFileSync(new URL(`../../supabase/migrations/${name
 const db = new PGlite();
 
 // Supabase-owned auth roles are stubbed locally; no credentials, services or network.
-await db.exec(`create role anon; create role authenticated; create schema auth;
+await db.exec(`create role anon; create role authenticated; create role service_role; create schema auth;
   create table auth.users(id uuid primary key, email text, raw_user_meta_data jsonb);
   create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.user_id',true),'')::uuid $$;`);
 for (const file of ['001_initial_schema.sql', '002_voting_schema.sql', '003_voting_tokens.sql',
@@ -47,6 +47,7 @@ await db.exec(`create schema storage; create table storage.buckets(id text prima
     language sql stable as $$ select true $$;`);
 
 // Clean-database order, straight from the directory: 046, 047, 048 bylaws, 049, 050, 051.
+await db.exec(migration('031_project_progress.sql'));
 const chain = migrationsFrom('046');
 for (const file of chain) await db.exec(migration(file));
 
@@ -134,4 +135,22 @@ test.after(async () => db.close());
 test('051: dokumentų bucket privatus, paveikslėlių lieka viešas', async () => {
   const { rows } = await db.query('select id, public from storage.buckets order by id');
   assert.deepEqual(rows, [{ id: 'documents', public: false }, { id: 'images', public: true }]);
+});
+
+
+scenario('053 po 049: nepatvirtintas narys negali skaityti ar keisti kontaktų', { approved: false }, async () => {
+  const before = (await db.query('select email, phone, address from members where id=$1', [MEMBER])).rows;
+  await db.exec('set local role authenticated');
+  assert.equal((await db.query('select get_member_profile() as data')).rows[0].data.error, 'not_approved');
+  assert.equal((await db.query("select update_member_contacts('blocked@example.invalid','60000001','Testas') as data")).rows[0].data.error, 'not_approved');
+  await db.exec('reset role');
+  assert.deepEqual((await db.query('select email, phone, address from members where id=$1', [MEMBER])).rows, before);
+});
+
+scenario('053 po 049: patvirtinto nario kontaktų srautas veikia', { approved: true }, async () => {
+  await db.exec('set local role authenticated');
+  assert.equal((await db.query('select get_member_profile() as data')).rows[0].data.member.id, MEMBER);
+  assert.equal((await db.query("select update_member_contacts('updated@example.invalid','60000001','Testas') as data")).rows[0].data.success, true);
+  await db.exec('reset role');
+  assert.equal((await db.query('select email from members where id=$1', [MEMBER])).rows[0].email, 'updated@example.invalid');
 });
