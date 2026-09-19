@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 import { COMMUNITY_LEGAL } from "@/lib/constants";
 import { canViewMeetingDoc } from "@/lib/meeting-doc-auth";
+import { escapeHtml } from "@/lib/html";
 
 export async function GET(
   request: Request,
@@ -16,22 +17,12 @@ export async function GET(
     return NextResponse.json({ error: "Prieiga negalima" }, { status: 403 });
   }
 
-  const { data: meeting } = await supabase
-    .from("meetings")
-    .select("id, title, meeting_date")
-    .eq("id", params.meeting_id)
-    .single();
-  if (!meeting) {
-    return NextResponse.json({ error: "Susirinkimas nerastas" }, { status: 404 });
-  }
-
-  const meetingDate = new Date(meeting.meeting_date);
-  const generatedAt = new Date();
-  const year = meetingDate.getFullYear();
-
   // Naudojam SECURITY DEFINER RPC – veikia ir anonymous kontekste (kai iframe
   // atidaromas iš /balsuoti/[token] anon srauto, RLS blokuotų tiesiogines užklausas)
   type PlanData = {
+    meeting_title?: string;
+    meeting_date?: string;
+    captured_at?: string;
     error?: string;
     member_count?: number;
     collected_cents?: number;
@@ -41,9 +32,17 @@ export async function GET(
   };
   const { data: planData } = await supabase.rpc("get_meeting_plan_data", {
     p_meeting_id: params.meeting_id,
+    // Nuo migr. 047 prieigą tikrina ir pati RPC – tokenas perduodamas, kad
+    // anon balsuotojas praeitų tą pačią patikrą, kurią route'as jau atliko.
+    p_token: token,
   });
   const plan = (planData ?? {}) as PlanData;
 
+  if (plan.error || !plan.meeting_date) return NextResponse.json({error:"Dokumento duomenys nepasiekiami"},{status:404});
+  const meeting={title:plan.meeting_title || "Veiklos planas",meeting_date:plan.meeting_date};
+  const meetingDate=new Date(meeting.meeting_date);
+  const generatedAt=new Date(plan.captured_at || Date.now());
+  const year=meetingDate.getFullYear();
   const memberCount = plan.member_count ?? 0;
   const collectedEur = (plan.collected_cents ?? 0) / 100;
   const paidCount = plan.paid_count ?? 0;
@@ -66,7 +65,7 @@ export async function GET(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${year} m. veiklos planas – ${meeting.title}</title>
+  <title>${year} m. veiklos planas – ${escapeHtml(meeting.title)}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -210,14 +209,14 @@ export async function GET(
   <button class="print-btn" onclick="window.print()">Spausdinti / PDF</button>
 
   <div class="header">
-    <h1>${COMMUNITY_LEGAL.name.toUpperCase()}</h1>
-    <div class="subtitle">Juridinio asmens kodas: ${COMMUNITY_LEGAL.code}</div>
-    <div class="subtitle">Buveinė: ${COMMUNITY_LEGAL.address}</div>
+    <h1>${escapeHtml(COMMUNITY_LEGAL.name.toUpperCase())}</h1>
+    <div class="subtitle">Juridinio asmens kodas: ${escapeHtml(COMMUNITY_LEGAL.code)}</div>
+    <div class="subtitle">Buveinė: ${escapeHtml(COMMUNITY_LEGAL.address)}</div>
   </div>
 
   <div class="doc-title">
     <h2>${year} m. veiklos planas</h2>
-    <div class="meta">${meeting.title}, ${meetingDate.toLocaleDateString("lt-LT", { year: "numeric", month: "long", day: "numeric" })}</div>
+    <div class="meta">${escapeHtml(meeting.title)}, ${escapeHtml(meetingDate.toLocaleDateString("lt-LT", { year: "numeric", month: "long", day: "numeric" }))}</div>
   </div>
 
   <p>
@@ -455,7 +454,7 @@ export async function GET(
   </p>
 
   <p class="generated">
-    Dokumentas sugeneruotas: ${generatedAt.toLocaleString("lt-LT", { timeZone: "Europe/Vilnius" })}
+    Dokumentas sugeneruotas: ${escapeHtml(generatedAt.toLocaleString("lt-LT", { timeZone: "Europe/Vilnius" }))}
   </p>
 </body>
 </html>`;

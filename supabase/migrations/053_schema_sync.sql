@@ -5,10 +5,9 @@
 -- tiesiogiai per SQL redaktorių arba MCP be sinchronizacijos į failą). Dėl to
 -- `supabase/migrations/` nebuvo pilnas atkūrimo šaltinis.
 --
--- Ši migracija NIEKO nekeičia gyvoje bazėje – visi sakiniai idempotentiški ir
--- atkartoja tai, kas ten jau yra (patikrinta per information_schema ir
--- pg_get_functiondef). Jos tikslas – kad tie patys objektai atsirastų ir
--- atkuriant bazę iš repo.
+-- Sakiniai idempotentiški. Nario RPC apibrėžimai išlaiko 049 patvirtinimo
+-- vartus; prieš diegimą jų atitiktis produkcijai tikrinama dar kartą.
+-- Tikslas – trūkstamus objektus įtraukti į repo atkūrimo istoriją.
 --
 -- Ko ši migracija NEIŠSPRENDŽIA: eiliškumo. Sukūrimas atsiranda 053-ioje, o
 -- ankstesnės migracijos (028 politikos, 029 grant'ai) tų pačių objektų
@@ -44,14 +43,14 @@ ALTER TABLE public.project_expenses
 -- 3. Nario portalo ir deklaracijos RPC
 -- ----------------------------------------------------------------------------
 -- 007 ir 008 migracijose šios funkcijos paminėtos tik komentaru „žr. DB".
--- Apibrėžimai perrašyti iš gyvos bazės be pakeitimų.
+-- Nario RPC suderinti su 049, kad 053 neatšauktų prieigos kontrakto.
 
 CREATE OR REPLACE FUNCTION public.get_member_profile()
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 DECLARE
   v_user_id UUID;
   v_profile profiles%ROWTYPE;
@@ -60,6 +59,10 @@ BEGIN
   v_user_id := auth.uid();
   IF v_user_id IS NULL THEN
     RETURN jsonb_build_object('error', 'not_authenticated');
+  END IF;
+
+  IF NOT (public.is_approved_member() OR public.is_admin()) THEN
+    RETURN jsonb_build_object('error', 'not_approved');
   END IF;
 
   SELECT * INTO v_profile FROM profiles WHERE id = v_user_id;
@@ -95,18 +98,14 @@ BEGIN
     END
   );
 END;
-$$;
+$function$;
 
-CREATE OR REPLACE FUNCTION public.update_member_contacts(
-  p_email TEXT,
-  p_phone TEXT,
-  p_address TEXT
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
+CREATE OR REPLACE FUNCTION public.update_member_contacts(p_email text, p_phone text, p_address text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 DECLARE
   v_user_id UUID;
   v_member_id UUID;
@@ -114,6 +113,10 @@ BEGIN
   v_user_id := auth.uid();
   IF v_user_id IS NULL THEN
     RETURN jsonb_build_object('error', 'not_authenticated');
+  END IF;
+
+  IF NOT (public.is_approved_member() OR public.is_admin()) THEN
+    RETURN jsonb_build_object('error', 'not_approved');
   END IF;
 
   SELECT member_id INTO v_member_id FROM profiles WHERE id = v_user_id;
@@ -127,9 +130,13 @@ BEGIN
     address = NULLIF(trim(p_address), '')
   WHERE id = v_member_id;
 
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('error', 'no_member_link');
+  END IF;
+
   RETURN jsonb_build_object('success', true);
 END;
-$$;
+$function$;
 
 CREATE OR REPLACE FUNCTION public.submit_declaration(
   p_token TEXT,

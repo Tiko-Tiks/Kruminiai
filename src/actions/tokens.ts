@@ -6,7 +6,8 @@ import { logAudit } from "@/lib/audit";
 import { sendSms, normalizePhone } from "@/lib/infobip";
 import { sendEmail, renderBrandedEmail } from "@/lib/email";
 import { logNotification, logNotificationSystem } from "@/lib/notification-log";
-import { escapeHtml, vocative } from "@/lib/utils";
+import { getDocumentPublicUrl, vocative } from "@/lib/utils";
+import { escapeAttr, escapeHtml } from "@/lib/html";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
@@ -417,9 +418,21 @@ export async function castVotesByToken(
         susilaike: { label: "Susilaikė", color: "#374151", bg: "#f3f4f6" },
       };
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const docUrl = (filePath: string) =>
-    `${supabaseUrl}/storage/v1/object/public/documents/${filePath}`;
+  // Dokumentų nuorodos eina per prieigos kontrolės route'ą (vienas šaltinis –
+  // `getDocumentPublicUrl`), ne tiesiai į Storage: `documents` bucket'as
+  // privatus. Laiške reikia absoliutaus adreso, todėl priekyje – `getBaseUrl()`.
+  //
+  // Prie MŪSŲ route'ų (`/api/...`) pridedam ir tokeną: laiško gavėjas sesijos
+  // neturi, o prie darbotvarkės prikabintas dokumentas gali būti neviešas –
+  // be tokeno jis gautų 401. Ta pati taisyklė kaip `VotingFlow`; `__public__/`
+  // keliai lieka be tokeno, nes yra statiniai ir vieši.
+  const docUrl = (filePath: string) => {
+    const docPath = getDocumentPublicUrl(filePath);
+    const absolute = `${getBaseUrl()}${docPath}`;
+    return docPath.startsWith("/api/")
+      ? `${absolute}?token=${encodeURIComponent(token)}`
+      : absolute;
+  };
 
   const votesHtml = votes
     .map((v) => {
@@ -429,13 +442,13 @@ export async function castVotesByToken(
           ? `<div style="margin-top:6px;font-size:12px;color:#6b7280;">${v.documents
               .map(
                 (d) =>
-                  `<a href="${docUrl(d.file_path)}" style="color:#15803d;text-decoration:none;">📄 ${d.title}</a>`
+                  `<a href="${escapeAttr(docUrl(d.file_path))}" style="color:#15803d;text-decoration:none;">📄 ${escapeHtml(d.title)}</a>`
               )
               .join(" &nbsp;·&nbsp; ")}</div>`
           : "";
       const commentLine =
         v.comment && v.comment.trim()
-          ? `<div style="margin-top:8px;padding:8px 10px;background:#f9fafb;border-left:2px solid #d1d5db;font-size:13px;color:#4b5563;font-style:italic;line-height:1.5;">„${v.comment.replace(/</g, "&lt;").replace(/>/g, "&gt;")}"</div>`
+          ? `<div style="margin-top:8px;padding:8px 10px;background:#f9fafb;border-left:2px solid #d1d5db;font-size:13px;color:#4b5563;font-style:italic;line-height:1.5;">„${escapeHtml(v.comment)}"</div>`
           : "";
       return `
         <tr>
@@ -443,7 +456,7 @@ export async function castVotesByToken(
             <span style="display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;background:#f3f4f6;color:#6b7280;border-radius:50%;font-size:12px;font-weight:600;">${v.resolution_number}</span>
           </td>
           <td style="padding:12px 8px;border-bottom:1px solid #f3f4f6;font-size:14px;color:#374151;line-height:1.5;">
-            ${v.title}
+            ${escapeHtml(v.title)}
             ${docsLine}
             ${commentLine}
           </td>

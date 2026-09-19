@@ -136,27 +136,53 @@ export function getDocumentPublicUrl(filePath: string): string {
   if (filePath.startsWith("__public__/")) {
     return `/${filePath.replace("__public__/", "")}`;
   }
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  return `${base}/storage/v1/object/public/documents/${filePath}`;
+  // Supabase Storage objektai atiduodami per prieigos kontrolės route'ą, o ne
+  // tiesioginiu bucket'o URL: viešame bucket'e failas pasiekiamas be jokios
+  // autentifikacijos, todėl `documents.is_public = false` nieko nereikštų.
+  // `failai/` – rezervuotas pirmas segmentas (žr.
+  // `src/app/api/dokumentai/[...path]/route.ts`); kiekvienas kelio segmentas
+  // koduojamas atskirai, kad tarpai ir skliaustai failų varduose nesugadintų URL.
+  const encoded = filePath
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  return `/api/dokumentai/failai/${encoded}`;
 }
 
-// Sukonstruoti viešą URL nuotraukai images bucket'e (pvz. projektų eigos foto)
-export function getImagePublicUrl(path: string): string {
+// Sukonstruoti viešą URL nuotraukai images bucket'e (pvz. projektų eigos foto).
+//
+// Su `width` grąžinamas Supabase transformacijų (`/render/image/`) URL – failas
+// sumažinamas serveryje (naršyklei, kuri siunčia `Accept: image/webp`, atiduodamas
+// ir WebP). Be šito į 176 px pločio
+// miniatiūrą buvo siunčiamas originalus telefono JPEG: naujienų viršeliai
+// realiai svėrė 0,5 MB vienetui, t. y. ~1,3 MB vien už tris paveikslėlius
+// sąraše. Tas pats failas su `width=400&quality=70` sveria ~30 KB.
+//
+// `width` – **CSS pločio** reikšmė; helperis pats padvigubina Retina ekranams.
+export function getImagePublicUrl(
+  path: string,
+  opts?: { width?: number; quality?: number }
+): string {
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  return `${base}/storage/v1/object/public/images/${path}`;
+  if (!opts?.width) {
+    return `${base}/storage/v1/object/public/images/${path}`;
+  }
+  const params = new URLSearchParams({
+    width: String(Math.round(opts.width * 2)),
+    quality: String(opts.quality ?? 70),
+  });
+  return `${base}/storage/v1/render/image/public/images/${path}?${params}`;
 }
 
 // HTML escape – naudotojo įvesties įterpimui į HTML (pvz. el. laiškus).
 // Būtina anon srautuose (registracija), kur vardai/laukai ateina iš formos ir
 // gali turėti HTML/script (phishing turinio injekcija į brand'intą laišką).
-export function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
+//
+// Įgyvendinimas gyvena `src/lib/html.ts` kartu su kitais konteksto kodavimo
+// pagalbininkais (`escapeAttr`, `escapeHtmlLines`, `safeUrl`) – čia paliktas
+// re-eksportas, kad esami importai iš `@/lib/utils` nesikeistų ir kad
+// neatsirastų antra tos pačios funkcijos kopija.
+export { escapeHtml } from "@/lib/html";
 
 // Ar dokumentas yra server-generuojamas HTML (ne PDF failas)?
 // Naudojama nuspręsti, ar peržiūrai naudoti iframe ar PdfViewer.

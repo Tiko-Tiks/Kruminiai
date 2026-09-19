@@ -1,0 +1,92 @@
+/**
+ * `src/lib/html.ts` kodavimo funkcijų testai.
+ *
+ * Paleidžiama `npm test` (Node įtaisytas test runner). TypeScript failas
+ * importuojamas tiesiogiai – Node nuo v22.18 tipus nuima pats, todėl atskiro
+ * kompiliavimo žingsnio nereikia.
+ */
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import { escapeHtml, escapeAttr, safeUrl } from "../src/lib/html.ts";
+
+test("escapeHtml užkoduoja visus penkis pavojingus simbolius", () => {
+  assert.equal(escapeHtml("&"), "&amp;");
+  assert.equal(escapeHtml("<"), "&lt;");
+  assert.equal(escapeHtml(">"), "&gt;");
+  assert.equal(escapeHtml('"'), "&quot;");
+  assert.equal(escapeHtml("'"), "&#39;");
+});
+
+test("escapeHtml paverčia script žymę tekstu", () => {
+  const out = escapeHtml("<script>alert(1)</script>");
+  assert.equal(out, "&lt;script&gt;alert(1)&lt;/script&gt;");
+  assert.ok(!out.includes("<script"), "išvestyje neturi likti atviros script žymės");
+  assert.ok(!out.includes("</script"), "išvestyje neturi likti uždarančios script žymės");
+});
+
+test("escapeHtml koduoja ampersandą pirmiau už likusius simbolius", () => {
+  // Jei „&" būtų koduojamas paskutinis, gautume &amp;lt; vietoj &lt;
+  assert.equal(escapeHtml("&lt;"), "&amp;lt;");
+});
+
+test("escapeHtml neliečia lietuviškų raidžių ir įprasto teksto", () => {
+  assert.equal(escapeHtml("Aušra Nayyar – Krūminių k."), "Aušra Nayyar – Krūminių k.");
+});
+
+test("escapeHtml tuščias reikšmes paverčia tuščia eilute", () => {
+  assert.equal(escapeHtml(null), "");
+  assert.equal(escapeHtml(undefined), "");
+  assert.equal(escapeHtml(""), "");
+});
+
+test("escapeHtml priima skaičius ir loginius tipus", () => {
+  assert.equal(escapeHtml(0), "0");
+  assert.equal(escapeHtml(37), "37");
+  assert.equal(escapeHtml(false), "false");
+});
+
+test("escapeAttr koduoja kabutes, atgalinę kabutę ir lūžius", () => {
+  assert.equal(escapeAttr('" onmouseover="alert(1)'), "&quot; onmouseover=&quot;alert(1)");
+  assert.equal(escapeAttr("a`b"), "a&#96;b");
+  assert.equal(escapeAttr("a\nb"), "a b");
+  assert.equal(escapeAttr("a\tb"), "a b");
+  assert.equal(escapeAttr(null), "");
+});
+
+test("safeUrl praleidžia leistinas schemas", () => {
+  assert.equal(safeUrl("https://kruminiai.lt/naujienos"), "https://kruminiai.lt/naujienos");
+  assert.equal(safeUrl("http://kruminiai.lt"), "http://kruminiai.lt");
+  assert.equal(safeUrl("HTTPS://KRUMINIAI.LT"), "HTTPS://KRUMINIAI.LT");
+  assert.equal(safeUrl("mailto:info@kruminiai.lt"), "mailto:info@kruminiai.lt");
+});
+
+test("safeUrl praleidžia santykinius adresus", () => {
+  assert.equal(safeUrl("/dokumentai"), "/dokumentai");
+  assert.equal(safeUrl("naujienos/lieptas"), "naujienos/lieptas");
+  assert.equal(safeUrl("?mode=blank"), "?mode=blank");
+  assert.equal(safeUrl("#darbotvarke"), "#darbotvarke");
+});
+
+test("safeUrl atmeta scenarijų schemas, įskaitant užmaskuotas", () => {
+  assert.equal(safeUrl("javascript:alert(1)"), null);
+  assert.equal(safeUrl("JaVaScRiPt:alert(1)"), null);
+  assert.equal(safeUrl("  javascript:alert(1)"), null);
+  assert.equal(safeUrl("java\tscript:alert(1)"), null);
+  assert.equal(safeUrl("java\nscript:alert(1)"), null);
+  assert.equal(safeUrl("jav\x00ascript:alert(1)"), null);
+  assert.equal(safeUrl("vbscript:msgbox(1)"), null);
+  assert.equal(safeUrl("data:text/html,<script>alert(1)</script>"), null);
+});
+
+test("safeUrl atmeta į kitą domeną vedančius adresus be schemos", () => {
+  assert.equal(safeUrl("//evil.lt/x"), null);
+  assert.equal(safeUrl("\\\\evil.lt\\x"), null);
+});
+
+test("safeUrl tuščias reikšmes grąžina kaip null", () => {
+  assert.equal(safeUrl(null), null);
+  assert.equal(safeUrl(undefined), null);
+  assert.equal(safeUrl(""), null);
+  assert.equal(safeUrl("   "), null);
+});

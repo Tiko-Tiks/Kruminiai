@@ -43,7 +43,7 @@ export default async function ContactUpdatePage({
   return (
     <div className="min-h-screen flex flex-col bg-amber-50/40">
       <PublicHeader />
-      <main className="flex-1 flex items-center justify-center px-4 py-8">
+      <main id="turinys" className="flex-1 flex items-center justify-center px-4 py-8">
         <div className="w-full max-w-md">
           {error || result.error || !result.member ? (
             <div className="bg-white rounded-2xl border border-red-200 shadow-sm p-8 text-center">

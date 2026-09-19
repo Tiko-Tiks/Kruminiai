@@ -36,7 +36,7 @@ export default async function ExpulsionsPage({ params }: { params: { id: string 
         </p>
         <p className="text-sm text-gray-600 mt-2 max-w-3xl">
           Tarybos sprendimu šalinami nariai dėl sistematinio nario mokesčio nemokėjimo
-          (įstatų 3.5 p.). Šis sąrašas automatiškai sinchronizuojamas su darbotvarkės
+          (įstatų 3.4.2 p.). Šis sąrašas automatiškai sinchronizuojamas su darbotvarkės
           klausimo Nr. 8 aprašymu.
         </p>
       </div>

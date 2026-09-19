@@ -1,6 +1,9 @@
 "use server";
 
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { requireAdmin } from "@/lib/authz";
+import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
+import { admissionEvidenceError, terminationEvidenceError } from "@/lib/bylaws";
 import { logAudit } from "@/lib/audit";
 import { transliterateLt } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
@@ -28,6 +31,14 @@ const memberSchema = z.object({
   address: z.string().optional().or(z.literal("")),
   join_date: z.string().min(1, "Data privaloma"),
   status: z.enum(["aktyvus", "pasyvus", "išstojęs", "garbes_narys"]),
+  termination_kind: z.enum(['', 'withdrawal', 'expulsion']).optional(),
+  termination_reference: z.string().trim().max(1000).optional(),
+  termination_date: z.string().optional(),
+  expulsion_ground: z.enum(['', '3.4.1', '3.4.2', '3.4.3']).optional(),
+  appeal_reference: z.string().trim().max(1000).optional(),
+  application_reference: z.string().trim().max(1000).optional(),
+  admission_reference: z.string().trim().max(1000).optional(),
+  admission_date: z.string().optional(),
   language: z.enum(["lt", "en"]).optional(),
   notes: z.string().optional().or(z.literal("")),
 });
@@ -90,7 +101,9 @@ export async function getMember(id: string) {
 
 export async function createMember(formData: FormData) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: { _form: [auth.error] } };
+  const user = auth.user;
 
   const raw = Object.fromEntries(formData.entries());
   const parsed = memberSchema.safeParse(raw);
@@ -98,8 +111,15 @@ export async function createMember(formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
+  const evidenceError = admissionEvidenceError(parsed.data);
+  if (evidenceError) return { error: { _form: [evidenceError] } };
+
   const values = {
     ...parsed.data,
+    termination_kind: parsed.data.termination_kind || null,
+    termination_date: parsed.data.termination_date || null,
+    expulsion_ground: parsed.data.expulsion_ground || null,
+    admission_date: parsed.data.admission_date || null,
     email: parsed.data.email || null,
     phone: parsed.data.phone || null,
     address: parsed.data.address || null,
@@ -129,7 +149,9 @@ export async function createMember(formData: FormData) {
 
 export async function updateMember(id: string, formData: FormData) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: { _form: [auth.error] } };
+  const user = auth.user;
 
   const raw = Object.fromEntries(formData.entries());
   const parsed = memberSchema.safeParse(raw);
@@ -139,8 +161,36 @@ export async function updateMember(id: string, formData: FormData) {
 
   const { data: oldData } = await supabase.from("members").select("*").eq("id", id).single();
 
+  if (!oldData) return { error: { _form: ["Narys nerastas"] } };
+  if (ACTIVE_MEMBER_STATUSES.includes(oldData.status) && parsed.data.status === 'išstojęs') {
+    const endError = terminationEvidenceError(parsed.data);
+    if (endError) return { error: { _form: [endError] } };
+  }
+  const terminationFields = ['termination_kind','termination_reference','termination_date','expulsion_ground','appeal_reference'] as const;
+  if (oldData.termination_kind && !(ACTIVE_MEMBER_STATUSES.includes(oldData.status) && parsed.data.status === 'išstojęs') &&
+      terminationFields.some(key => (oldData[key] || null) !== (parsed.data[key] || null))) {
+    return {error:{_form:["Narystės pabaigos pagrindas užfiksuotas; būtinas atskiras dokumentuotas taisymas."]}};
+  }
+  const reactivating = !ACTIVE_MEMBER_STATUSES.includes(oldData.status) && ACTIVE_MEMBER_STATUSES.includes(parsed.data.status);
+  if (reactivating && (!oldData.termination_date || !parsed.data.admission_date || parsed.data.admission_date < oldData.termination_date ||
+      parsed.data.admission_reference?.trim() === oldData.admission_reference?.trim() ||
+      parsed.data.application_reference?.trim() === oldData.application_reference?.trim())) {
+    return {error:{_form:["Pakartotiniam priėmimui būtinas naujas prašymas ir naujas Tarybos sprendimas po ankstesnės narystės pabaigos."]}};
+  }
+  const hadEvidence = oldData.application_reference?.trim() && oldData.admission_reference?.trim() && oldData.admission_date;
+  if (hadEvidence && (!parsed.data.application_reference?.trim() || !parsed.data.admission_reference?.trim() || !parsed.data.admission_date)) {
+    return { error: { _form: ["Užregistruoto priėmimo pagrindo ištrinti negalima."] } };
+  }
+  const evidenceError = reactivating ? admissionEvidenceError(parsed.data) : null;
+  if (evidenceError) return { error: { _form: [evidenceError] } };
+
   const values = {
     ...parsed.data,
+    ...(reactivating ? {archived_at:null} : {}),
+    termination_kind: parsed.data.termination_kind || null,
+    termination_date: parsed.data.termination_date || null,
+    expulsion_ground: parsed.data.expulsion_ground || null,
+    admission_date: parsed.data.admission_date || null,
     email: parsed.data.email || null,
     phone: parsed.data.phone || null,
     address: parsed.data.address || null,
@@ -166,19 +216,24 @@ export async function updateMember(id: string, formData: FormData) {
 
 export async function deleteMember(id: string) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
 
   const { data: oldData } = await supabase.from("members").select("*").eq("id", id).single();
 
-  const { error } = await supabase.from("members").delete().eq("id", id);
+  if (!oldData || ACTIVE_MEMBER_STATUSES.includes(oldData.status)) return {error:"Pirmiausia dokumentuokite narystės pabaigą. Nario istorija saugoma archyve."};
+  const archivedAt = new Date().toISOString();
+  const { error } = await supabase.from("members").update({archived_at:archivedAt}).eq("id", id);
   if (error) return { error: error.message };
 
   await logAudit(supabase, {
     userId: user?.id ?? null,
-    action: "DELETE",
+    action: "UPDATE",
     tableName: "members",
     recordId: id,
     oldData: oldData as Record<string, unknown>,
+    newData: {archived_at:archivedAt},
   });
 
   revalidatePath("/admin/nariai");

@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, useEffect } from "react";
+import { getMembers } from "@/actions/members";
 import { useRouter } from "next/navigation";
 import {
   setAttendance,
   removeAttendance,
   updateMeetingQuorum,
+  captureMeetingElectorate,
   type EligibleAttendee,
 } from "@/actions/meetings";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
@@ -40,6 +42,7 @@ interface Props {
   eligible: EligibleAttendee[];
   totalMembersAtTime: number;
   quorumRequired: number;
+  electorateRecorded?: boolean;
   /** Siūlymas „dabar": kiek tinkamų dalyvauti ir koks kvorumas iš to išeina */
   suggestion: { eligibleCount: number; suggestedQuorum: number };
 }
@@ -84,6 +87,7 @@ export function AttendanceManager({
   eligible,
   totalMembersAtTime,
   quorumRequired,
+  electorateRecorded = false,
   suggestion,
 }: Props) {
   const router = useRouter();
@@ -170,7 +174,7 @@ export function AttendanceManager({
                 {counts.rastu > 0 && ` · ${ATTENDANCE_TYPE_LABELS.rastu}: ${counts.rastu}`}
               </p>
             </div>
-            <Button size="sm" variant="ghost" onClick={() => setShowQuorumEditor((v) => !v)}>
+            <Button disabled={electorateRecorded} size="sm" variant="ghost" onClick={() => setShowQuorumEditor((v) => !v)}>
               <Settings2 className="h-4 w-4" />
               Kvorumas
             </Button>
@@ -201,8 +205,13 @@ export function AttendanceManager({
           <p className="text-xs mt-0.5 opacity-70">Bazė: {quorumBasisLabel(meetingType)}.</p>
         </div>
 
+        {electorateRecorded ? <p className="mb-3 text-sm text-green-800">Susirinkimo laiko narių bazė užfiksuota ir vėlesnių narystės pokyčių nebekeičiama.</p> : <div className="mb-3 space-y-2 text-sm text-amber-900">
+          <p>Susirinkimo pradžioje užfiksuokite narių bazę, net jei nesusirinko kvorumas. Istoriniam susirinkimui skiltyje „Kvorumas“ įrašykite dokumentuotą to laiko skaičių ir šaltinį.</p>
+          {!isFinished && <Button size="sm" variant="outline" onClick={async()=>{const result=await captureMeetingElectorate(meetingId);if(result.error)toast.error(result.error);else router.refresh();}}>Fiksuoti dabartinę narių bazę</Button>}
+        </div>}
         {showQuorumEditor && (
           <QuorumEditor
+            meetingType={meetingType}
             meetingId={meetingId}
             totalMembersAtTime={totalMembersAtTime}
             quorumRequired={quorumRequired}
@@ -347,6 +356,7 @@ export function AttendanceManager({
 }
 
 function QuorumEditor({
+  meetingType,
   meetingId,
   totalMembersAtTime,
   quorumRequired,
@@ -357,10 +367,16 @@ function QuorumEditor({
   totalMembersAtTime: number;
   quorumRequired: number;
   suggestion: { eligibleCount: number; suggestedQuorum: number };
+  meetingType: string;
   onSaved: () => void;
 }) {
+  const [historicalMembers,setHistoricalMembers]=useState<Array<{id:string;first_name:string;last_name:string}>>([]);
+  const [selectedIds,setSelectedIds]=useState<string[]>([]);
+  useEffect(()=>{getMembers("","visi").then(setHistoricalMembers).catch(()=>toast.error("Nepavyko gauti narių sąrašo"));},[]);
   const [total, setTotal] = useState(String(totalMembersAtTime));
   const [quorum, setQuorum] = useState(String(quorumRequired));
+  const [reference, setReference] = useState("");
+  const [councilReference,setCouncilReference]=useState("");
   const [saving, setSaving] = useState(false);
 
   const differsFromSuggestion =
@@ -371,6 +387,9 @@ function QuorumEditor({
     const result = await updateMeetingQuorum(meetingId, {
       total_members_at_time: Number(total) || 0,
       quorum_required: Number(quorum) || 0,
+      electorate_reference: reference,
+      council_reference: councilReference,
+      electorate_member_ids: selectedIds,
     });
     setSaving(false);
     if (result.error) {
@@ -385,9 +404,17 @@ function QuorumEditor({
     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
       <p className="text-sm font-semibold text-blue-900">Kvorumo duomenys</p>
       <p className="text-xs text-blue-800">
-        Skaičiai įšaldomi protokolui, todėl juos galima taisyti rankomis – automatinis
-        siūlymas remiasi ŠIANDIENOS sąrašu ir po posėdžio gali nebesutapti.
+        Tik ankstesnės dienos ar senesniam susirinkimui nurodykite to susirinkimo narių registro išrašą ar kitą dokumentinį pagrindą. Išsaugojus su pagrindu bazė užfiksuojama. Šios dienos susirinkimui naudokite registro fiksavimo mygtuką, kai ateina jo pradžios laikas.
       </p>
+      <label className="block text-sm">Susirinkimo laiko narių skaičių pagrindžiančio dokumento nuoroda
+        <input value={reference} onChange={e=>setReference(e.target.value)} className="mt-1 w-full rounded border p-2" />
+      </label>
+      {meetingType==='valdybos' && <label className="block text-sm">To posėdžio Tarybos sudėties ir pareigų pagrindas
+        <input value={councilReference} onChange={e=>setCouncilReference(e.target.value)} className="mt-1 w-full rounded border p-2" />
+        <span className="block text-xs">Pažymėkite šešis Tarybos narius pagal šį dokumentą. Pareigų registre turi būti jų Tarybos arba Pirmininko pareigos su pradžios data. Kadencijos pabaiga savaime nepanaikina 5.7 p. tęstinumo.</span>
+      </label>}
+      <p className="text-sm">Pagal to laiko registro išrašą pažymėkite visus balso teisę turėjusius narius (ne vien dalyvius). Pažymėta: {selectedIds.length}.</p>
+      <div className="max-h-48 overflow-auto">{historicalMembers.map(member=><label key={member.id} className="flex gap-2 text-sm"><input type="checkbox" checked={selectedIds.includes(member.id)} onChange={e=>setSelectedIds(ids=>e.target.checked?[...ids,member.id]:ids.filter(id=>id!==member.id))} />{member.first_name} {member.last_name}</label>)}</div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">

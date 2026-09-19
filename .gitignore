@@ -61,3 +61,5 @@ private/exports/
 
 # Claude Code agentų darbo katalogai repo viduje
 .claude/worktrees/
+# Local Supabase CLI cache
+/supabase/.temp/

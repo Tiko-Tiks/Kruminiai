@@ -1,0 +1,95 @@
+/**
+ * Serveryje generuojamo HTML išvesties kodavimas – VIENAS ŠALTINIS.
+ *
+ * Kodėl atskiras modulis: dalis dokumentų (protokolas, dalyvių sąrašas,
+ * veiklos planas, šalinamų narių sąrašas, rinkimų pranešimas) sudaroma ne per
+ * React, o sujungiant eilutes (`template literal`). React reikšmes užkoduoja
+ * pats, eilučių sujungimas – ne, todėl KIEKVIENĄ dinaminę reikšmę reikia
+ * užkoduoti rankomis. Reikšmės ateina iš DB (narių vardai, nutarimų
+ * pavadinimai, pastabos, skelbimų kanalai), o dalis jų – iš formų, kurias
+ * pildo pats naudotojas.
+ *
+ * Kodavimas priklauso nuo konteksto, todėl funkcijos atskiros:
+ *
+ *   escapeHtml  – tekstinis mazgas:            <p>${escapeHtml(x)}</p>
+ *   escapeAttr  – atributo reikšmė (VISADA dvigubose kabutėse):
+ *                                            lang="${escapeAttr(x)}"
+ *   safeUrl     – href/src schemos filtras; rezultatą dar reikia
+ *                 užkoduoti: href="${escapeAttr(safeUrl(x) ?? "")}"
+ *
+ * Modulis sąmoningai be priklausomybių – jį importuoja ir serverio route'ai,
+ * ir klientiniai komponentai, ir `node --test` testai.
+ */
+
+const HTML_ESCAPES: Record<string, string> = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+};
+
+/** Reikšmės, kurias į dokumentus dedam kaip tekstą (iš DB gali ateiti ir skaičius). */
+type Escapable = string | number | boolean | null | undefined;
+
+/**
+ * Tekstinio mazgo kodavimas: `& < > " '`.
+ *
+ * Kabutės koduojamos taip pat, todėl ta pati funkcija tinka ir dvigubomis
+ * kabutėmis apgaubtai atributo reikšmei (griežtesnį variantą su atgaline
+ * kabute ir eilučių lūžiais duoda `escapeAttr`).
+ *
+ * `null` / `undefined` virsta tuščia eilute – dokumentuose to ir norim
+ * („null" atspausdintas protokole atrodytų kaip klaida).
+ */
+export function escapeHtml(value: Escapable): string {
+  if (value === null || value === undefined) return "";
+  // String() – apsauga nuo netipizuotų DB reikšmių (`select("*")` grąžina any).
+  return String(value).replace(/[&<>"']/g, (ch) => HTML_ESCAPES[ch]);
+}
+
+/**
+ * Atributo reikšmės kodavimas. Naudoti TIK dvigubose kabutėse.
+ *
+ * Papildomai prieš `escapeHtml`:
+ *   • atgalinė kabutė – senesnės naršyklės ją laiko atributo ribotuvu;
+ *   • eilučių lūžiai ir tabuliacija – kad reikšmė netaptų daugiaeile ir
+ *     nepakeistų žymės struktūros.
+ */
+export function escapeAttr(value: Escapable): string {
+  return escapeHtml(value)
+    .replace(/`/g, "&#96;")
+    .replace(/[\r\n\t]/g, " ");
+}
+
+/** Schemos, kurias leidžiam `href` / `src` reikšmėse. */
+const ALLOWED_URL_SCHEMES = new Set(["http", "https", "mailto"]);
+
+/**
+ * Nuorodos filtras: grąžina URL, jei jis saugus, arba `null`.
+ *
+ * Leidžiama: `http:`, `https:`, `mailto:` ir santykiniai adresai
+ * (`/dokumentai`, `?mode=blank`, `#skyrius`). Viskas kita – `javascript:`,
+ * `data:`, `vbscript:`, taip pat schemos neturintys, bet į kitą domeną vedantys
+ * `//evil.lt` ir `\\evil.lt` – atmetama.
+ *
+ * Grąžinama `null`, o ne tuščia eilutė: JSX'e `href=""` yra nuoroda į tą patį
+ * puslapį, o `href={undefined}` žymės atributo apskritai nesukuria.
+ *
+ * Reikšmė NĖRA užkoduota – HTML eilutėje dar reikia `escapeAttr()`.
+ */
+export function safeUrl(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+
+  // Naršyklės tarpus ir valdymo simbolius URL viduje ignoruoja, todėl
+  // „java\tscript:" joms yra „javascript:". Pašalinam PRIEŠ schemos patikrą.
+  const cleaned = String(value).replace(/[\x00-\x20\x7f]/g, "");
+  if (!cleaned) return null;
+
+  if (cleaned.startsWith("//") || cleaned.startsWith("\\")) return null;
+
+  const scheme = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(cleaned);
+  if (scheme && !ALLOWED_URL_SCHEMES.has(scheme[1].toLowerCase())) return null;
+
+  return cleaned;
+}

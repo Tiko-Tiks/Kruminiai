@@ -1,5 +1,32 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
+/**
+ * Žurnalo eilutei skirta reikšmė be eilučių lūžių ir valdymo simbolių: iš
+ * parametrų (pvz. įrašo ID iš formos) atėjęs tekstas negali suformuoti
+ * netikros atskiros žurnalo eilutės. Ilgis ribojamas, kad viena klaida
+ * neužverstų žurnalo.
+ */
+function logSafe(value: unknown): string {
+  // Eilučių lūžiai šalinami atskirais kvietimais – būtent tokį pavidalą
+  // statinė analizė (CodeQL log-injection) atpažįsta kaip valymą.
+  return String(value ?? "")
+    .replace(/\n/g, "")
+    .replace(/\r/g, "")
+    .replace(/[\t\u0000-\u001f\u007f]+/g, " ")
+    .slice(0, 200);
+}
+
+/**
+ * Audito įrašas.
+ *
+ * Nuo migr. 049 `audit_log` INSERT politika reikalauja administratoriaus –
+ * eilinio nario srautai į šią lentelę nerašo, o sisteminius įrašus (pvz.
+ * narystės statuso trigger'is) daro SECURITY DEFINER funkcijos, kurioms RLS
+ * negalioja.
+ *
+ * Klaida čia NEnutraukia mutacijos (ji jau įvykdyta), bet ir NEnutylima:
+ * tylus audito praradimas yra blogesnis už triukšmą žurnale.
+ */
 export async function logAudit(
   supabase: SupabaseClient,
   params: {
@@ -10,8 +37,8 @@ export async function logAudit(
     oldData?: Record<string, unknown> | null;
     newData?: Record<string, unknown> | null;
   }
-) {
-  await supabase.from("audit_log").insert({
+): Promise<void> {
+  const { error } = await supabase.from("audit_log").insert({
     user_id: params.userId,
     action: params.action,
     table_name: params.tableName,
@@ -19,4 +46,10 @@ export async function logAudit(
     old_data: params.oldData ?? null,
     new_data: params.newData ?? null,
   });
+
+  if (error) {
+    console.error(
+      `[audit_log] Neįrašyta: ${logSafe(params.action)} ${logSafe(params.tableName)}/${logSafe(params.recordId)} – ${logSafe(error.message)}`
+    );
+  }
 }

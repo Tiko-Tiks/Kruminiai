@@ -40,11 +40,11 @@ export const KNOWN_DUPLICATES = {
  * todėl sekos patikra jų vietoje tarpo nelaiko klaida, o naujas failas su tokiu
  * numeriu praeina ir tada, kai jis mažesnis už `origin/main` maksimumą.
  *
- * 046–049 – PR #16, 050–052 – PR #15.
+ * 052 – likęs nepanaudotas audito rezervas; 046–051 jau yra main.
  * ŠIUOS ĮRAŠUS PAŠALINTI, kai tie PR sumerginti (tada numeriai jau bus repo, o
  * sekos patikra saugos toliau).
  */
-export const RESERVED = ["046", "047", "048", "049", "050", "051", "052"];
+export const RESERVED = ["052"];
 
 const FILE_NAME_RE = /^(\d{3})_[a-z0-9_]+\.sql$/;
 
@@ -57,14 +57,14 @@ function pad(n) {
  * Gryna patikros logika – be failų sistemos ir be git.
  *
  * @param {string[]} files migracijų failų vardai (be katalogo)
- * @param {{ addedFiles?: string[] | null, deletedFiles?: string[] | null, mainMaxNumber?: string | null }} [context]
+ * @param {{ addedFiles?: string[] | null, deletedFiles?: string[] | null, modifiedFiles?: string[] | null, mainMaxNumber?: string | null }} [context]
  *   `addedFiles` – šiame PR pridėti failai (vardai be katalogo);
  *   `deletedFiles` – šiame PR ištrinti failai;
  *   `mainMaxNumber` – didžiausias numeris `origin/main` šakoje.
  * @returns {{ problems: string[], count: number }}
  */
 export function checkMigrationFiles(files, context = {}) {
-  const { addedFiles = null, deletedFiles = null, mainMaxNumber = null } = context;
+  const { addedFiles = null, deletedFiles = null, modifiedFiles = null, mainMaxNumber = null } = context;
   const problems = [];
   const byNumber = new Map();
 
@@ -129,6 +129,10 @@ export function checkMigrationFiles(files, context = {}) {
     problems.push(`migracijų failai netrinami: ${deletedFiles.join(", ")}`);
   }
 
+  if (modifiedFiles && modifiedFiles.length > 0) {
+    problems.push(`pritaikytos migracijos nekeičiamos: ${modifiedFiles.join(", ")}`);
+  }
+
   // 4) Naujai pridėti failai turi eiti PO visko, kas jau sumerginta
   if (addedFiles && mainMaxNumber) {
     const expected = pad(Number(mainMaxNumber) + 1);
@@ -148,9 +152,9 @@ export function checkMigrationFiles(files, context = {}) {
   return { problems, count: files.length };
 }
 
-function git(args) {
+function git(args, repoRoot = REPO_ROOT) {
   return execFileSync("git", args, {
-    cwd: REPO_ROOT,
+    cwd: repoRoot,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"],
   });
@@ -169,16 +173,17 @@ function toFileNames(stdout) {
  * PR kontekstas. Jei `origin/main` nepasiekiamas (lokaliai arba shallow clone
  * be jo), grąžinam `null` – tada lieka tik sekos patikra su įspėjimu.
  */
-function readMainContext() {
+export function readMainContext(repoRoot = REPO_ROOT) {
+  const runGit = args => git(args, repoRoot);
   try {
-    git(["rev-parse", "--verify", "--quiet", "origin/main"]);
+    runGit(["rev-parse", "--verify", "--quiet", "origin/main"]);
   } catch {
     return null;
   }
 
   try {
     const mainFiles = toFileNames(
-      git(["ls-tree", "-r", "--name-only", "origin/main", "--", "supabase/migrations"])
+      runGit(["ls-tree", "-r", "--name-only", "origin/main", "--", "supabase/migrations"])
     );
     const mainNumbers = mainFiles
       .map((f) => FILE_NAME_RE.exec(f)?.[1])
@@ -189,9 +194,10 @@ function readMainContext() {
     // Dviejų taškų diff'as – veikia ir shallow clone'e (nereikia merge-base)
     const diffNames = (filter) =>
       toFileNames(
-        git([
+        runGit([
           "diff",
           "--name-only",
+          "--no-renames", // Pervadinimas tampa D + A; istorinės kilmės praradimas atmetamas.
           `--diff-filter=${filter}`,
           "origin/main",
           "HEAD",
@@ -204,6 +210,7 @@ function readMainContext() {
       mainMaxNumber: pad(Math.max(...mainNumbers)),
       addedFiles: diffNames("A"),
       deletedFiles: diffNames("D"),
+      modifiedFiles: diffNames("M"),
     };
   } catch {
     return null;
@@ -339,8 +346,8 @@ export function buildSelfTestCases() {
     },
     {
       name: "naujas rezervuotas numeris – praeina",
-      files: [...base, "047_rezervuotas.sql"],
-      context: { addedFiles: ["047_rezervuotas.sql"], mainMaxNumber: "054" },
+      files: [...base, "052_rezervuotas.sql"],
+      context: { addedFiles: ["052_rezervuotas.sql"], mainMaxNumber: "054" },
       expectProblem: false,
     },
     {

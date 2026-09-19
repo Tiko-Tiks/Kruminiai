@@ -3,6 +3,7 @@ import { PublicFooter } from "@/components/layout/PublicFooter";
 import { getNewsArticle } from "@/actions/news";
 import { formatDateLong, getImagePublicUrl } from "@/lib/utils";
 import { getDict } from "@/lib/i18n-server";
+import { newsCategoryLabel } from "@/lib/news-category";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -56,33 +57,62 @@ export default async function NewsArticlePage({ params }: Props) {
     <div className="min-h-screen flex flex-col">
       <PublicHeader />
 
-      <main className="flex-1 bg-gray-50">
-        <article className="max-w-3xl mx-auto px-4 sm:px-6 py-12">
+      {/* Straipsnis – ant balto, ne dėžutėje ant pilko. Tekstas apribotas
+          `max-w-prose` (~68 simboliai eilutėje); anksčiau eilutė siekė ~90
+          simbolių, o tai jau varginanti skaitymo riba. */}
+      <main id="turinys" className="flex-1 bg-surface">
+        <article className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
           <Link
             href="/naujienos"
-            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-6"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-brand-strong transition-colors mb-8"
           >
-            <ArrowLeft className="h-3.5 w-3.5" /> Visos naujienos
+            <ArrowLeft className="h-4 w-4" aria-hidden /> {t.backToList}
           </Link>
 
           <header className="mb-8">
-            <p className="text-sm text-gray-400 mb-2">
-              {article.published_at ? formatDateLong(article.published_at) : ""}
-            </p>
-            <h1 className="text-3xl font-bold text-gray-900">{article.title}</h1>
+            <div className="flex flex-wrap items-center gap-2 mb-3 text-xs">
+              <span className="inline-flex items-center rounded-full bg-brand-soft text-brand-strong border border-brand-line px-2.5 py-0.5 font-semibold">
+                {newsCategoryLabel(article.category, t)}
+              </span>
+              <time
+                className="text-ink-subtle"
+                dateTime={article.published_at || undefined}
+              >
+                {article.published_at ? formatDateLong(article.published_at) : ""}
+              </time>
+            </div>
+            <h1 className="text-display-md font-bold text-ink text-balance">
+              {article.title}
+            </h1>
+            {article.excerpt && (
+              <p className="mt-4 text-lg leading-relaxed text-ink-muted text-pretty max-w-prose">
+                {article.excerpt}
+              </p>
+            )}
           </header>
 
           {article.cover_image_path && (
             <img
-              src={getImagePublicUrl(article.cover_image_path)}
+              src={getImagePublicUrl(article.cover_image_path, { width: 768 })}
               alt={t.coverAlt}
-              className="w-full aspect-[16/9] object-cover rounded-xl border border-gray-200 mb-8"
+              width={768}
+              height={432}
+              className="w-full aspect-[16/9] object-cover rounded-2xl border border-line mb-10"
             />
           )}
 
-          <div className="bg-white rounded-xl border border-gray-200 p-8">
+          <div className="max-w-prose">
             <MarkdownContent content={article.content} />
           </div>
+
+          <footer className="mt-12 pt-8 border-t border-line">
+            <Link
+              href="/naujienos"
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-strong hover:underline"
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden /> {t.backToList}
+            </Link>
+          </footer>
         </article>
       </main>
 

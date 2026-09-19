@@ -39,7 +39,7 @@ test("check-pii: skirtukai tarp skaitmenų pašalinami, eilutės lūžis – ne"
 });
 
 test("check-pii: atpažįstami visi `normalizePhone` priimami užrašymai", () => {
-  const variants = ["+370 612 34567", "+37061234567", "37061234567", "8 612-34567", "861234567"];
+  const variants = ["+370 612 34567", "+37061234567", "37061234567", "8 612-34567", "861234567", "61234567", "612 34567"];
   for (const v of variants) {
     assert.deepEqual(distinctPhones(v), ["37061234567"], `neatpažintas: ${v}`);
   }
@@ -56,4 +56,12 @@ test("check-pii: riba yra MAX_CONTACTS skirtingų kontaktų", () => {
 
 test("check-pii: el. paštai skaičiuojami be didžiųjų raidžių skirtumo", () => {
   assert.deepEqual(distinctEmails("Info@Kruminiai.LT info@kruminiai.lt"), ["info@kruminiai.lt"]);
+});
+
+
+test("check-pii: penki pliki mobilieji numeriai atmetami", () => {
+  const phones = Array.from({ length: 5 }, (_, i) => `6000000${i}`).join("\n");
+  assert.equal(distinctPhones(phones).length, 5);
+  assert.ok(checkFile("contacts.sql", phones).length > 0);
+  assert.deepEqual(distinctPhones("60000001\n+37060000001\n860000001"), ["37060000001"]);
 });

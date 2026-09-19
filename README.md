@@ -11,6 +11,15 @@ Bendruomenės valdymo sistema su viešu puslapiu ir administravimo panele.
 
 ---
 
+## Įstatų taisyklės ir patikra
+
+- Kūrimo ir Codex peržiūros instrukcijos: [`AGENTS.md`](AGENTS.md).
+- Pirminis įstatų šaltinis: `private/documents/istatai-kkb.pdf`; tekstinė kopija ir taisyklių matrica: [`docs/istatai/`](docs/istatai/).
+- [2026-09-18 atitikties auditas](docs/istatai/AUDITAS-2026-09-18.md): 9 pradinės išvados. [Parengtos pataisos](docs/istatai/PATAISOS-2026-09-18.md): 88/88 testai; diegimas dar laukia.
+- `npm run test:bylaws` paleidžia visą izoliuotą rinkinį, be gyvos DB ir pranešimų siuntimo. Nesėkmingas rezultatas neturi būti apeinamas praleidžiant testus.
+- `npm run test:bylaws:core` tikrina tik bazines regresijas ir nėra visos atitikties patikra.
+- GitHub patikra `Bylaws compliance` yra atskira nuo bendrų kompiliavimo patikrų; šakos apsaugoje ji savaime netampa privaloma.
+
 ## Projekto struktūra
 
 ```
@@ -192,6 +201,9 @@ Baziniai komponentai (`src/components/ui/`) naudoja `class-variance-authority` (
 ---
 
 ## Paleidimas lokaliai
+
+Reikia **Node.js ≥ 22.18** (`.nvmrc` → `nvm use`): `npm test` TypeScript failus
+importuoja tiesiogiai, o tipus be atskiro kompiliavimo Node nuima tik nuo šios versijos.
 
 ```bash
 # Priklausomybės

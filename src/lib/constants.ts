@@ -23,7 +23,7 @@ export const ADMIN_NAV = [
 export const MEMBER_STATUS_LABELS: Record<string, string> = {
   aktyvus: "Aktyvus",
   pasyvus: "Pasyvus",
-  "išstojęs": "Išstojęs",
+  "išstojęs": "Narystė pasibaigusi",
   // Garbės narys – be nario mokesčio prievolės, bet su PILNA balso teise ir
   // įskaičiuojamas į kvorumą. Žr. CLAUDE.md „Garbės nario statusas".
   garbes_narys: "Garbės narys",

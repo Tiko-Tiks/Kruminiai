@@ -16,6 +16,10 @@ export function normalizeLocale(value: string | undefined | null): Locale {
 }
 
 export interface Dictionary {
+  /** Bendri, kelių puslapių dalinami tekstai. */
+  common: {
+    dataUnavailable: string;
+  };
   nav: {
     home: string;
     news: string;
@@ -34,6 +38,7 @@ export interface Dictionary {
     communityLine1: string;
     communityLine2: string;
     language: string;
+    skipToContent: string;
   };
   home: {
     upcomingMeetingBadge: string;
@@ -61,8 +66,6 @@ export interface Dictionary {
     quickLinkProjectsDesc: string;
     quickLinkAboutTitle: string;
     quickLinkAboutDesc: string;
-    quickLinkContactsTitle: string;
-    quickLinkContactsDesc: string;
     latestNewsHeading: string;
     allNewsLink: string;
     aboutHeading: string;
@@ -110,6 +113,7 @@ export interface Dictionary {
     communityAddress: string;
     supportersHeading: string;
     supportersTransparency: string;
+    supportersShowAll: string;
     anonymousDonor: string;
     noDonorsTitle: string;
     noDonorsSubtitle: string;
@@ -122,6 +126,8 @@ export interface Dictionary {
     copyAriaLabel: string;
     copyLabel: string;
     copiedLabel: string;
+    shareLinkCopyAriaLabel: string;
+    shareLinkCopyToastSuccess: string;
     goalReachedTitle: string;
     goalSurplusNote: string;
     noGoalNote: string;
@@ -287,12 +293,11 @@ export interface Dictionary {
     tagline: string;
     linksHeading: string;
     linkNews: string;
+    linkProjects: string;
     linkDocuments: string;
     linkContacts: string;
     contactsHeading: string;
     companyCodeLabel: string;
-    emailLabel: string;
-    phoneLabel: string;
     rightsReserved: string;
   };
   about: {
@@ -329,6 +334,13 @@ export interface Dictionary {
     value3: string;
     value4: string;
     value5: string;
+    contactsTitle: string;
+    contactsIntro: string;
+    contactAddressLabel: string;
+    contactEmailLabel: string;
+    contactPhoneLabel: string;
+    contactCodeLabel: string;
+    contactMapLink: string;
   };
   auth: {
     emailLabel: string;
@@ -402,8 +414,14 @@ export interface Dictionary {
   };
   news: {
     pageTitle: string;
+    pageIntro: string;
     emptyState: string;
     coverAlt: string;
+    backToList: string;
+    pinnedLabel: string;
+    categoryBendra: string;
+    categoryProjektas: string;
+    categorySusirinkimas: string;
   };
   documents: {
     pageHeading: string;
@@ -472,6 +490,8 @@ export interface Dictionary {
   };
   voteErrors: {
     notEligible: string;
+    councilOnly: string;
+    notApproved: string;
     votingClosed: string;
     incompleteBallot: string;
     alreadyVoted: string;
@@ -548,6 +568,9 @@ export interface Dictionary {
 }
 
 const lt: Dictionary = {
+  common: {
+    dataUnavailable: "Duomenų šiuo metu nepavyko užkrauti. Pabandykite vėliau.",
+  },
   nav: {
     home: "Pradžia",
     news: "Naujienos",
@@ -566,6 +589,7 @@ const lt: Dictionary = {
     communityLine1: "Krūminių kaimo",
     communityLine2: "bendruomenė",
     language: "Kalba",
+    skipToContent: "Praleisti į turinį",
   },
   home: {
     upcomingMeetingBadge: "Artėjantis susirinkimas",
@@ -594,8 +618,6 @@ const lt: Dictionary = {
     quickLinkProjectsDesc: "Aukų rinkimo projektai su skaidria lėšų istorija",
     quickLinkAboutTitle: "Apie mus",
     quickLinkAboutDesc: "Vizija, misija ir bendruomenės veiklos modelis",
-    quickLinkContactsTitle: "Kontaktai",
-    quickLinkContactsDesc: "Susisiekite su bendruomenės valdyba",
     latestNewsHeading: "Naujausios naujienos",
     allNewsLink: "Visos naujienos",
     aboutHeading: "Apie bendruomenę",
@@ -650,6 +672,7 @@ const lt: Dictionary = {
     cashDonationHeading: "Norite paaukoti grynais?",
     communityAddress: "Beržų g. 8, Krūminių k., Varėnos r.",
     supportersHeading: "Mūsų rėmėjai",
+    supportersShowAll: "Rodyti visus rėmėjus ({count})",
     supportersTransparency:
       "Skaidrumas – kiekvienas įnašas užregistruotas viešai. Anoniminiai rėmėjai parodyti kaip „Anonimas\".",
     anonymousDonor: "Anonimas",
@@ -665,6 +688,11 @@ const lt: Dictionary = {
     copyAriaLabel: "Kopijuoti IBAN",
     copyLabel: "Kopijuoti",
     copiedLabel: "Nukopijuota",
+    // „Pasidalink" bloko nuorodos kopijavimui – TAS PATS <CopyButton>, kaip ir
+    // IBAN laukui, bet su savo etiketėmis (Codex peržiūra, PR #17): be jų
+    // ekrano skaitytuvas sakydavo „Kopijuoti IBAN", nors kopijuojama nuoroda.
+    shareLinkCopyAriaLabel: "Kopijuoti nuorodą",
+    shareLinkCopyToastSuccess: "Nuoroda nukopijuota",
     goalReachedTitle: "Tikslas pasiektas – ačiū visiems! 🎉",
     goalSurplusNote:
       "Surinkta {surplus} € daugiau nei planuota – visos papildomos lėšos skiriamos liepto darbams.",
@@ -871,19 +899,18 @@ const lt: Dictionary = {
     tagline: "Kartu kuriame savo kaimą. Geresnę ateitį mūsų bendruomenei ir žmonėms.",
     linksHeading: "Nuorodos",
     linkNews: "Naujienos",
+    linkProjects: "Projektai",
     linkDocuments: "Dokumentai",
     linkContacts: "Kontaktai",
     contactsHeading: "Kontaktai",
     companyCodeLabel: "Įmonės kodas:",
-    emailLabel: "El. paštas:",
-    phoneLabel: "Tel.:",
     rightsReserved: "Visos teisės saugomos.",
   },
   about: {
     pageTitle: "Apie mus",
     visionTitle: "Mūsų vizija",
     visionBody:
-      "Krūminių bendruomenė siekia tapti pavyzdžiu kaimo bendruomenės modeliui Lietuvoje – aktyvi, moderni ir socialiai atsakinga bendruomenė, kurioje kiekvienas narys jaučiasi vertinamas ir turi galimybę prisidėti prie bendro gėrio kūrimo. Mes tikime, kad kaimo gyvensena gali būti patraukli ir moderni, derinant tradicinės kaimo kultūros privalumus su šiuolaikinėmis galimybėmis.",
+      "Krūminių bendruomenė siekia tapti pavyzdžiu kaimo bendruomenėms Lietuvoje – aktyvi, moderni ir socialiai atsakinga bendruomenė, kurioje kiekvienas narys jaučiasi vertinamas ir turi galimybę prisidėti prie bendro gėrio kūrimo. Mes tikime, kad kaimo gyvensena gali būti patraukli ir moderni, derinant tradicinės kaimo kultūros privalumus su šiuolaikinėmis galimybėmis.",
     missionTitle: "Mūsų misija",
     missionBody1:
       "Telkiame Krūminių ir aplinkinių kaimų – Valkininkų, Užuperkasio, Bucivonių, Urkionių, Jakėnų, Paversekio – gyventojus bendriems projektams ir iniciatyvoms, kurios pagerina gyvenimo kokybę regione. Skatiname kaimynystę, savanoriškumą ir tarpusavio pagarbą.",
@@ -897,10 +924,10 @@ const lt: Dictionary = {
       "Stojamasis mokestis (20 €) ir metinis nario mokestis (12 €) sudaro bazinį finansavimą bendruomenės administraciniam darbui ir renginių organizavimui.",
     fundingGroundsTitle: "Teritorijos priežiūra",
     fundingGroundsDesc:
-      "Lėšos skiriamos paplūdimio (smėlio užvežimas), žaidimų aikštelės remontui ir bendrosios teritorijos priežiūrai (žolės pjovimas, kuras, elektra).",
+      "Lėšos skiriamos paplūdimio priežiūrai (smėlio užvežimas), žaidimų aikštelės remontui ir bendrosios teritorijos priežiūrai (žolės pjovimas, kuras, elektra).",
     fundingBridgeTitle: "Paplūdimio liepto atnaujinimas",
     fundingBridgeDesc:
-      "Liepto laikas atsinaujinti. Tikslas 4 000 EUR – renkamos iš bendruomenės narių ir kaimo svečių aukų atskirai nuo nario mokesčio biudžeto.",
+      "Liepto laikas atsinaujinti. Tikslas – 4 000 EUR. Lėšos renkamos iš bendruomenės narių ir kaimo svečių aukų, atskirai nuo nario mokesčio biudžeto.",
     fundingEventsTitle: "Renginiai",
     fundingEventsDesc:
       "Mindauginės (liepos 6 d.) ir Eglutės puošimas (gruodis) – tradicinės kasmetinės bendruomenės šventės. Papildomi renginiai pagal narių iniciatyvą.",
@@ -926,6 +953,14 @@ const lt: Dictionary = {
     value3: "Socialinė atsakomybė ir įtraukimas",
     value4: "Pagarba aplinkai ir tradicijoms",
     value5: "Lygios galimybės visiems",
+    contactsTitle: "Kontaktai",
+    contactsIntro:
+      "Klausimai dėl narystės, projektų ar bendruomenės veiklos – rašykite arba skambinkite.",
+    contactAddressLabel: "Adresas",
+    contactEmailLabel: "El. paštas",
+    contactPhoneLabel: "Telefonas",
+    contactCodeLabel: "Įmonės kodas",
+    contactMapLink: "Atidaryti žemėlapyje",
   },
   auth: {
     emailLabel: "El. paštas",
@@ -1004,8 +1039,15 @@ const lt: Dictionary = {
   },
   news: {
     pageTitle: "Naujienos",
+    pageIntro:
+      "Pranešimai apie susirinkimus, projektų eigą ir bendruomenės gyvenimą.",
     emptyState: "Kol kas naujienų nėra",
     coverAlt: "Naujienos nuotrauka",
+    backToList: "Visos naujienos",
+    pinnedLabel: "Svarbu",
+    categoryBendra: "Bendruomenė",
+    categoryProjektas: "Projektai",
+    categorySusirinkimas: "Susirinkimai",
   },
   documents: {
     pageHeading: "Dokumentai",
@@ -1079,6 +1121,9 @@ const lt: Dictionary = {
   },
   voteErrors: {
     notEligible: "Pagal dabartinį narystės statusą balso teisės neturite.",
+    councilOnly: "Šiame Tarybos posėdyje balsuoja tik Tarybos nariai.",
+    notApproved:
+      "Jūsų paskyra dar nepatvirtinta arba prieiga atšaukta. Kreipkitės į bendruomenės pirmininką.",
     votingClosed:
       "Nuotolinis balsavimas šiam susirinkimui neaktyvus – laikotarpis dar neprasidėjo arba jau pasibaigė.",
     incompleteBallot: "Pateikite atsakymą į visus darbotvarkės klausimus.",
@@ -1161,6 +1206,9 @@ const lt: Dictionary = {
 };
 
 const en: Dictionary = {
+  common: {
+    dataUnavailable: "This data could not be loaded right now. Please try again later.",
+  },
   nav: {
     home: "Home",
     news: "News",
@@ -1179,6 +1227,7 @@ const en: Dictionary = {
     communityLine1: "Krūminiai village",
     communityLine2: "community",
     language: "Language",
+    skipToContent: "Skip to content",
   },
   home: {
     upcomingMeetingBadge: "Upcoming meeting",
@@ -1207,8 +1256,6 @@ const en: Dictionary = {
     quickLinkProjectsDesc: "Fundraising projects with a transparent record of funds",
     quickLinkAboutTitle: "About us",
     quickLinkAboutDesc: "Our vision, mission and the way the community operates",
-    quickLinkContactsTitle: "Contacts",
-    quickLinkContactsDesc: "Get in touch with the community board",
     latestNewsHeading: "Latest news",
     allNewsLink: "All news",
     aboutHeading: "About the community",
@@ -1263,6 +1310,7 @@ const en: Dictionary = {
     cashDonationHeading: "Would you like to donate in cash?",
     communityAddress: "Beržų g. 8, Krūminiai village, Varėna district",
     supportersHeading: "Our supporters",
+    supportersShowAll: "Show all supporters ({count})",
     supportersTransparency:
       "Transparency – every contribution is recorded publicly. Anonymous supporters are shown as \"Anonymous\".",
     anonymousDonor: "Anonymous",
@@ -1278,6 +1326,8 @@ const en: Dictionary = {
     copyAriaLabel: "Copy IBAN",
     copyLabel: "Copy",
     copiedLabel: "Copied",
+    shareLinkCopyAriaLabel: "Copy link",
+    shareLinkCopyToastSuccess: "Link copied",
     goalReachedTitle: "Goal reached – thank you all! 🎉",
     goalSurplusNote:
       "We raised {surplus} € more than planned – all additional funds go towards the footbridge works.",
@@ -1484,12 +1534,11 @@ const en: Dictionary = {
     tagline: "Together we build our village. A better future for our community and its people.",
     linksHeading: "Links",
     linkNews: "News",
+    linkProjects: "Projects",
     linkDocuments: "Documents",
     linkContacts: "Contacts",
     contactsHeading: "Contacts",
     companyCodeLabel: "Company code:",
-    emailLabel: "Email:",
-    phoneLabel: "Phone:",
     rightsReserved: "All rights reserved.",
   },
   about: {
@@ -1539,6 +1588,14 @@ const en: Dictionary = {
     value3: "Social responsibility and inclusion",
     value4: "Respect for the environment and traditions",
     value5: "Equal opportunities for all",
+    contactsTitle: "Contacts",
+    contactsIntro:
+      "Questions about membership, projects or community activities – write or call us.",
+    contactAddressLabel: "Address",
+    contactEmailLabel: "Email",
+    contactPhoneLabel: "Phone",
+    contactCodeLabel: "Company code",
+    contactMapLink: "Open in maps",
   },
   auth: {
     emailLabel: "Email",
@@ -1617,8 +1674,15 @@ const en: Dictionary = {
   },
   news: {
     pageTitle: "News",
+    pageIntro:
+      "Announcements about meetings, project progress and community life.",
     emptyState: "No news yet",
     coverAlt: "News photo",
+    backToList: "All news",
+    pinnedLabel: "Important",
+    categoryBendra: "Community",
+    categoryProjektas: "Projects",
+    categorySusirinkimas: "Meetings",
   },
   documents: {
     pageHeading: "Documents",
@@ -1693,6 +1757,9 @@ const en: Dictionary = {
   voteErrors: {
     notEligible:
       "Your current membership status does not include voting rights.",
+    councilOnly: "Only Council members vote at this Council meeting.",
+    notApproved:
+      "Your account is not approved yet, or access has been revoked. Please contact the community chairperson.",
     votingClosed:
       "Remote voting for this meeting is not open — the period has not started yet or has already ended.",
     incompleteBallot: "Please answer every item on the agenda.",

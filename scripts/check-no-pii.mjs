@@ -40,10 +40,10 @@ export const ALLOWLIST = [
 ];
 
 /**
- * LT telefonas: `+370`/`370` arba `8` ir dar 8 skaitmenys. Aplink negali būti
+ * LT telefonas: `+370`/`370` arba `8` ir dar 8 skaitmenys; taip pat plikas 8 skaitmenų numeris. Aplink negali būti
  * kitų skaitmenų – taip ilgesnės skaičių sekos (ID, sumos) nevirsta „numeriu".
  */
-const PHONE_RE = /(?<!\d)(?:\+?370\d{8}|8\d{8})(?!\d)/g;
+const PHONE_RE = /(?<!\d)(?:\+?370\d{8}|8\d{8}|6\d{7})(?!\d)/g;
 const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 
 /**
@@ -62,6 +62,7 @@ export function normalizeForPhoneScan(text) {
 /** Vienoda numerio forma, kad tas pats žmogus dviem užrašymo būdais būtų vienas. */
 function canonicalPhone(match) {
   const digits = match.replace(/^\+/, "");
+  if (digits.length === 8) return `370${digits}`;
   return digits.length === 9 && digits.startsWith("8") ? `370${digits.slice(1)}` : digits;
 }
 
