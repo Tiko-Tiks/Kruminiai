@@ -10,6 +10,10 @@ export function voteErrorMessage(
   switch (code) {
     case "not_eligible":
       return t.notEligible;
+    case "council_only":
+      return t.councilOnly;
+    case "not_approved":
+      return t.notApproved;
     case "voting_closed":
       return t.votingClosed;
     case "incomplete_ballot":

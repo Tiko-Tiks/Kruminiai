@@ -49,9 +49,11 @@ export function ContactUpdateForm({ token, member }: Props) {
       setError(
         errMsg === "already_completed"
           ? "Šia nuoroda jau pasinaudojote anksčiau"
-          : errMsg === "invalid_token"
-            ? "Nuoroda negalioja"
-            : "Nepavyko išsaugoti. Bandykite dar kartą."
+          : errMsg === "expired"
+            ? "Nuorodos galiojimas pasibaigė – paprašykite naujos"
+            : errMsg === "invalid_token"
+              ? "Nuoroda negalioja"
+              : "Nepavyko išsaugoti. Bandykite dar kartą."
       );
       return;
     }

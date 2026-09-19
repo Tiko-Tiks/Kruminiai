@@ -8,11 +8,12 @@ import {
   signatureLabel,
   summarizeAnnouncements,
 } from "@/lib/protocol-text";
+import { firstDecision, protocolAttendance, decisionParticipation, type DecisionBasis, type ProtocolAttendee } from "@/lib/protocol-attendance";
 import { hasQuorum as computeHasQuorum } from "@/lib/quorum";
 import { escapeAttr, escapeHtml } from "@/lib/html";
+import { requireAdmin } from "@/lib/authz";
 
-// Protokolas turi visada atspindėti naujausius nutarimų rezultatus ir
-// pirmininko/sekretoriaus pavardes – jokio cache'avimo.
+// Protokolas rodo užfiksuotus galutinių sprendimų faktus ir dabartinius projektus – jokio cache'avimo.
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -22,19 +23,15 @@ export async function GET(
 ) {
   const supabase = createServerSupabaseClient();
 
-  // Patikrinti autentifikaciją + admin rolę (dokumente – dalyvių pavardės
-  // ir balsų suvestinės; nariams skirta pasirašyto PDF versija /dokumentai)
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Neautorizuotas" }, { status: 401 });
-  }
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (!profile || !["admin", "super_admin"].includes(profile.role)) {
-    return NextResponse.json({ error: "Trūksta teisių" }, { status: 403 });
+  // Dokumente – dalyvių pavardės ir balsų suvestinės, todėl tik administratorius
+  // (nariams skirta pasirašyto PDF versija gyvena /dokumentai). Vienas teisių
+  // kontraktas su `public.is_admin()` – rolė IR `is_approved` (žr. requireAdmin).
+  const auth = await requireAdmin(supabase);
+  if (auth.error) {
+    return NextResponse.json(
+      { error: auth.error },
+      { status: auth.error === "Neautorizuotas" ? 401 : 403 }
+    );
   }
 
   // Gauti susirinkimo duomenis
@@ -70,24 +67,6 @@ export async function GET(
     .eq("meeting_id", params.id)
     .order("published_at", { ascending: true });
 
-  // Gauti nuotoliu balsavimo breakdown'ą KIEKVIENAM nutarimui (vote_ballots'e
-  // saugomi tik nuotoliu / išankstiniai balsai – gyvi balsai įvedami admin'o
-  // tiesiogiai į resolutions.result_*). Kad protokole rodytume „gyvai + nuotoliu",
-  // skaičiuojam nuotoliu balsus atskirai.
-  const { data: ballots } = await supabase
-    .from("vote_ballots")
-    .select("resolution_id, vote")
-    .in("resolution_id", (resolutions || []).map((r: { id: string }) => r.id));
-
-  const remoteByResolution = new Map<string, { uz: number; pries: number; susilaike: number }>();
-  for (const b of ballots || []) {
-    const cur = remoteByResolution.get(b.resolution_id as string) || { uz: 0, pries: 0, susilaike: 0 };
-    if (b.vote === "uz") cur.uz++;
-    else if (b.vote === "pries") cur.pries++;
-    else if (b.vote === "susilaike") cur.susilaike++;
-    remoteByResolution.set(b.resolution_id as string, cur);
-  }
-
   const meetingDate = new Date(meeting.meeting_date);
   const endDate = meeting.ended_at ? new Date(meeting.ended_at) : null;
 
@@ -95,7 +74,9 @@ export async function GET(
   // (bendras helper'is – tą patį tekstą naudoja ir procedūrinis #2 NUTARTA)
   const announcementSummary = summarizeAnnouncements(
     announcements as Array<{ channel: string; url: string | null; published_at: string }> | null,
-    meetingDate
+    meetingDate,
+    meeting.meeting_type,
+    meeting
   );
   const announcementParagraph = announcementSummary.paragraph;
 
@@ -107,18 +88,21 @@ export async function GET(
   // (`src/lib/html.ts`) – šis dokumentas sudaromas eilutėmis, ne per React.
   const labels = protocolLabels(meeting.meeting_type);
 
+  const protocolRoster = protocolAttendance(resolutions || [], (attendance || []) as ProtocolAttendee[]);
+  const firstBasis = firstDecision(resolutions || [])?.decision_basis as DecisionBasis | undefined;
+  const attendanceContext = protocolRoster.source === "decision" ? " (pirmojo užfiksuoto sprendimo metu)" : protocolRoster.source === "missing" ? " (istoriniai duomenys neužfiksuoti)" : "";
   // Suskirstyti dalyvius
   const attendByType = {
-    fizinis: (attendance || []).filter((a: { attendance_type: string }) => a.attendance_type === "fizinis"),
-    nuotolinis: (attendance || []).filter((a: { attendance_type: string }) => a.attendance_type === "nuotolinis"),
-    rastu: (attendance || []).filter((a: { attendance_type: string }) => a.attendance_type === "rastu"),
+    fizinis: protocolRoster.rows.filter((a: { attendance_type: string }) => a.attendance_type === "fizinis"),
+    nuotolinis: protocolRoster.rows.filter((a: { attendance_type: string }) => a.attendance_type === "nuotolinis"),
+    rastu: protocolRoster.rows.filter((a: { attendance_type: string }) => a.attendance_type === "rastu"),
   };
 
-  const totalAttending = (attendance || []).length;
+  const totalAttending = protocolRoster.rows.length;
   // quorum_required jau apima „+1" (Math.floor(N/2)+1), todėl tikrinam >=
   // (bendra logika su AttendanceManager – žr. `src/lib/quorum.ts`;
   // įstatų 4.5 p. visuotiniam, 5.5 p. Tarybos posėdžiui, 4.6 p. pakartotiniam)
-  const hasQuorum = meeting.is_repeat || computeHasQuorum(totalAttending, meeting.quorum_required);
+  const hasQuorum = firstBasis ? firstBasis.meeting_type === "pakartotinis" || firstBasis.participants * 2 > firstBasis.total_members : meeting.is_repeat || computeHasQuorum(totalAttending, meeting.quorum_required);
 
   // Dalyvių vardai protokolo tekste – TIK Tarybos posėdžiams: kolegialaus
   // organo protokole dalyviai vardijami (jų keli), o visuotinio susirinkimo
@@ -128,7 +112,7 @@ export async function GET(
   // `...Html` galūnė reiškia, kad eilutė JAU užkoduota ir į dokumentą dedama
   // be pakartotinio kodavimo (žr. `src/lib/html.ts`).
   const attendeeNamesHtml = labels.isCouncil
-    ? (attendance || [])
+    ? protocolRoster.rows
         .map((a: { member: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null }) => {
           const m = Array.isArray(a.member) ? a.member[0] : a.member;
           return m ? `${escapeHtml(m.first_name)} ${escapeHtml(m.last_name)}` : null;
@@ -339,6 +323,7 @@ export async function GET(
       result_against: number;
       result_abstain: number;
       decision_text: string | null;
+      decision_basis?: DecisionBasis | null;
     };
     const resList = (resolutions || []) as Resolution[];
 
@@ -372,6 +357,7 @@ export async function GET(
         <p><strong>${escapeHtml(r.resolution_number)}. <span class="svarstyta">SVARSTYTA:</span></strong> ${escapeHtml(r.title)}.</p>
         ${r.discussion_text ? `<p class="discussion">${escapeHtml(r.discussion_text)}</p>` : ""}
         <p>${balsuotaLine}</p>
+        ${["patvirtintas", "atmestas"].includes(r.status) ? `<p>${escapeHtml(decisionParticipation(r.decision_basis))}</p>` : ""}
         <p><strong><span class="nutarta">NUTARTA:</span></strong> ${escapeHtml(nutarta)}</p>
       </div>`;
     };
@@ -413,9 +399,9 @@ export async function GET(
         ${endDate ? `<p><span class="label">${labels.endLabel}:</span> ${escapeHtml(endDate.toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vilnius" }))} val.</p>` : ""}
         <p></p>
         <p><span class="label">${labels.totalLabel}:</span> ${escapeHtml(meeting.total_members_at_time)}</p>
-        <p><span class="label">${labels.attendingLabel}:</span> ${totalAttending}${attendanceSummaryParts.length > 0 ? ` (iš jų ${attendanceSummaryParts.join(", ")})` : ""}.</p>
+        <p><span class="label">${labels.attendingLabel}${attendanceContext}:</span> ${protocolRoster.source === "missing" ? "Neužfiksuota" : totalAttending}${attendanceSummaryParts.length > 0 ? ` (iš jų ${attendanceSummaryParts.join(", ")})` : ""}.</p>
         ${attendeeNamesHtml.length > 0 ? `<p><span class="label">DALYVAVO:</span> ${attendeeNamesHtml.join(", ")}.</p>` : ""}
-        <p><span class="label">Kvorumas:</span> ${hasQuorum ? "YRA" : "NĖRA"}${meeting.is_repeat ? " (pakartotinis susirinkimas)" : ""}.</p>
+        <p><span class="label">Kvorumas:</span> ${protocolRoster.source === "missing" ? "Neužfiksuotas" : hasQuorum ? "YRA" : "NĖRA"}${attendanceContext}${meeting.is_repeat ? " (pakartotinis susirinkimas)" : ""}.</p>
         ${announcementParagraph ? `<p style="margin-top:8pt;"><span class="label">Skelbimas apie susirinkimą:</span> ${escapeHtml(announcementParagraph)}</p>` : ""}
       </div>
       <div class="agenda">

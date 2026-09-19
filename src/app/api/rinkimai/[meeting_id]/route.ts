@@ -28,6 +28,7 @@ export async function GET(
     last_name: string | null;
   };
   type ElectionsData = {
+    captured_at?: string;
     error?: string;
     meeting_title?: string;
     meeting_date?: string;
@@ -36,6 +37,8 @@ export async function GET(
   };
   const { data: electionsData } = await supabase.rpc("get_meeting_elections_data", {
     p_meeting_id: params.meeting_id,
+    // Nuo migr. 047 prieigą tikrina ir pati RPC (žr. canViewMeetingDoc).
+    p_token: token,
   });
   const data = (electionsData ?? {}) as ElectionsData;
 
@@ -51,7 +54,7 @@ export async function GET(
   };
 
   const meetingDate = new Date(meeting.meeting_date);
-  const generatedAt = new Date();
+  const generatedAt = new Date(data.captured_at || Date.now());
 
   const allRoles = data.roles ?? [];
   // `...Html` galūnė reiškia, kad eilutė JAU užkoduota (`src/lib/html.ts`) ir į

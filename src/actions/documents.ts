@@ -134,9 +134,15 @@ export async function deleteDocument(id: string) {
   const { data: doc } = await supabase.from("documents").select("*").eq("id", id).single();
   if (!doc) return { error: "Dokumentas nerastas" };
 
-  await supabase.storage.from("documents").remove([doc.file_path]);
+  // Preserve the retry pointer and block attachments/finalization before deleting the file.
+  const { error: pendingError } = await supabase.from("documents").update({ deletion_pending: true }).eq("id", id);
+  if (pendingError) return { error: pendingError.message };
+  if (!doc.file_path.startsWith("__api__/")) {
+    const { error: storageError } = await supabase.storage.from("documents").remove([doc.file_path]);
+    if (storageError) return { error: "Failo ištrinti nepavyko. Dokumento įrašas išsaugotas; pakartokite trynimą. " + storageError.message };
+  }
   const { error } = await supabase.from("documents").delete().eq("id", id);
-  if (error) return { error: error.message };
+  if (error) return { error: "Failas pašalintas, bet liko dokumento įrašas. Pakartokite trynimą. " + error.message };
 
   await logAudit(supabase, {
     userId: user?.id ?? null,

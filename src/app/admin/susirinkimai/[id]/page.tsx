@@ -60,7 +60,7 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
   // Kas gali būti registruojamas – PRIKLAUSO NUO POSĖDŽIO TIPO:
   // Tarybos posėdyje tik dabartiniai Tarybos nariai, kituose – visi balso
   // teisę turintys nariai (įsk. garbės narius, migr. 042).
-  const eligibleAttendees = await getEligibleAttendees(meeting.meeting_type);
+  const eligibleAttendees = await getEligibleAttendees(meeting.meeting_type, meeting.id);
   const quorumSuggestion = await getQuorumSuggestion(meeting.meeting_type);
   const allDocuments = await getDocuments();
   const tokenStats = await getVotingTokensStats(params.id);
@@ -124,7 +124,10 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
         <AnnouncementsPanel
           meetingId={meeting.id}
           meetingDate={meeting.meeting_date}
+          meetingType={meeting.meeting_type}
+          repeatPolicy={meeting}
           announcements={announcements}
+          locked={["baigtas","atšauktas"].includes(meeting.status) || resolutions.some(r => ["patvirtintas","atmestas"].includes(r.status))}
         />
       </div>
 
@@ -147,6 +150,7 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
           meetingStatus={meeting.status}
           attendance={attendance}
           eligible={eligibleAttendees}
+          electorateRecorded={!!meeting.electorate_snapshot}
           totalMembersAtTime={meeting.total_members_at_time}
           quorumRequired={meeting.quorum_required}
           suggestion={quorumSuggestion}

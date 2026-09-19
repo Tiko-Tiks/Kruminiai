@@ -46,3 +46,6 @@ next-env.d.ts
 
 .vercel
 .env*.local
+
+# Local Supabase CLI cache
+/supabase/.temp/

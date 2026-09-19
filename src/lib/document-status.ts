@@ -33,7 +33,7 @@ async function existsInRepo(relativeFromCwd: string): Promise<boolean> {
 }
 
 /**
- * `documents` bucket'as privatus (migr. 050), todėl HEAD į viešą URL nebetinka –
+ * `documents` bucket'as privatus (migr. 051), todėl HEAD į viešą URL nebetinka –
  * jis visiems failams grąžintų „nėra". Tikrinam service-role klientu per
  * bucket'o sąrašą: tai neparsiunčia turinio ir nekuria pasirašytų nuorodų.
  */

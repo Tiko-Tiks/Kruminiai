@@ -1,12 +1,17 @@
 # Krūminių kaimo bendruomenės sistemos vadovas
 
+Privalomos įstatų ir peržiūros taisyklės yra `AGENTS.md`; tekstinis šaltinis ir atitikties matrica - `docs/istatai/`. Prieš keičiant veiklos logiką perskaityti aktualius punktus.
+
 Šis failas yra orientyras AI asistentui, dirbant prie šio projekto. Skirtas tiek pirmam susipažinimui, tiek patikrinimui, kad nedubliuotumėt esamų sprendimų.
 
 ## Tech stack
 
 - **Next.js 14** (App Router, Server Components, Server Actions)
 - **TypeScript** strict mode
-- **Tailwind CSS** + custom UI komponentai (`src/components/ui/`)
+- **Tailwind CSS** + custom UI komponentai (`src/components/ui/`); viešų puslapių
+  spalvos – semantiniai tokenai (žr. „ARCHITEKTŪRA: Viešo puslapio dizaino tokenai")
+- **Šriftas:** Plus Jakarta Sans – **viena** šeima visam puslapiui, ir tekstui,
+  ir antraštėms (serif antraštėms buvo išbandytas ir atmestas)
 - **Supabase** (PostgreSQL + Storage + Auth) – projekto ID `tykdyxynaqwfbxtuqwih`
 - **Vercel** deployment, domenas `kruminiai.lt`
 - **Infobip** SMS siuntimui (tik SMS)
@@ -24,8 +29,8 @@
 /lieptas                                   Viešas (aukų rinkimo projektas, SEPA QR, gyvas progresas)
 /lieptas/spausdinti                        Viešas (A4 plakatas su QR kodu)
 /kontaktai                                 Viešas (apie mus / kontaktai)
-/susirinkimai                              Auth + status='aktyvus' (arba admin)
-/susirinkimai/[id]                         Auth + status='aktyvus' – pilna darbotvarkė + dokumentai
+/susirinkimai                              Auth + esama narystė (arba admin)
+/susirinkimai/[id]                         Auth + esama narystė – pilna darbotvarkė + dokumentai
 /dokumentai                                Auth required (apsaugotas middleware)
 /skaidrumas                                Auth required
 /finansai                                  Auth required – pilnas bendruomenės finansų vaizdas nariams
@@ -48,7 +53,7 @@ neprisijungusį → `/prisijungimas?from=`; prisijungusį, bet **nepatvirtintą*
 (`is_approved=false`) → `signOut()` + `/prisijungimas?error=not_approved`
 (galioja VISIEMS 6 prefiksams); narį, bandantį `/admin` → `/portalas`
 (vienkryptis – admin'as `/portalas` pasiekia laisvai); `/susirinkimai` – tik
-admin arba `members.status='aktyvus'` narys, kitaip `/portalas?error=members_only`.
+admin arba `members.status IN ('aktyvus', 'pasyvus', 'garbes_narys')` narys, kitaip `/portalas?error=members_only`.
 
 `PublicHeader` (`src/components/layout/PublicHeader.tsx`) yra **auth-aware**: neprisijungusiems lankytojams paslepiami tabai, kurie reikalauja auth (`requiresAuth: true` PUBLIC_NAV punktuose – Susirinkimai / Dokumentai / Skaidrumas). Prisijungusiems – vietoj „Prisijungti/Tapti nariu" mygtukų rodomas „Mano paskyra" link'as į `/portalas`.
 
@@ -143,7 +148,7 @@ export function revalidateMeetingPaths(meetingId: string) {
 2. **#2 Pranešimo tinkamumas** (`procedural_type=pranesimas`) – pirmininkas
    patvirtina, kad susirinkimas buvo paskelbtas tinkamai pagal įstatus.
    NUTARTA tekstas auto-generuojamas iš `meeting_announcements` lentelės
-   (kanalai, datos, compliance status su 14 d. terminu).
+   (kanalai, datos, informavimo terminas: eiliniam 14 d., neeiliniam 7 d.; SMS papildoma).
 3. **#3 Darbotvarkės tvirtinimas** (`procedural_type=darbotvarke`)
 
 Procedūriniai klausimai į balsavimo srautą (SMS / portalas) neįtraukiami –
@@ -619,16 +624,16 @@ pilnaverčiu nariu tik kai admin'as patvirtina (po apmokėjimo).
 
 **`approveUser()` (`src/actions/users.ts`, NE tiesioginis kliento UPDATE):**
 - `requireAdmin()` + `logAudit()`
-- nustato `is_approved=true` IR, jei `member_id` tuščias, **sukuria arba prisieja**
-  `members` įrašą (dedup pagal el. paštą; naujam – `status='aktyvus'`,
-  `join_date=CURRENT_DATE` = patvirtinimo data)
+- nustato `is_approved=true` ir susieja jau priimtą narį pagal el. paštą.
+  Pats `members` įrašo nekuria. Naujas narys pirma įrašomas narių formoje su
+  raštiško prašymo ir Tarybos sprendimo pagrindu (įstatų 3.2 p.).
 - **patvirtina el. paštą** admin teisėmis (`admin.auth.admin.updateUserById(id,
   { email_confirm: true })`) – kitaip narys, nepaspaudęs Supabase „Confirm email"
   nuorodos, NEGALĖTŲ prisijungti net po patvirtinimo
 - siunčia **laišką #2** (`renderMemberWelcomeEmail`) – pasveikinimas + supažindinimas
   su portalu. Tik pirmą kartą patvirtinant (`!wasApproved`)
 - `revokeUser()` atima tik portalo prieigą (`is_approved=false`), **nario neliečia** –
-  narystės pabaiga yra Tarybos kompetencija (įstatai 5.4.2)
+  pašalinimas reikalauja Tarybos sprendimo (5.4.2), išstojimas – nario raštiško prašymo (3.3).
 
 **Vartai:** tikrasis barjeras – `is_approved`, enforce'inamas ir `/prisijungimas`
 puslapyje, ir `middleware.ts` (visiems 5 apsaugotiems prefiksams). `/prisijungimas`
@@ -695,6 +700,64 @@ marketinginis turinys (`title`, `short_desc`, `story_md`) turi pasirinktinius
 
 **Cookie efektas:** `cookies()` šakniniame layout'e → visi puslapiai tampa
 dinaminiai (ƒ). Tai tikėtina i18n kompromisas.
+
+## ARCHITEKTŪRA: Viešo puslapio dizaino tokenai
+
+**Problema, kuri buvo išspręsta:** `globals.css` deklaravo `--primary: #2563eb`
+(mėlyna) ir dar ~15 kintamųjų, kurių kodas NEnaudojo nė karto (0 nuorodų), o
+viešas puslapis tuo metu buvo žalias. „Brand" spalva realiai gyveno išbarstyta
+po ~150 `bg-green-*` / `text-gray-*` klasių, todėl kiekvienas naujas puslapis ją
+atspėdavo iš naujo, o `text-gray-400` (kontrastas **2,5:1** – neatitinka WCAG AA)
+buvo naudojamas datoms 146 vietose.
+
+**Sprendimas – semantiniai tokenai** (`src/app/globals.css` + `tailwind.config.ts`):
+
+| Tokenas | Klasės | Kam |
+|---|---|---|
+| `--surface`, `--surface-muted`, `--surface-card` | `bg-surface`, `bg-surface-muted`, `bg-surface-card` | Paviršiai (šilti pilkumai) |
+| `--line`, `--line-strong` | `border-line`, `divide-line` | Rėmeliai |
+| `--ink`, `--ink-muted`, `--ink-subtle` | `text-ink`, `text-ink-muted`, `text-ink-subtle` | Tekstas – visi trys atitinka AA |
+| `--brand*` | `bg-brand`, `text-brand-strong`, `border-brand-line`, `bg-brand-soft` | Bendruomenės žalia |
+| `--accent*` | `bg-accent`, `text-accent-strong`, `bg-accent-soft` | **Tik skuba** (artėjantis susirinkimas, prisegta naujiena) |
+
+**Taisyklės naujam kodui:**
+- Viešuose puslapiuose naudoti **tokenus**, ne `green-700` / `gray-400` atspalvių
+  numerius. Admin ir portalo ekranai kol kas lieka su Tailwind pilkais – jie nėra
+  šio sluoksnio dalis.
+- **Siaura, sąmoninga išimtis** – teksto atspalviai ANT tamsaus `bg-brand-strong`
+  herojaus (`src/app/page.tsx` viršuje): tokenų rinkinys kurtas šviesiems
+  paviršiams, „šviesaus žalio teksto ant tamsaus žalio fono" atitikmens jame
+  nėra, todėl ten liko `text-green-200` / `text-green-50/90` / `hover:bg-green-50`.
+  Jei tokio konteksto (tekstas ant tamsaus brand'o) prireiks daugiau nei šioje
+  vienoje vietoje – pridėti `--on-brand-muted` tipo tokenus, o ne daugintis
+  raw atspalvius toliau.
+- **Gintaro (accent) spalva rezervuota skubai.** Kai ja dažomi ir projektai, ir
+  prisegtos naujienos, ir „pasidalink" blokas, ekrane lieka penki vienodai
+  rėkiantys blokai ir svarbos ženklas nustoja veikti.
+- Tamsi tema pridedama vienu `:root[data-theme="dark"]` bloku – puslapių
+  perrašyti nereikės, nes jie spalvų nebežino.
+
+**Tipografija:** viskas – Plus Jakarta Sans. Antraštėms atskiro (serif) šrifto
+NEDEDAM: Fraunces buvo išbandytas ir atmestas, todėl nauja antraštė rašoma
+paprastai su `font-bold`, be jokios `font-*` šeimos klasės. Fluid dydžiai
+`text-display-lg|md|sm` (clamp – be `md:text-5xl lg:text-6xl` kaskadų), skaitymo
+matas `max-w-prose` (~68 simbolių), kūno tekstas `text-prose` (17px).
+
+**Svarbu:** `text-display-*` NEturi savyje svorio – Tailwind preflight'as
+antraštėms nustato `font-weight: inherit`, todėl be `font-bold` h1 atsirenderintų
+400 svoriu.
+
+**Prieinamumas:** `.skip-link` (pirmas Tab viešame puslapyje, taikinys –
+`<main id="turinys">`, kurį privalo turėti kiekvienas viešas puslapis),
+`:focus-visible` kontūras visiems interaktyviems elementams (iki tol `focus:ring`
+turėjo tik `<Button>`, o viešas puslapis susideda beveik vien iš `<Link>`),
+`prefers-reduced-motion` blokas.
+
+**Nuotraukos:** `getImagePublicUrl(path, { width })` grąžina Supabase
+transformacijų URL (`/render/image/`) – helperis pats padvigubina pločį Retina
+ekranams. Miniatiūroms **visada** paduoti `width` + `width`/`height` atributus:
+be jų į 176 px lauką keliaudavo originalus 0,5 MB telefono JPEG ir šokinėdavo
+maketas (CLS).
 
 ## Konvencijos
 
@@ -951,6 +1014,14 @@ Naudoja `node scripts/X.mjs` su .env.local skaitymu.
 - **Konkrečių narių mokėjimai `/finansai`** – tai asmens duomenys. Puslapis `payments` lentelės neliečia, tik `get_community_fee_summary()` agregatus.
 - **Numatytasis mokėjimo būdas formoje** – būtent dėl jo 4 pavedimai buvo įrašyti kaip grynieji. `payment_method` visur renkamas rankomis.
 - **Išlaidos be `funding_source`** – tada nesimato, iš kurios „kišenės" pinigai, ir projektų likučiai nustoja sueiti.
+- **`green-700` / `gray-400` klasės viešuose puslapiuose** – naudoti tokenus
+  (`text-ink-muted`, `bg-brand`…). `text-gray-400` ant balto yra 2,5:1 ir
+  neatitinka WCAG AA. (Siaura, dokumentuota išimtis tamsaus herojaus tekstui –
+  žr. „ARCHITEKTŪRA: Viešo puslapio dizaino tokenai".)
+- **Gintaro spalva „šiaip gražumui"** – ji reiškia skubą. Viskas, kas ja nudažyta
+  be reikalo, atima dėmesį nuo artėjančio susirinkimo.
+- **Nuotrauka be `width` `getImagePublicUrl()` kvietime** – į miniatiūrą
+  nusiųsi originalų 0,5 MB failą.
 
 ## Mokesčių sistema
 
@@ -966,7 +1037,7 @@ Naudoja `node scripts/X.mjs` su .env.local skaitymu.
 - **Narystės deklaracija** (`/admin/nariai/deklaracija`):
   - Tik skolingiems siunčiama (sumokėjusiems – aišku, kad tęsia)
   - 3 intencijos: continue_cash / continue_transfer / withdraw
-  - „Withdraw" pasirinkus – statusas DB **NEbekeicia** (Tarybos kompetencija pagal naujus įstatus)
+  - „Withdraw" pasirinkus – esamas kodas statuso DB nekeičia. Tai esamo veikimo aprašymas, ne įstatų reikalavimas: 3.3 p. suteikia išstojimo teisę pateikus raštišką prašymą Tarybai; papildomo Tarybos pritarimo sąlygos jame nėra.
 - **Stojamasis mokestis**: 20 EUR (jei buvęs narys nori vėl įstoti po šalinimo)
 - **SMS sender**: telefono numeris `37065031091` (ne „Kruminiai" alphanumeric)
 - **SMS kaina**: ~0,03 EUR/segmentui
@@ -1031,7 +1102,7 @@ Esminiai punktai, į kuriuos verta atsižvelgti rašant naują logiką
 (punktų numeracija sutikrinta su PDF 2026-09):
 
 - **2.4** – pelnas (100%) reinvestuojamas, nariams nedalinamas
-- **3.1** – nariais gali būti tiek **fiziniai**, tiek **juridiniai** asmenys (18+)
+- **3.1** – nariais gali būti tiek **fiziniai**, tiek **juridiniai** asmenys; amžiaus ir veiksnumo formuluotės taikymą juridiniams asmenims būtina patikslinti, neįvesti įmonės 18 metų amžiaus reikalavimo
 - **3.2** – naujus narius priima **Taryba** (prašymas raštu Tarybai)
 - **3.3** – narys bet kada gali išstoti pateikęs raštišką prašymą Tarybai
 - **3.4** – **Tarybos sprendimu** narys gali būti pašalintas: nesilaiko įstatų;
@@ -1046,7 +1117,7 @@ Esminiai punktai, į kuriuos verta atsižvelgti rašant naują logiką
 - **4.4** – susirinkimas gali vykti ir balsavimas būti vykdomas
   **elektroninėmis ryšio priemonėmis**
 - **4.5** – kvorumas: dalyvauja daugiau kaip **pusė** Bendruomenės narių
-- **4.6** – pakartotinis susirinkimas sprendžia be kvorumo apribojimų
+- **4.6** – pakartotinis susirinkimas po kvorumo nebuvimo sprendžia be pradinės kvorumo ribos, tik neįvykusio susirinkimo darbotvarkės klausimais; balsų daugumos reikalavimai lieka
 - **4.7** – paprasta dauguma; **2/3 dalyvaujančių** dėl įstatų keitimo,
   pertvarkymo ar likvidavimo
 - **4.8** – susirinkimo kompetencija: keisti įstatus; rinkti/atšaukti Tarybos
@@ -1066,7 +1137,7 @@ Esminiai punktai, į kuriuos verta atsižvelgti rašant naują logiką
   narių pradžios
 - **6.2** – **Revizorius** renkamas 4 metams, negali būti valdymo organo nariu
 
-**Svarbu programos tekstams:** narystės šalinimas yra **Tarybos kompetencija** (ne susirinkimo). Visuotinis susirinkimas tik renka/atšaukia Pirmininką ir Tarybą, tvirtina ataskaitas. Visi tekstai apie „pašalinimą per susirinkimą" turi būti atnaujinti į „Tarybos sprendimu".
+**Svarbu programos tekstams:** narystės šalinimas yra **Tarybos kompetencija** (ne susirinkimo). Visuotinis susirinkimas renka ir atšaukia Tarybos narius, renka Revizorių, tvirtina ataskaitas ir vykdo kitą 4.8 p. kompetenciją. Pirmininką iš savo narių renka ir atšaukia Taryba (5.3 p.). Visi tekstai apie „pašalinimą per susirinkimą" turi būti atnaujinti į „Tarybos sprendimu".
 
 ## Žinios prieš pradedant naują darbą
 

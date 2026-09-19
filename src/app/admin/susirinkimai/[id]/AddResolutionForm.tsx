@@ -127,16 +127,12 @@ export function AddResolutionForm({
         rows={2}
         className="w-full text-sm rounded-lg border border-gray-300 px-3 py-2.5 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
       />
-      <div className="flex items-center gap-3">
-        <label className="flex items-center gap-2 text-sm text-gray-600">
-          <input
-            type="checkbox"
-            name="requires_qualified_majority"
-            className="rounded border-gray-300"
-          />
-          Reikalinga 2/3 dauguma (įstatų keitimas, likvidavimas)
-        </label>
-      </div>
+      <label className="block text-sm text-gray-600">Sprendimo rūšis
+        <select name="decision_type" required defaultValue="" className="ml-2 rounded border p-2">
+          <option value="" disabled>Pasirinkite sprendimo rūšį</option>
+          <option value="ordinary">Kitas / procedūrinis sprendimas</option><option value="statutes">Įstatų keitimas (2/3)</option><option value="transformation">Pertvarkymas (2/3)</option><option value="liquidation">Likvidavimas (2/3)</option><option value="council_election">Tarybos rinkimai</option><option value="council_removal">Tarybos atšaukimas</option><option value="auditor_election">Revizoriaus rinkimai</option><option value="reports">Metinių ataskaitų tvirtinimas</option><option value="fees">Stojamojo / nario mokesčio tvarka</option><option value="seat">Buveinės nustatymas</option>
+        </select>
+      </label>
 
       {/* Dokumentų sekcija */}
       <div className="border-t border-gray-100 pt-3">

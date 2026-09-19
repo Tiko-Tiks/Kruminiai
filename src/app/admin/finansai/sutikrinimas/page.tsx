@@ -31,7 +31,20 @@ export default async function ReconciliationPage({
 
   // Dienos tikslumo mokesčių pjūvis – tik admin'ui; be jo sutikrinimas
   // atsakytų „kurį mėnesį", o ne „kurią dieną" nesutampa.
-  const [data, feeDays] = await Promise.all([loadCommunityFinance(), loadAdminFeeDays()]);
+  const [result, feeDays] = await Promise.all([loadCommunityFinance(), loadAdminFeeDays()]);
+
+  // Sutikrinimas iš nepilno rinkinio parodytų netikrą skirtumą – tai tiksliai
+  // ta klaida, kurią šis ekranas turi gaudyti.
+  if (!result.ok || feeDays === null) {
+    return (
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 text-sm text-amber-900">
+        Finansų duomenų nepavyko užkrauti, todėl sutikrinimas nerodomas.
+        Pabandykite perkrauti puslapį vėliau.
+      </div>
+    );
+  }
+
+  const data = result.data;
 
   const balanceInput = {
     openingBalance: data.openingBalance,

@@ -2,41 +2,145 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * DIZAINO TOKENAI – vienas spalvų šaltinis viešiems puslapiams.
+ *
+ * Anksčiau čia buvo `--primary: #2563eb` (mėlyna) ir dar 15 kintamųjų, kurių
+ * kodas NEnaudojo nė karto, o viešas puslapis tuo metu buvo žalias. Dėl to
+ * „brand" spalva realiai gyveno išbarstyta po ~150 `bg-green-*` / `text-gray-*`
+ * klasių ir kiekvienas naujas puslapis ją atspėdavo iš naujo.
+ *
+ * Taisyklė: viešų puslapių komponentai naudoja semantinius tokenus
+ * (`bg-surface`, `text-ink-muted`, `bg-brand`…), ne žalio/pilko atspalvių
+ * numerius. Admin ir portalo ekranai kol kas lieka su Tailwind pilkais –
+ * jie nėra šio sluoksnio dalis.
+ *
+ * Tamsi tema: pridedama vienu `:root[data-theme="dark"]` bloku su tomis
+ * pačiomis kintamųjų reikšmėmis – atskiro puslapių perrašymo nereikės.
+ *
+ * KODĖL RGB KANALAI, o ne `#hex`: Tailwind permatomumo modifikatorių
+ * (`bg-surface/90`) moka pritaikyti tik tada, kai spalva turi `<alpha-value>`
+ * vietą. Su pliku `var(--surface)` klasė TYLIAI nesugeneruojama – sticky
+ * header'is būtų likęs visai be fono. Todėl reikšmės saugomos kaip „R G B",
+ * o `tailwind.config.ts` jas suriša per `rgb(var(--x) / <alpha-value>)`.
+ * Plikame CSS (ne per Tailwind) kintamąjį reikia vynioti: `rgb(var(--brand))`.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #1a1a1a;
-  --primary: #2563eb;
-  --primary-dark: #1d4ed8;
-  --primary-light: #dbeafe;
-  --secondary: #059669;
-  --secondary-light: #d1fae5;
-  --accent: #f59e0b;
-  --accent-light: #fef3c7;
-  --danger: #dc2626;
-  --danger-light: #fee2e2;
-  --border: #e5e7eb;
-  --muted: #6b7280;
-  --muted-bg: #f9fafb;
-  --card-bg: #ffffff;
-  --sidebar-bg: #1e293b;
-  --sidebar-text: #cbd5e1;
-  --sidebar-active: #3b82f6;
+  color-scheme: light;
+
+  /* Paviršiai – šilti pilkumai (šalti mėlynsvyliai pilki šiam turiniui
+     atrodė kaip SaaS panelė, o ne kaimo bendruomenė) */
+  --surface: 255 255 255;
+  --surface-muted: 250 248 245;
+  --surface-card: 255 255 255;
+  --line: 233 229 223;
+  --line-strong: 217 211 202;
+
+  /* Tekstas – visi trys atitinka WCAG AA ant --surface.
+     Pakaitalas buvusiam `text-gray-400` (2,5:1 – neatitiko normos). */
+  --ink: 28 25 23; /* 16,9:1 */
+  --ink-muted: 87 83 78; /* 7,6:1 */
+  --ink-subtle: 111 104 98; /* 5,5:1 */
+
+  /* Bendruomenės žalia */
+  --brand: 21 128 61; /* 5,0:1 ant balto – tinka ir tekstui */
+  --brand-strong: 20 83 45;
+  --brand-soft: 240 253 244;
+  --brand-line: 187 247 208;
+  --on-brand: 255 255 255;
+
+  /* Akcentas – TIK skubiems dalykams (artėjantis susirinkimas, CTA).
+     Kai geltona dažomi ir projektai, ir prisegtos naujienos, ir „pasidalink",
+     ekrane lieka penki vienodai rėkiantys blokai ir svarbos ženklas dingsta. */
+  --accent: 180 83 9; /* 5,0:1 ant balto */
+  --accent-strong: 146 64 14;
+  --accent-soft: 255 251 235;
+  --accent-line: 253 230 138;
+
+  /* Senieji Tailwind `bg-background` / `text-foreground` raktai */
+  --background: var(--surface);
+  --foreground: var(--ink);
 }
 
-html, body {
+html,
+body {
   /* Apsauga nuo horizontalaus scroll'o mobiliuose – kartais ilgi tekstai,
      plačios lentelės ar grid'ai sukelia overflow ir „bėgiojantį" ekraną. */
   overflow-x: hidden;
   max-width: 100%;
 }
 
+html {
+  scroll-behavior: smooth;
+  /* Sticky header'is neužkloja antraštės, į kurią atėjom per #nuorodą */
+  scroll-padding-top: 5rem;
+}
+
 body {
-  color: var(--foreground);
-  background: var(--background);
+  color: rgb(var(--foreground));
+  background: rgb(var(--background));
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer base {
+  /* Matomas fokusas VISIEMS interaktyviems elementams. Iki šiol `focus:ring`
+     turėjo tik `<Button>`, o viešas puslapis susideda beveik vien iš `<Link>` –
+     naršant klaviatūra nesimatydavo, kur esi. */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid rgb(var(--brand));
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
+
+  ::selection {
+    background: rgb(var(--brand-line));
+    color: rgb(var(--brand-strong));
+  }
+}
+
+@layer components {
+  /* „Praleisti į turinį" – pirmas Tab viešame puslapyje */
+  .skip-link {
+    position: absolute;
+    left: 0.75rem;
+    top: 0.75rem;
+    z-index: 100;
+    transform: translateY(-200%);
+    transition: transform 150ms ease;
+    border-radius: 0.5rem;
+    background: rgb(var(--brand));
+    color: rgb(var(--on-brand));
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .skip-link:focus {
+    transform: translateY(0);
+  }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  .text-pretty {
+    text-wrap: pretty;
+  }
+}
+
+/* Judesys – tik tiems, kas jo nori (WCAG 2.3.3) */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

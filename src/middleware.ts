@@ -77,12 +77,11 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // /susirinkimai – tik admin, 'aktyvus' narys arba garbės narys
-    // (garbės narys mato archyvą/darbotvarkę, bet nebalsuoja – žr. CLAUDE.md)
+    // Įstatų 3.6 p. informacijos teisės galioja visiems esamiems nariams.
     if (isMeetingsPath && !isAdmin) {
       const m = Array.isArray(profile.members) ? profile.members[0] : profile.members;
       const memberStatus = m && typeof m === "object" && "status" in m ? m.status : null;
-      if (memberStatus !== "aktyvus" && memberStatus !== "garbes_narys") {
+      if (!["aktyvus", "pasyvus", "garbes_narys"].includes(String(memberStatus || ""))) {
         const url = request.nextUrl.clone();
         url.pathname = "/portalas";
         url.searchParams.set("error", "members_only");

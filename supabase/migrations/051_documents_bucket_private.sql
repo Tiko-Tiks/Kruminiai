@@ -1,4 +1,4 @@
--- 050: `documents` bucket'as tampa privatus
+-- 051: `documents` bucket'as tampa privatus
 --
 -- KODĖL: bucket'as buvo `public = true`. Viešame bucket'e objektas atiduodamas
 -- per `/storage/v1/object/public/...` be jokios autentifikacijos ir apeidamas
