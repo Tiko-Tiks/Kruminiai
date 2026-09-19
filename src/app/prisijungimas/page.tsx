@@ -73,7 +73,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col bg-amber-50">
       <PublicHeader />
 
-      <main className="flex-1 flex items-center justify-center px-4 py-12">
+      <main id="turinys" className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
             <div className="flex flex-col items-center mb-6">
