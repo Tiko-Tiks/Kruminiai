@@ -6,7 +6,7 @@ import { deleteMember } from "@/actions/members";
 import { ConfirmModal } from "@/components/ui/Modal";
 import { toast } from "sonner";
 
-export function DeleteMemberButton({ id, name }: { id: string; name: string }) {
+export function DeleteMemberButton({ id, name, archived }: { id: string; name: string; archived?: boolean }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -18,7 +18,7 @@ export function DeleteMemberButton({ id, name }: { id: string; name: string }) {
     if (result.error) {
       toast.error(result.error);
     } else {
-      toast.success("Narys ištrintas");
+      toast.success("Narys pažymėtas archyve, istorija išsaugota");
       setOpen(false);
       router.refresh();
     }
@@ -27,18 +27,19 @@ export function DeleteMemberButton({ id, name }: { id: string; name: string }) {
   return (
     <>
       <button
+        disabled={archived}
         onClick={() => setOpen(true)}
         className="text-red-600 hover:text-red-700 text-xs font-medium"
       >
-        Trinti
+        {archived ? "Archyvuotas" : "Archyvuoti"}
       </button>
       <ConfirmModal
         open={open}
         onClose={() => setOpen(false)}
         onConfirm={handleDelete}
-        title="Ištrinti narį?"
-        message={`Ar tikrai norite ištrinti narį "${name}"? Šis veiksmas negrįžtamas ir bus ištrinti visi susiję mokėjimai.`}
-        confirmLabel="Ištrinti"
+        title="Archyvuoti buvusį narį?"
+        message={`Pažymėti buvusį narį "${name}" kaip archyvuotą? Mokėjimai, sprendimų pagrindai ir kita istorija bus išsaugoti.`}
+        confirmLabel="Archyvuoti"
         loading={loading}
       />
     </>

@@ -1,14 +1,19 @@
 "use server";
 
+import { fetchFeeEligibility } from "@/lib/fee-eligibility";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { requireAdmin } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { isoToVilniusLocal } from "@/lib/utils";
 
 const feePeriodSchema = z.object({
-  year: z.coerce.number().min(2000).max(2100),
+  decision_reference: z.string().trim().min(3, "Nurodykite Visuotinio susirinkimo sprendimą").max(1000),
+  decision_date: z.iso.date("Nurodykite sprendimo datą"),
+  year: z.coerce.number().int().min(2000).max(2100),
   name: z.string().min(1, "Pavadinimas privalomas"),
-  amount_cents: z.coerce.number().min(1, "Suma privaloma"),
+  amount_cents: z.coerce.number().int().min(1, "Suma privaloma"),
   fee_type: z.enum(["metinis", "tikslinis", "vienkartinis", "kita"]),
   due_date: z.string().optional().or(z.literal("")),
 });
@@ -23,7 +28,7 @@ const LOOSE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 const paymentSchema = z.object({
   member_id: z.string().regex(LOOSE_UUID, "Pasirinkite narį"),
   fee_period_id: z.string().regex(LOOSE_UUID, "Pasirinkite laikotarpį"),
-  amount_cents: z.coerce.number().min(1, "Suma privaloma"),
+  amount_cents: z.coerce.number().int().min(1, "Suma privaloma"),
   paid_date: z.string().min(1, "Data privaloma"),
   payment_method: z.enum(["grynieji", "pavedimas", "kita"]),
   receipt_number: z.string().optional().or(z.literal("")),
@@ -43,12 +48,15 @@ export async function getFeePeriods() {
 
 export async function createFeePeriod(formData: FormData) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: { _form: [auth.error] } };
+  const user = auth.user;
 
   const raw = Object.fromEntries(formData.entries());
   const parsed = feePeriodSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
 
+  if (parsed.data.decision_date > isoToVilniusLocal(new Date()).slice(0,10)) return {error:{decision_date:["Sprendimo data dar neatėjo."]}};
   const values = {
     ...parsed.data,
     due_date: parsed.data.due_date || null,
@@ -123,9 +131,6 @@ export async function createPayment(formData: FormData) {
     .single();
 
   if (error) {
-    if (error.code === "23505") {
-      return { error: { _form: ["Šis narys jau sumokėjo už šį laikotarpį"] } };
-    }
     return { error: { _form: [error.message] } };
   }
 
@@ -178,19 +183,20 @@ export async function getFeeReport(feePeriodId: string) {
     paidMap.set(p.member_id, (paidMap.get(p.member_id) || 0) + p.amount_cents);
   }
 
-  const report = membersRes.data.map((m) => ({
+  const eligibility = await fetchFeeEligibility(supabase, membersRes.data.map(m => m.id));
+  const report = membersRes.data.filter(m => eligibility.get(m.id)?.has(feePeriodId)).map((m) => ({
     ...m,
     paid: paidMap.get(m.id) || 0,
     owed: periodRes.data.amount_cents,
-    hasPaid: paidMap.has(m.id),
+    hasPaid: (paidMap.get(m.id) || 0) >= periodRes.data.amount_cents,
   }));
 
   return {
     period: periodRes.data,
     members: report,
     totalCollected: paymentsRes.data.reduce((s, p) => s + p.amount_cents, 0),
-    totalOwed: membersRes.data.length * periodRes.data.amount_cents,
-    paidCount: paidMap.size,
-    unpaidCount: membersRes.data.length - paidMap.size,
+    totalOwed: report.length * periodRes.data.amount_cents,
+    paidCount: report.filter(m=>m.hasPaid).length,
+    unpaidCount: report.filter(m=>!m.hasPaid).length,
   };
 }

@@ -66,6 +66,8 @@ export function CreateFeePeriodForm() {
               ]}
             />
             <Input id="due_date" name="due_date" label="Terminas" type="date" />
+            <Input name="decision_reference" label="Visuotinio susirinkimo protokolo numeris, punktas / nuoroda" required />
+            <Input name="decision_date" label="Mokestį nustačiusio sprendimo data" type="date" required />
             <Button type="submit" size="sm" className="w-full" loading={loading}>
               Sukurti laikotarpį
             </Button>

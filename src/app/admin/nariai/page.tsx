@@ -116,7 +116,7 @@ export default async function MembersPage({ searchParams }: Props) {
                         >
                           Redaguoti
                         </Link>
-                        <DeleteMemberButton id={member.id} name={`${member.first_name} ${member.last_name}`} />
+                        <DeleteMemberButton archived={!!member.archived_at} id={member.id} name={`${member.first_name} ${member.last_name}`} />
                       </div>
                     </td>
                   </tr>

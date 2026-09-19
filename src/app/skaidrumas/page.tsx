@@ -55,7 +55,7 @@ async function getFinansaiData(locale: Locale) {
   // nebereikia tiesioginės SELECT teisės į members/payments (ten PII),
   // o RPC grąžina tik statistikai būtinus laukus be asmens duomenų.
   const { data: feeStats } = await supabase.rpc("get_transparency_fee_stats");
-  const members = ((feeStats?.members ?? []) as { join_date: string | null; status: string }[]);
+  const paidCounts=new Map<string,number>((feeStats?.paid_counts || []).map((p:{fee_period_id:string;count:number})=>[p.fee_period_id,p.count]));
   const payments = ((feeStats?.payments ?? []) as { fee_period_id: string; amount_cents: number }[]);
 
   // Grupuojam payments pagal metus, atskirai metinius ir kitus (stojamieji,
@@ -90,10 +90,7 @@ async function getFinansaiData(locale: Locale) {
     .sort((a, b) => (b.year as number) - (a.year as number));
 
   const yearStats: YearStats[] = metinisByYear.map((fp) => {
-    const eligible = (members || []).filter((m) => {
-      const joinYear = m.join_date ? new Date(m.join_date).getFullYear() : 2012;
-      return joinYear <= fp.year;
-    });
+    const eligibleCount = ((feeStats?.eligible_counts ?? []) as { fee_period_id: string; count: number }[]).find(row => row.fee_period_id === fp.id)?.count ?? 0;
     const paid = paidByYear.get(fp.year) || {
       metinis_cents: 0,
       metinis_count: 0,
@@ -104,9 +101,9 @@ async function getFinansaiData(locale: Locale) {
       year: fp.year,
       collected_cents: paid.metinis_cents + paid.kita_cents, // metinis + stojamieji
       metinis_collected_cents: paid.metinis_cents, // tik metinis – naudojam skolai
-      potential_cents: eligible.length * (fp.amount_cents as number),
-      paid_count: paid.metinis_count,
-      unpaid_count: eligible.length - paid.metinis_count,
+      potential_cents: eligibleCount * (fp.amount_cents as number),
+      paid_count: paidCounts.get(fp.id) || 0,
+      unpaid_count: Math.max(0,eligibleCount - (paidCounts.get(fp.id) || 0)),
     };
   });
 

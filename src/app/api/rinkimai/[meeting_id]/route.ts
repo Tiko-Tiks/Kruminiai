@@ -27,6 +27,7 @@ export async function GET(
     last_name: string | null;
   };
   type ElectionsData = {
+    captured_at?: string;
     error?: string;
     meeting_title?: string;
     meeting_date?: string;
@@ -52,7 +53,7 @@ export async function GET(
   };
 
   const meetingDate = new Date(meeting.meeting_date);
-  const generatedAt = new Date();
+  const generatedAt = new Date(data.captured_at || Date.now());
 
   const allRoles = data.roles ?? [];
   const memberName = (r: RoleRow) => {
