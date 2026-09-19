@@ -122,6 +122,15 @@ BEGIN
 END;
 $function$;
 
+-- SUJUNGTA su įstatų atitikties migracija (20260918185337_bylaws_enforcement, main
+-- 060094d): ji tą pačią funkciją perrašo su ĮMOKOMIS DALIMIS (laikotarpio skola yra
+-- `greatest(suma − visų to laikotarpio įmokų suma, 0)`, `payments`
+-- UNIQUE(member_id, fee_period_id) ten pašalintas) ir su `bylaws_fee_applies()`
+-- (mokestis taikomas tik tiems metams, kai narystė galiojo). Gamyboje 048 taikoma
+-- PO jos, todėl šis kūnas privalo būti abiejų pakeitimų SĄJUNGA: tos migracijos
+-- kūnas pažodžiui + 048 patvirtinimo vartai (`not_approved`). Grįžus prie senosios
+-- NOT EXISTS / join_date logikos 5 € + 7 € įmokos vėl nepadengtų 12 €, o buvusio
+-- nario laikotarpiai būtų skaičiuojami neteisingai.
 CREATE OR REPLACE FUNCTION public.get_member_financial_status()
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -162,7 +171,7 @@ BEGIN
         'fee_period_id', fp.id,
         'year', fp.year,
         'name', fp.name,
-        'amount_cents', fp.amount_cents,
+        'amount_cents', greatest(fp.amount_cents-coalesce((SELECT sum(px.amount_cents) FROM public.payments px WHERE px.fee_period_id=fp.id AND px.member_id=v_member_id),0),0),
         'fee_type', fp.fee_type,
         'due_date', fp.due_date,
         'is_overdue', fp.due_date IS NOT NULL AND fp.due_date < CURRENT_DATE
@@ -170,20 +179,14 @@ BEGIN
     ) INTO v_unpaid
     FROM fee_periods fp
     WHERE fp.fee_type = 'metinis'
-      AND fp.year >= COALESCE(EXTRACT(YEAR FROM v_member_join_date)::INT, 2012)
-      AND NOT EXISTS (
-        SELECT 1 FROM payments p
-        WHERE p.fee_period_id = fp.id AND p.member_id = v_member_id
-      );
+      AND public.bylaws_fee_applies(v_member_id,fp.year)
+      AND greatest(fp.amount_cents-coalesce((SELECT sum(px.amount_cents) FROM public.payments px WHERE px.fee_period_id=fp.id AND px.member_id=v_member_id),0),0)>0;
 
-    SELECT COALESCE(SUM(fp.amount_cents), 0) INTO v_total_debt
+    SELECT COALESCE(SUM(greatest(fp.amount_cents-coalesce((SELECT sum(px.amount_cents) FROM public.payments px WHERE px.fee_period_id=fp.id AND px.member_id=v_member_id),0),0)), 0) INTO v_total_debt
     FROM fee_periods fp
     WHERE fp.fee_type = 'metinis'
-      AND fp.year >= COALESCE(EXTRACT(YEAR FROM v_member_join_date)::INT, 2012)
-      AND NOT EXISTS (
-        SELECT 1 FROM payments p
-        WHERE p.fee_period_id = fp.id AND p.member_id = v_member_id
-      );
+      AND public.bylaws_fee_applies(v_member_id,fp.year)
+      AND greatest(fp.amount_cents-coalesce((SELECT sum(px.amount_cents) FROM public.payments px WHERE px.fee_period_id=fp.id AND px.member_id=v_member_id),0),0)>0;
   END IF;
 
   SELECT jsonb_agg(
@@ -393,3 +396,25 @@ BEGIN
   END IF;
 END
 $$;
+
+-- ----------------------------------------------------------------------------
+-- D. Dokumentų prieigos helper'io (migr. 047) trireikšmės logikos spraga
+-- ----------------------------------------------------------------------------
+-- 047 `_can_view_meeting_doc` skaičiuoja `... OR (p_token IS NOT NULL AND
+-- public.voting_token_meeting(p_token) = p_meeting_id)`. Neegzistuojančiam ar
+-- pasibaigusiam tokenui `voting_token_meeting` grąžina NULL, `NULL = uuid` yra
+-- NULL, todėl visa išraiška tampa NULL, o RPC viduje `IF NOT NULL` NEsuveikia –
+-- anon su bet kokiu netikru tokenu gaudavo paskelbto susirinkimo dokumentą.
+-- Tas pats tekstas kaip įstatų atitikties migracijoje (20260918185337), kad
+-- abi migracijos, kad ir kokia tvarka taikomos, baigtųsi tuo pačiu kūnu.
+-- Parašas nekeičiamas (uuid, text), todėl 047 REVOKE lieka; pakartojam jį
+-- eksplicitiškai, kad švarioje grandinėje niekas nepriklausytų nuo eilės.
+
+-- A missing/expired token returns NULL, which must never bypass IF NOT access.
+CREATE OR REPLACE FUNCTION public._can_view_meeting_doc(p_meeting_id uuid,p_token text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path='public' AS $$
+  SELECT coalesce(public.is_admin(),false) OR coalesce(public.is_approved_member(),false)
+    OR (p_token IS NOT NULL AND p_meeting_id IS NOT NULL
+        AND coalesce(public.voting_token_meeting(p_token)=p_meeting_id,false));
+$$;
+REVOKE ALL ON FUNCTION public._can_view_meeting_doc(uuid,text) FROM PUBLIC,anon,authenticated;

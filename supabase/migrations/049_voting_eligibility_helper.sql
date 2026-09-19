@@ -36,16 +36,39 @@
 --   * `get_member_voting_history` filtruoja tik pagal `is_published` – organo
 --     patikra istorijoje pašalindavo pasibaigusios kadencijos nario paties
 --     Tarybos posėdžius.
+--
+-- SUDERINTA su įstatų atitikties migracija (`bylaws_enforcement`), kuri taikoma
+-- PRIEŠ šią produkcijoje:
+--   * Tarybos nario kriterijus `_is_current_council_member` toks pat kaip
+--     `bylaws_participation_guard`: `pirmininkas`/`tarybos_narys` su jau
+--     prasidėjusia kadencija (`term_start <= šiandien`) ir jokio galiojančio
+--     `revizorius` (5.1, 5.5, 6.2 p.);
+--   * valymas neliečia galutinių (`patvirtintas`/`atmestas`) nutarimų – jų
+--     balsų `bylaws_participation_guard` trinti neleidžia, o laukų
+--     `bylaws_resolution_guard` keisti neleidžia;
+--   * valymas neima `members` eilutės užrakto – `bylaws_council_lock` yra
+--     BEFORE trigger'is ir advisory užraktą paima pirmas, todėl eilutės
+--     užraktas sudarytų ABBA ciklą su nario statuso keitimu;
+--   * valymas NIEKO nerašo į `meetings`: susirinkimo laiko narių bazė
+--     (`electorate_snapshot`, `total_members_at_time`, `quorum_required`)
+--     fiksuojama posėdžio pradžioje ir `bylaws_meeting_guard` jos keisti
+--     neleidžia – Tarybos nario netekimas yra vėlesnis įvykis, ne bazės klaida.
+-- Migracija veikia ir tuo atveju, jei būtų taikoma prieš `bylaws_enforcement`
+-- (švarioje DB pagal versijų eilę) – tada tų trigger'ių paprasčiausiai dar nėra.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
 -- Pagalbinės funkcijos
 -- ----------------------------------------------------------------------------
 
--- Ar narys šiuo metu yra valdymo organo narys? Tas pats kriterijus, kurį
--- naudoja posėdžio dalyvių sąrašas (`fetchEligibleAttendees`,
--- src/actions/meetings.ts): bet kuri GALIOJANTI `community_management` rolė –
--- Pirmininkas pagal įstatų 5.3 p. renkamas iš Tarybos narių, tad įeina.
+-- Ar narys šiuo metu turi balso teisę Tarybos posėdyje?
+--
+-- Kriterijus VIENODAS su `bylaws_participation_guard` (įstatų atitikties
+-- migracija): galiojanti `pirmininkas` arba `tarybos_narys` rolė (5.1 p. –
+-- Pirmininkas renkamas iš Tarybos narių, 5.5 p. – posėdyje sprendžia Taryba),
+-- IR jokios galiojančios `revizorius` rolės (6.2 p. – Revizorius negali būti
+-- valdymo organo nariu). Tą patį rolių sąrašą naudoja ir dalyvių sąrašas
+-- `fetchEligibleAttendees` (src/actions/meetings.ts).
 CREATE OR REPLACE FUNCTION public._is_current_council_member(p_member_id uuid)
  RETURNS boolean
  LANGUAGE sql
@@ -56,6 +79,16 @@ AS $function$
     SELECT 1 FROM public.community_management cm
     WHERE cm.member_id = p_member_id
       AND cm.is_current = true
+      AND cm.role IN ('pirmininkas', 'tarybos_narys')
+      -- Pareigos turi būti prasidėjusios: įstatų atitikties migracijos
+      -- `bylaws_participation_guard` ir bazės fiksavimas reikalauja
+      -- `term_start <= šiandien` (NULL term_start – dar ne Tarybos narys).
+      AND cm.term_start <= (now() AT TIME ZONE 'Europe/Vilnius')::date
+  ) AND NOT EXISTS (
+    SELECT 1 FROM public.community_management cm
+    WHERE cm.member_id = p_member_id
+      AND cm.is_current = true
+      AND cm.role = 'revizorius'
   );
 $function$;
 
@@ -134,13 +167,18 @@ REVOKE ALL ON FUNCTION public._member_can_vote(uuid, uuid) FROM PUBLIC, anon, au
 -- paskui iki posėdžio neteko Tarybos nario statuso, jo `vote_ballots` ir
 -- `resolutions.result_*` liktų suskaičiuoti. Tai tas pats scenarijus, kurį
 -- narystės statusui tvarko `on_member_status_change` (migr. 038–040), todėl
--- elgiamės lygiai taip pat – tik apimtis siauresnė: BŪSIMI Tarybos posėdžiai.
+-- elgiamės lygiai taip pat – tik apimtis siauresnė: BŪSIMI Tarybos posėdžiai
+-- (`meeting_date > NOW()`). Jau prasidėjęs posėdis (`vyksta` – pagal
+-- `bylaws_meeting_guard` jis prasideda tik atėjus jo laikui) į apimtį nepatenka
+-- lygiai kaip ir `on_member_status_change` atveju; ten balso teisę netekusį
+-- dalyvį uždarant nutarimą sustabdo `bylaws_resolution_guard`.
 --
 -- KVORUMO (`total_members_at_time`, `quorum_required`) šis valymas NELIEČIA:
 -- Tarybos posėdžio kvorumo bazė yra Tarybos nariai, o `on_member_status_change`
--- perskaičiuoja bendruomenės narių bazę. Tarybos posėdžio kvorumą administratorius
--- redaguoja rankomis posėdžio ekrane (CLAUDE.md „Posėdžio dalyvių registracija
--- ir kvorumas" – tai posėdžio momento faktas, ne formulė).
+-- perskaičiuoja bendruomenės narių bazę. Prasidėjusio posėdžio bazę
+-- `bylaws_meeting_guard` užfiksuoja `electorate_snapshot` lauke ir vėliau
+-- keisti neleidžia – tai posėdžio momento faktas, ne formulė (CLAUDE.md
+-- „Posėdžio dalyvių registracija ir kvorumas").
 CREATE OR REPLACE FUNCTION public._purge_council_ineligible_votes(p_member_id uuid)
  RETURNS void
  LANGUAGE plpgsql
@@ -156,25 +194,28 @@ BEGIN
     RETURN;
   END IF;
 
-  -- UŽRAKTŲ TVARKA: `members` eilutė → advisory → `meeting_voting_tokens` →
-  -- `vote_ballots`. Būtent tokia, o ne atvirkščiai, nes `members_status_change_sync`
-  -- yra AFTER UPDATE trigger'is: kai jis ima advisory užraktą (migr. 041),
-  -- `members` eilutė jau užrakinta pačios UPDATE komandos. Jei čia advisory
-  -- imtume pirmas, dvi lygiagrečios operacijos (nario statuso keitimas ir
-  -- Tarybos sudėties keitimas tam pačiam nariui) sudarytų deadlock ciklą.
+  -- UŽRAKTAS: TIK advisory, jokio `members ... FOR UPDATE`.
   --
-  -- `members` eilutės užraktas yra tas pats, kurį PRIEŠ patikras ima abu
-  -- balsavimo RPC (migr. 040), todėl valymas ir balso įrašymas serializuojasi:
-  -- balsas negali „prasprūsti" tarp patikros ir valymo.
-  PERFORM 1 FROM members WHERE id = p_member_id FOR UPDATE;
-  IF NOT FOUND THEN
-    -- Nario įrašo nebėra (ištrintas) – susietas eilutes jau sutvarkė FK.
+  -- Serializacija su balsavimu remiasi tuo, kad įstatų atitikties migracijos
+  -- `bylaws_ballot` / `bylaws_attendance` BEFORE trigger'iai ima TĄ PATĮ
+  -- advisory užraktą kiekvienam `vote_ballots` / `meeting_attendance` įrašui,
+  -- o `bylaws_council_lock` – kiekvienam `community_management` pakeitimui.
+  -- Todėl balsas negali „prasprūsti" tarp patikros ir valymo.
+  --
+  -- Eilutės užrakto čia sąmoningai NEIMAM: `bylaws_council_lock` yra BEFORE
+  -- trigger'is, t. y. Tarybos sudėties transakcija advisory jau laiko, o nario
+  -- statuso transakcija eina atvirkščiai (eilutė → advisory). Paėmus čia dar ir
+  -- eilutės užraktą susidarytų ABBA ciklas. Advisory yra re-entrant, todėl
+  -- pakartotinis paėmimas toje pačioje transakcijoje nieko nekainuoja.
+  PERFORM pg_advisory_xact_lock(hashtext('members_voting_eligibility'));
+
+  IF NOT EXISTS (SELECT 1 FROM members WHERE id = p_member_id) THEN
+    -- Nario įrašo nebėra (ištrintas) – susietas eilutes jau sutvarkė FK, o
+    -- bandymas trinti jas dar kartą užkliūtų už `bylaws_ballot` sargybos.
     RETURN;
   END IF;
 
-  PERFORM pg_advisory_xact_lock(hashtext('members_voting_eligibility'));
-
-  -- Sprendimas priimamas TIK po užraktų – kitaip tarp patikros ir valymo
+  -- Sprendimas priimamas TIK po užrakto – kitaip tarp patikros ir valymo
   -- galėtų įsiterpti Tarybos sudėties pakeitimas.
   IF public._is_current_council_member(p_member_id) THEN
     RETURN;
@@ -191,11 +232,17 @@ BEGIN
     AND m.status NOT IN ('baigtas', 'atšauktas')
     AND m.meeting_date > NOW();
 
+  -- GALUTINIAI NUTARIMAI NELIEČIAMI. `bylaws_participation_guard` neleidžia
+  -- trinti balso iš `patvirtintas`/`atmestas` nutarimo, o `bylaws_resolution_guard`
+  -- atmeta bet kokį tokio nutarimo laukų keitimą. Tai ne kliūtis, o ta pati
+  -- taisyklė: priimtas sprendimas yra užfiksuotas faktas ir taisomas atskiru
+  -- protokolo taisymu, ne šiuo valymu.
   SELECT array_agg(vb.resolution_id) INTO v_res_ids
   FROM vote_ballots vb
   JOIN resolutions r ON r.id = vb.resolution_id
   JOIN meetings m ON m.id = r.meeting_id
   WHERE vb.member_id = p_member_id
+    AND r.status NOT IN ('patvirtintas', 'atmestas')
     AND m.meeting_type = 'valdybos'
     AND m.status NOT IN ('baigtas', 'atšauktas')
     AND m.meeting_date > NOW();
@@ -210,7 +257,10 @@ BEGIN
       result_for = (SELECT count(*) FROM vote_ballots WHERE resolution_id = r.id AND vote = 'uz'),
       result_against = (SELECT count(*) FROM vote_ballots WHERE resolution_id = r.id AND vote = 'pries'),
       result_abstain = (SELECT count(*) FROM vote_ballots WHERE resolution_id = r.id AND vote = 'susilaike')
-    WHERE r.id = ANY (v_res_ids);
+    WHERE r.id = ANY (v_res_ids)
+      -- Ta pati sąlyga pakartojama ir čia: tarp dviejų komandų statusas galėjo
+      -- pasikeisti, o galutinio nutarimo UPDATE'as būtų atmestas su klaida.
+      AND r.status NOT IN ('patvirtintas', 'atmestas');
   END IF;
 
   DELETE FROM meeting_attendance ma
@@ -667,9 +717,11 @@ GRANT EXECUTE ON FUNCTION public.get_member_voting_history() TO authenticated;
 -- narius, kurie turi balsą arba dalyvavimo įrašą BŪSIMAME Tarybos posėdyje;
 -- pats helper'is dabartinius Tarybos narius praleidžia.
 --
--- ĮVYKUSIŲ (baigtų) posėdžių NELIEČIAM: protokolas pasirašytas, rezultatai
--- paskelbti – tai istorinis faktas, o ne taisytini duomenys. Jei ten būtų
--- klaida, ji sprendžiama Tarybos sprendimu, ne migracija.
+-- ĮVYKUSIŲ (baigtų) posėdžių ir GALUTINIŲ nutarimų NELIEČIAM: protokolas
+-- pasirašytas, rezultatai paskelbti – tai istorinis faktas, o ne taisytini
+-- duomenys. Jei ten būtų klaida, ji sprendžiama Tarybos sprendimu, ne
+-- migracija. Tą patį saugo `bylaws_participation_guard`, todėl be šio filtro
+-- migracija tiesiog nulūžtų.
 DO $$
 DECLARE
   v_member_id UUID;
@@ -679,7 +731,8 @@ BEGIN
     FROM public.vote_ballots vb
     JOIN public.resolutions r ON r.id = vb.resolution_id
     JOIN public.meetings m ON m.id = r.meeting_id
-    WHERE m.meeting_type = 'valdybos'
+    WHERE r.status NOT IN ('patvirtintas', 'atmestas')
+      AND m.meeting_type = 'valdybos'
       AND m.status NOT IN ('baigtas', 'atšauktas')
       AND m.meeting_date > NOW()
     UNION
