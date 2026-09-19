@@ -43,10 +43,18 @@ environment" (PR #12). Toks atsakymas nėra pastaba.
 
 ## 2. Procedūra
 
-0. **Sukūrus bet kurį PR** (draft **arba iškart ready**): pradėti būsenos
-   stebėjimą, užrašyti T0 ir head SHA, užsakyti PR įvykių prenumeratą ir +15 min.
-   baigtos recenzijos patikrą bei bendrą ~1 val. patikrą, jei aplinka tai palaiko.
-   Draft PR iškart gauna rankinį kvietimą; ready PR laukia automatinės recenzijos.
+0. **Pradėjus prižiūrėti bet kurį PR** – naujai sukurtą arba perimtą jau
+   atidarytą, draft arba ready – inicijuoti stebėjimą. Pirmiausia perskaityti
+   esamą head, recenzijas, rankinius kvietimus ir būsenos komentarą: atkurti
+   T0 (dabartinio head push arba ready perjungimo laiką), kvietimų bei ratų
+   skaitiklius ir aktyvius stabdžius. Perėmimas jų nenulina. Jei T0 atkurti
+   neįmanoma, užrašyti pirmo patikrinimo laiką ir aiškiai pažymėti neapibrėžtumą;
+   žinomų ankstesnių kvietimų ar stabdžio neprarasti.
+   Užsakyti PR įvykių prenumeratą ir artimiausią +15 min. recenzijos patikrą
+   bei bendrą ~1 val. patikrą, jei aplinka tai palaiko. Jei pagal atkurtą T0
+   terminas jau praėjęs, iškart atlikti atitinkamą 4 sk. žingsnį, nepradėti
+   naujo laukimo lango. Neužsakyti jau veikiančios prenumeratos/patikros kopijos.
+   Naujas draft PR iškart gauna rankinį kvietimą; ready PR laukia automatinės.
    Po kiekvieno push'o abiem atvejais atnaujinamas head ir +15 min. patikra.
    Jei prenumeratos ar planavimo įrankių nėra, nelaikyti jų įjungtais: aktyvioje
    sesijoje periodiškai tikrinti būseną, tarp patikrų atliekant nepriklausomus
@@ -97,15 +105,22 @@ environment" (PR #12). Toks atsakymas nėra pastaba.
    likusios pastabos (nuoroda į giją), kas išbandyta, koks sprendimas reikalingas;
    Mindaugui – trumpa žinutė su tuo pačiu. Tęsti tik jam nusprendus, tada skaitiklis
    tęsiamas (ne nulinamas).
-6. **Baigta** = head SHA turi baigtą Codex recenziją **be pastabų** – Codex review
-   arba PR komentaras su „Reviewed commit" = head SHA ir „Didn't find any major
-   issues" (arba 👍 reakcija); summary „Completed" nebūtinas, kaip ir CLAUDE.md
-   2 p. – **IR** CI žalia **IR** nėra konflikto **IR** nėra neišspręstų Codex gijų. Tada: būsenos komentare
-   „Vartai praeiti“; pagal Taisyklę Nr. 2 merginti **merge commit** su tikėtinu
-   head SHA, patikrinti deploy bei sutartą priėmimą ir imti kitą plano darbą.
-   Papildomo klausimo „ar tęsti“ nereikia.
-   Jei PR pažymimas „ready for review", Codex padaro dar vieną praėjimą – jo
-   pastabos yra dar vienas ratas.
+6. **Paruošti ready ir tik tada tikrinti merge vartus.** Jei PR vis dar draft,
+   baigus pataisas ir vietines patikras pažymėti jį ready for review, užrašyti
+   perjungimo laiką ir atnaujinti T0 bei laukimo patikrą (4 sk.). Tai naujas
+   recenzijos paleidimas net ir nepasikeitus SHA: **sulaukti po ready perjungimo
+   pradėtos recenzijos pabaigos**. Ankstesnis draft'o rezultatas tam pačiam SHA
+   šios patikros nepakeičia. Jei iš rezultato laiko/trigger'io neaišku, ar
+   recenzija priklauso ready paleidimui, vartai lieka nepraeiti; taikyti 4 sk.
+   atsarginio rankinio kvietimo tvarką. Naujos pastabos taisomos įprastu ciklu.
+
+   **Baigta** = PR ready, dabartinis head turi baigtą Codex recenziją be pastabų
+   (review arba PR komentaras su „Reviewed commit“ = head SHA ir „Didn't find
+   any major issues“; vien reakcijos be SHA nepakanka), visi reikiami CI žali,
+   nėra konflikto ir neišspręstų Codex gijų. Recenzija turi tenkinti ir aukščiau
+   aprašytą ready paleidimo sąlygą. Tada būsenos komentare „Vartai praeiti“;
+   pagal Taisyklę Nr. 2 merginti **merge commit** su tikėtinu head SHA, patikrinti
+   deploy bei sutartą priėmimą ir imti kitą plano darbą. Klausimo „ar tęsti“ nereikia.
 
 ## 3. Kas NE ratas
 

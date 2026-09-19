@@ -75,7 +75,10 @@ Procedūra (kaip atpažinti Codex būseną, ratų skaitiklis, būsenos komentara
 2026-09-19 Mindaugo sprendimas: užbaigti sutartą planą be pakartotinių klausimų
 „ar tęsti“. Ši taisyklė aiškiai pakeičia Nr. 1 5 p. draudimą asistentui merginti.
 
-1. Kai **dabartinis head** turi baigtą Codex recenziją be pastabų, nėra neišspręstų
+1. PR turi būti **ready for review**. Draft pirmiausia perjungiamas į ready ir
+   sulaukiama po perjungimo pradėtos recenzijos pabaigos; senas draft rezultatas
+   tam pačiam SHA jos nepakeičia. Kai **dabartinis head** turi baigtą Codex
+   recenziją be pastabų, nėra neišspręstų
    Codex gijų, visos privalomos CI patikros sėkmingos ir nėra konfliktų, asistentas
    mergina **merge commit** būdu, patikrindamas tikėtiną head SHA. Jei head pasikeitė,
    vartai tikrinami iš naujo. Savo PR patvirtinimas (`approve`) tam nereikalingas.
