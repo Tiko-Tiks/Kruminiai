@@ -81,6 +81,7 @@ export async function GET(
     roles: string[];
   };
   type ExpulsionsData = {
+    captured_at?: string;
     error?: string;
     meeting_title?: string;
     meeting_date?: string;
@@ -89,6 +90,7 @@ export async function GET(
   };
   const { data: expulsionsData } = await supabase.rpc("get_meeting_expulsions_data", {
     p_meeting_id: params.meeting_id,
+    p_token: token,
   });
   const data = (expulsionsData ?? {}) as ExpulsionsData;
 
@@ -113,7 +115,7 @@ export async function GET(
   // Statistika
   const totalDebt = candidates.reduce((s, c) => s + (c.debt_cents || 0), 0) / 100;
   const meetingDate = new Date(meeting.meeting_date);
-  const generatedAt = new Date();
+  const generatedAt = new Date(data.captured_at || Date.now());
 
   const candidateBlocks = candidates
     .map((r, i) => {

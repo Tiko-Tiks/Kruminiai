@@ -1,5 +1,7 @@
 # Krūminių kaimo bendruomenės sistemos vadovas
 
+Privalomos įstatų ir peržiūros taisyklės yra `AGENTS.md`; tekstinis šaltinis ir atitikties matrica - `docs/istatai/`. Prieš keičiant veiklos logiką perskaityti aktualius punktus.
+
 Šis failas yra orientyras AI asistentui, dirbant prie šio projekto. Skirtas tiek pirmam susipažinimui, tiek patikrinimui, kad nedubliuotumėt esamų sprendimų.
 
 ## Tech stack
@@ -27,8 +29,8 @@
 /lieptas                                   Viešas (aukų rinkimo projektas, SEPA QR, gyvas progresas)
 /lieptas/spausdinti                        Viešas (A4 plakatas su QR kodu)
 /kontaktai                                 Viešas (apie mus / kontaktai)
-/susirinkimai                              Auth + status='aktyvus' (arba admin)
-/susirinkimai/[id]                         Auth + status='aktyvus' – pilna darbotvarkė + dokumentai
+/susirinkimai                              Auth + esama narystė (arba admin)
+/susirinkimai/[id]                         Auth + esama narystė – pilna darbotvarkė + dokumentai
 /dokumentai                                Auth required (apsaugotas middleware)
 /skaidrumas                                Auth required
 /finansai                                  Auth required – pilnas bendruomenės finansų vaizdas nariams
@@ -51,7 +53,7 @@ neprisijungusį → `/prisijungimas?from=`; prisijungusį, bet **nepatvirtintą*
 (`is_approved=false`) → `signOut()` + `/prisijungimas?error=not_approved`
 (galioja VISIEMS 6 prefiksams); narį, bandantį `/admin` → `/portalas`
 (vienkryptis – admin'as `/portalas` pasiekia laisvai); `/susirinkimai` – tik
-admin arba `members.status='aktyvus'` narys, kitaip `/portalas?error=members_only`.
+admin arba `members.status IN ('aktyvus', 'pasyvus', 'garbes_narys')` narys, kitaip `/portalas?error=members_only`.
 
 `PublicHeader` (`src/components/layout/PublicHeader.tsx`) yra **auth-aware**: neprisijungusiems lankytojams paslepiami tabai, kurie reikalauja auth (`requiresAuth: true` PUBLIC_NAV punktuose – Susirinkimai / Dokumentai / Skaidrumas). Prisijungusiems – vietoj „Prisijungti/Tapti nariu" mygtukų rodomas „Mano paskyra" link'as į `/portalas`.
 
@@ -146,7 +148,7 @@ export function revalidateMeetingPaths(meetingId: string) {
 2. **#2 Pranešimo tinkamumas** (`procedural_type=pranesimas`) – pirmininkas
    patvirtina, kad susirinkimas buvo paskelbtas tinkamai pagal įstatus.
    NUTARTA tekstas auto-generuojamas iš `meeting_announcements` lentelės
-   (kanalai, datos, compliance status su 14 d. terminu).
+   (kanalai, datos, informavimo terminas: eiliniam 14 d., neeiliniam 7 d.; SMS papildoma).
 3. **#3 Darbotvarkės tvirtinimas** (`procedural_type=darbotvarke`)
 
 Procedūriniai klausimai į balsavimo srautą (SMS / portalas) neįtraukiami –
@@ -622,16 +624,16 @@ pilnaverčiu nariu tik kai admin'as patvirtina (po apmokėjimo).
 
 **`approveUser()` (`src/actions/users.ts`, NE tiesioginis kliento UPDATE):**
 - `requireAdmin()` + `logAudit()`
-- nustato `is_approved=true` IR, jei `member_id` tuščias, **sukuria arba prisieja**
-  `members` įrašą (dedup pagal el. paštą; naujam – `status='aktyvus'`,
-  `join_date=CURRENT_DATE` = patvirtinimo data)
+- nustato `is_approved=true` ir susieja jau priimtą narį pagal el. paštą.
+  Pats `members` įrašo nekuria. Naujas narys pirma įrašomas narių formoje su
+  raštiško prašymo ir Tarybos sprendimo pagrindu (įstatų 3.2 p.).
 - **patvirtina el. paštą** admin teisėmis (`admin.auth.admin.updateUserById(id,
   { email_confirm: true })`) – kitaip narys, nepaspaudęs Supabase „Confirm email"
   nuorodos, NEGALĖTŲ prisijungti net po patvirtinimo
 - siunčia **laišką #2** (`renderMemberWelcomeEmail`) – pasveikinimas + supažindinimas
   su portalu. Tik pirmą kartą patvirtinant (`!wasApproved`)
 - `revokeUser()` atima tik portalo prieigą (`is_approved=false`), **nario neliečia** –
-  narystės pabaiga yra Tarybos kompetencija (įstatai 5.4.2)
+  pašalinimas reikalauja Tarybos sprendimo (5.4.2), išstojimas – nario raštiško prašymo (3.3).
 
 **Vartai:** tikrasis barjeras – `is_approved`, enforce'inamas ir `/prisijungimas`
 puslapyje, ir `middleware.ts` (visiems 5 apsaugotiems prefiksams). `/prisijungimas`
@@ -1035,7 +1037,7 @@ Naudoja `node scripts/X.mjs` su .env.local skaitymu.
 - **Narystės deklaracija** (`/admin/nariai/deklaracija`):
   - Tik skolingiems siunčiama (sumokėjusiems – aišku, kad tęsia)
   - 3 intencijos: continue_cash / continue_transfer / withdraw
-  - „Withdraw" pasirinkus – statusas DB **NEbekeicia** (Tarybos kompetencija pagal naujus įstatus)
+  - „Withdraw" pasirinkus – esamas kodas statuso DB nekeičia. Tai esamo veikimo aprašymas, ne įstatų reikalavimas: 3.3 p. suteikia išstojimo teisę pateikus raštišką prašymą Tarybai; papildomo Tarybos pritarimo sąlygos jame nėra.
 - **Stojamasis mokestis**: 20 EUR (jei buvęs narys nori vėl įstoti po šalinimo)
 - **SMS sender**: telefono numeris `37065031091` (ne „Kruminiai" alphanumeric)
 - **SMS kaina**: ~0,03 EUR/segmentui
@@ -1100,7 +1102,7 @@ Esminiai punktai, į kuriuos verta atsižvelgti rašant naują logiką
 (punktų numeracija sutikrinta su PDF 2026-09):
 
 - **2.4** – pelnas (100%) reinvestuojamas, nariams nedalinamas
-- **3.1** – nariais gali būti tiek **fiziniai**, tiek **juridiniai** asmenys (18+)
+- **3.1** – nariais gali būti tiek **fiziniai**, tiek **juridiniai** asmenys; amžiaus ir veiksnumo formuluotės taikymą juridiniams asmenims būtina patikslinti, neįvesti įmonės 18 metų amžiaus reikalavimo
 - **3.2** – naujus narius priima **Taryba** (prašymas raštu Tarybai)
 - **3.3** – narys bet kada gali išstoti pateikęs raštišką prašymą Tarybai
 - **3.4** – **Tarybos sprendimu** narys gali būti pašalintas: nesilaiko įstatų;
@@ -1115,7 +1117,7 @@ Esminiai punktai, į kuriuos verta atsižvelgti rašant naują logiką
 - **4.4** – susirinkimas gali vykti ir balsavimas būti vykdomas
   **elektroninėmis ryšio priemonėmis**
 - **4.5** – kvorumas: dalyvauja daugiau kaip **pusė** Bendruomenės narių
-- **4.6** – pakartotinis susirinkimas sprendžia be kvorumo apribojimų
+- **4.6** – pakartotinis susirinkimas po kvorumo nebuvimo sprendžia be pradinės kvorumo ribos, tik neįvykusio susirinkimo darbotvarkės klausimais; balsų daugumos reikalavimai lieka
 - **4.7** – paprasta dauguma; **2/3 dalyvaujančių** dėl įstatų keitimo,
   pertvarkymo ar likvidavimo
 - **4.8** – susirinkimo kompetencija: keisti įstatus; rinkti/atšaukti Tarybos
@@ -1135,7 +1137,7 @@ Esminiai punktai, į kuriuos verta atsižvelgti rašant naują logiką
   narių pradžios
 - **6.2** – **Revizorius** renkamas 4 metams, negali būti valdymo organo nariu
 
-**Svarbu programos tekstams:** narystės šalinimas yra **Tarybos kompetencija** (ne susirinkimo). Visuotinis susirinkimas tik renka/atšaukia Pirmininką ir Tarybą, tvirtina ataskaitas. Visi tekstai apie „pašalinimą per susirinkimą" turi būti atnaujinti į „Tarybos sprendimu".
+**Svarbu programos tekstams:** narystės šalinimas yra **Tarybos kompetencija** (ne susirinkimo). Visuotinis susirinkimas renka ir atšaukia Tarybos narius, renka Revizorių, tvirtina ataskaitas ir vykdo kitą 4.8 p. kompetenciją. Pirmininką iš savo narių renka ir atšaukia Taryba (5.3 p.). Visi tekstai apie „pašalinimą per susirinkimą" turi būti atnaujinti į „Tarybos sprendimu".
 
 ## Žinios prieš pradedant naują darbą
 
