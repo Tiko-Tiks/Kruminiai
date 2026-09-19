@@ -1,7 +1,7 @@
 // Tik serveriui – naudoja `fs` (importuojam iš serverio komponentų / action'ų).
 import { access } from "fs/promises";
 import path from "path";
-import { getDocumentPublicUrl } from "@/lib/utils";
+import { createAdminSupabaseClient, isAdminClientAvailable } from "@/lib/supabase-admin";
 
 /**
  * Patikrina, ar `documents` įrašo failas realiai egzistuoja.
@@ -15,13 +15,13 @@ import { getDocumentPublicUrl } from "@/lib/utils";
  *   • `__api__/dokumentai/X` → failas repo `private/documents/` aplanke (fs)
  *   • `__public__/X`         → failas repo `public/` aplanke (fs)
  *   • `__api__/…` (kita)     → server-generuojamas HTML, failo nėra ir nereikia
- *   • kita                   → Supabase Storage objektas (HEAD į public URL)
+ *   • kita                   → Supabase Storage objektas (bucket'o sąrašas)
  *
  * Klaidos atveju (tinklas, timeout) grąžinam „yra" – geriau nerodyti įspėjimo,
  * nei klaidingai apkaltinti veikiantį dokumentą.
  */
 
-const CHECK_TIMEOUT_MS = 2500;
+const STORAGE_BUCKET = "documents";
 
 async function existsInRepo(relativeFromCwd: string): Promise<boolean> {
   try {
@@ -32,18 +32,26 @@ async function existsInRepo(relativeFromCwd: string): Promise<boolean> {
   }
 }
 
+/**
+ * `documents` bucket'as privatus (migr. 051), todėl HEAD į viešą URL nebetinka –
+ * jis visiems failams grąžintų „nėra". Tikrinam service-role klientu per
+ * bucket'o sąrašą: tai neparsiunčia turinio ir nekuria pasirašytų nuorodų.
+ */
 async function existsInStorage(filePath: string): Promise<boolean> {
-  const url = getDocumentPublicUrl(filePath);
-  if (!url.startsWith("http")) return true;
+  if (!isAdminClientAvailable()) return true;
+
+  const lastSlash = filePath.lastIndexOf("/");
+  const dir = lastSlash === -1 ? "" : filePath.slice(0, lastSlash);
+  const name = lastSlash === -1 ? filePath : filePath.slice(lastSlash + 1);
+  if (!name) return true;
+
   try {
-    const res = await fetch(url, {
-      method: "HEAD",
-      cache: "no-store",
-      signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
-    });
-    // 404 / 400 – objekto nėra. Kiti kodai (5xx, tinklo triktis) – nesprendžiam.
-    if (res.status === 404 || res.status === 400) return false;
-    return true;
+    const supabase = createAdminSupabaseClient();
+    const { data, error } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .list(dir, { limit: 100, search: name });
+    if (error) return true;
+    return (data ?? []).some((entry) => entry.name === name);
   } catch {
     return true;
   }

@@ -1,14 +1,14 @@
 ---
 name: steward
-description: PR vairavimo procedūra šiam repo – Codex recenzijos ratai, ratų stabdis, būsenos komentaras. Skaitoma prieš reaguojant į bet kurį PR įvykį (CI, recenzija, komentaras). Įgyvendina CLAUDE.md „Darbo taisyklės" Nr. 1.
+description: PR vairavimo procedūra šiam repo – Codex recenzijos ratai, ratų stabdis, būsenos komentaras. Skaitoma prieš reaguojant į bet kurį PR įvykį (CI, recenzija, komentaras). Įgyvendina CLAUDE.md „Darbo taisyklės" Nr. 1 ir Nr. 2.
 ---
 
 # PR steward – Codex recenzijos procedūra
 
 Ši procedūra galioja kiekvienam PR į `main`, kurį AI asistentas sukūrė arba
 vairuoja. Pati taisyklė ir jos ribos – `CLAUDE.md` → „Darbo taisyklės" → Nr. 1.
-Čia – tik **kaip** ją vykdyti. Bendros harness'o taisyklės (CI žalia, konfliktai,
-„niekada nemerginti / neapprove'inti") lieka galioti; ši procedūra jų neatšaukia.
+Čia – tik **kaip** ją vykdyti. Įrankių prieigos apribojimai lieka galioti. Repo merge įgaliojimą nustato
+Taisyklė Nr. 2; savęs patvirtinti (`approve`) nereikia.
 
 ## 1. Kaip atpažinti Codex būseną
 
@@ -43,15 +43,17 @@ environment" (PR #12). Toks atsakymas nėra pastaba.
 
 ## 2. Procedūra
 
-0. **Sukūrus PR** (draft): iškart komentaras `@codex review` (+ atributacijos
-   poraštė), `subscribe_pr_activity` ir **dvi** `send_later` patikros: po **15 min.**
-   (ar yra BAIGTA recenzija head'ui – 4 sk. laiko juosta) ir po **~1 val.** (bendra
-   PR būsena). **Po kiekvieno push'o**: draft PR – iškart `@codex review`; ready PR –
-   laukti automatinės; abiem atvejais `send_later` +15 min. Codex tyla ar pakibusi
-   recenzija PR įvykio nesukuria, todėl be suplanuotos patikros sesija nepabustų.
-1. **Laukti įvykio.** Nepolinti (jokių `sleep`); sesiją pažadina PR įvykis arba
-   suplanuota patikra. Kiekvieną kartą pabudus – patikrinti **visą** PR: head SHA,
-   summary komentaro SHA ir būseną, neišspręstas review gijas, CI, konfliktus.
+0. **Sukūrus bet kurį PR** (draft **arba iškart ready**): pradėti būsenos
+   stebėjimą, užrašyti T0 ir head SHA, užsakyti PR įvykių prenumeratą ir +15 min.
+   baigtos recenzijos patikrą bei bendrą ~1 val. patikrą, jei aplinka tai palaiko.
+   Draft PR iškart gauna rankinį kvietimą; ready PR laukia automatinės recenzijos.
+   Po kiekvieno push'o abiem atvejais atnaujinamas head ir +15 min. patikra.
+   Jei prenumeratos ar planavimo įrankių nėra, nelaikyti jų įjungtais: aktyvioje
+   sesijoje periodiškai tikrinti būseną, tarp patikrų atliekant nepriklausomus
+   sutarto plano darbus. Nežadėti stebėjimo už pasibaigusios sesijos ribų.
+1. **Gavus įvykį arba atėjus patikros laikui**, tikrinti visą PR: head SHA,
+   recenzijos rezultatą tam SHA, neišspręstas gijas, CI ir konfliktus. Vien
+   prenumeratos nepakanka: tyla ar pakibusi recenzija naujo PR įvykio nesukuria.
 2. **Gavus pastabas** – kiekvieną patikrinti kode (ne aklai), pataisyti, tada
    lokaliai:
    ```bash
@@ -89,7 +91,9 @@ environment" (PR #12). Toks atsakymas nėra pastaba.
    - Codex nebaigia recenzijos pagal 4 sk. laiko juostą (15 min. po antrojo rankinio
      kvietimo be baigtos recenzijos head'ui).
 
-   Sustojus: **jokių push'ų**, PR lieka draft/nemergintas. Būsenos komentare –
+   Aiškus Mindaugo leidimas tęsti konkretaus plano papildomus ratus taikomas
+   pagal Taisyklę Nr. 2; skaitiklis nenulinamas. Kitais stabdžio atvejais:
+   **jokių push'ų**, PR lieka draft/nemergintas. Būsenos komentare –
    likusios pastabos (nuoroda į giją), kas išbandyta, koks sprendimas reikalingas;
    Mindaugui – trumpa žinutė su tuo pačiu. Tęsti tik jam nusprendus, tada skaitiklis
    tęsiamas (ne nulinamas).
@@ -97,7 +101,9 @@ environment" (PR #12). Toks atsakymas nėra pastaba.
    arba PR komentaras su „Reviewed commit" = head SHA ir „Didn't find any major
    issues" (arba 👍 reakcija); summary „Completed" nebūtinas, kaip ir CLAUDE.md
    2 p. – **IR** CI žalia **IR** nėra konflikto **IR** nėra neišspręstų Codex gijų. Tada: būsenos komentare
-   „Paruošta merginti", Mindaugui – viena žinutė. Merginimas – **tik Mindaugas**.
+   „Vartai praeiti“; pagal Taisyklę Nr. 2 merginti **merge commit** su tikėtinu
+   head SHA, patikrinti deploy bei sutartą priėmimą ir imti kitą plano darbą.
+   Papildomo klausimo „ar tęsti“ nereikia.
    Jei PR pažymimas „ready for review", Codex padaro dar vieną praėjimą – jo
    pastabos yra dar vienas ratas.
 
@@ -126,5 +132,7 @@ neatideda. T0 = push'as arba PR sukūrimas. Skaičiuojami tik **rankiniai**
 | stabdis | Būsenos komentare „Codex nebaigė recenzijos nuo `<T0>`", žinutė Mindaugui (integraciją valdo <https://chatgpt.com/codex/cloud/settings/general>), PR nemerginamas, daugiau kvietimų nerašoma |
 
 Tai CLAUDE.md Taisyklės Nr. 1 4 p. sąlyga „Codex nebaigia recenzijos". Jei
-recenzija baigiama vėliau, po stabdžio – ją apdoroti kaip įprastą ratą ir
-pranešti Mindaugui, kad stabdis atšauktas.
+recenzija baigiama vėliau, po stabdžio – atnaujinti būsenos komentarą ir pranešti
+Mindaugui rezultatą, tačiau stabdžio automatiškai neatšaukti: jokių pataisymo
+push'ų ar merge, kol nėra aiškaus jo sprendimo tęsti. Jau duotas sprendimas
+galioja tik jo aiškiai apimtam stabdžiui; vien bendras „tęsk“ jo neišplečia.

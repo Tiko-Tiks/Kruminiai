@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { createAdminSupabaseClient, isAdminClientAvailable } from "@/lib/supabase-admin";
 import { sendEmail, renderBrandedEmail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
+import { requireAdmin } from "@/lib/authz";
 import { revalidatePath } from "next/cache";
 import { vocative } from "@/lib/utils";
 import crypto from "crypto";
@@ -93,19 +94,12 @@ export async function bulkCreateMemberAccounts(memberIds?: string[]): Promise<{
   }
 
   const supabase = createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Neautorizuotas" };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (!profile || !["admin", "super_admin"].includes(profile.role)) {
-    return { error: "Trūksta teisių (reikia admin arba super_admin)" };
-  }
+  // Paskyrų kūrimas per service-role + laiškų siuntimas – vien RLS neapsaugo
+  // (CLAUDE.md „RLS modelis"). `requireAdmin` tikrina rolę IR `is_approved` –
+  // tas pats kontraktas kaip `public.is_admin()` (migr. 049).
+  const auth = await requireAdmin(supabase);
+  if (!auth.user) return { error: auth.error };
+  const user = auth.user;
 
   // Atrenkam esamus narius su email, kurie dar neturi paskyros
   let memQ = supabase
@@ -303,19 +297,9 @@ export async function resendPasswordSetupLink(memberId: string): Promise<{
   }
 
   const supabase = createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Neautorizuotas" };
-
-  const { data: callerProfile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (!callerProfile || !["admin", "super_admin"].includes(callerProfile.role)) {
-    return { error: "Trūksta teisių" };
-  }
+  // Slaptažodžio nuorodos generavimas per service-role – žr. komentarą aukščiau.
+  const auth = await requireAdmin(supabase);
+  if (!auth.user) return { error: auth.error };
 
   const { data: member } = await supabase
     .from("members")

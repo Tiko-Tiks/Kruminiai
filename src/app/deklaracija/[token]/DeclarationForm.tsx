@@ -12,8 +12,6 @@ import {
   Banknote,
   CreditCard,
   UserMinus,
-  Calendar,
-  MapPin,
   AlertCircle,
   ExternalLink,
   Heart,
@@ -117,8 +115,8 @@ export function DeclarationForm({ token, member, existingDeclaration, debt }: Pr
           {intent === "withdraw" && (
             <div className="bg-amber-50 border border-amber-100 rounded-lg p-4 text-sm text-gray-700 mt-5 text-left">
               <p>
-                Jūsų pageidavimas užfiksuotas. Pagal įstatų 3.3.5 punktą galite bet kada išstoti
-                iš Bendruomenės pateikę prašymą. Ačiū už buvimą bendruomenėje!
+                Jūsų pageidavimas užfiksuotas. Pagal įstatų 3.3 punktą galite bet kada išstoti
+                iš Bendruomenės pateikę raštišką prašymą Tarybai. Ačiū už buvimą bendruomenėje!
               </p>
             </div>
           )}
@@ -165,9 +163,10 @@ export function DeclarationForm({ token, member, existingDeclaration, debt }: Pr
             </p>
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-3 text-sm text-gray-700">
               <p>
-                <strong>Svarbu:</strong> jei per <strong>7 dienas</strong> nuo šios žinutės nieko
-                nepažymėsite ir mokesčio negausime, pagal bendruomenės įstatų 3.5 punktą Tarybos
-                sprendimu narystė gali būti nutraukta dėl nemokumo.
+                Pagal įstatų 3.4.2 punktą Taryba gali spręsti dėl pašalinimo, kai nustatytas nario
+                mokestis nemokamas ilgiau nei 12 mėnesių. Neatsakymas į šį pranešimą narystės
+                nenutraukia. Pašalintas narys turi teisę skųsti Tarybos sprendimą artimiausiam
+                Visuotiniam narių susirinkimui (3.5 p.).
               </p>
             </div>
           </>
@@ -177,17 +176,6 @@ export function DeclarationForm({ token, member, existingDeclaration, debt }: Pr
             patvirtinkite savo duomenis – kad galėtume tinkamai pasiruošti.
           </p>
         )}
-
-        <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-700 space-y-1 mt-3">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-green-700" />
-            <span className="font-medium">2026 m. gegužės 23 d. (šeštadienį) 18:00</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-green-700" />
-            Beržų g. 8, Krūminių k.
-          </div>
-        </div>
       </div>
 
       {/* Skola – jei yra */}

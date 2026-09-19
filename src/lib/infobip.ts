@@ -12,8 +12,21 @@ export interface SmsResult {
   error?: string;
 }
 
+/**
+ * Produkcijoje trūkstami kredencialai yra KLAIDA, ne „mock'as": tyliai
+ * grąžintas `success: true` reikštų, kad žurnale matome „išsiųsta", o narys
+ * SMS negavo. Vietinėje ar preview aplinkoje mock'as lieka.
+ */
+function isProductionRuntime(): boolean {
+  return process.env.VERCEL_ENV === "production";
+}
+
 export async function sendSms(toPhone: string, text: string): Promise<SmsResult> {
   if (!BASE_URL || !API_KEY) {
+    if (isProductionRuntime()) {
+      console.error("[Infobip] Trūksta INFOBIP_BASE_URL arba INFOBIP_API_KEY – SMS NEIŠSIŲSTA");
+      return { success: false, error: "not_configured" };
+    }
     console.warn("[Infobip] Trūksta INFOBIP_BASE_URL arba INFOBIP_API_KEY – siuntimas praleistas");
     console.log(`[Infobip MOCK] Į ${toPhone}: ${text}`);
     return { success: true, messageId: "mock-" + Date.now() };

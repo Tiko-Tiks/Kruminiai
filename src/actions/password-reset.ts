@@ -106,14 +106,17 @@ export async function requestPasswordReset(input: {
     locale === "en"
       ? "Password reset – Krūminiai Village Community"
       : "Slaptažodžio atstatymas – Krūminių kaimo bendruomenė";
-  const html = renderPasswordResetEmail({
-    firstName,
-    email,
-    resetUrl: linkData.properties.action_link,
-    locale,
-  });
+  const resetUrl = linkData.properties.action_link;
+  const html = renderPasswordResetEmail({ firstName, email, resetUrl, locale });
 
   const r = await sendEmail(email, subject, html);
+
+  // Atstatymo nuoroda yra vienkartinis raktas į paskyrą, todėl į žurnalą ji
+  // NErašoma – žurnalą skaito administratoriai, o įrašai lieka duomenų bazėje
+  // ilgam. Lieka matyti, kad laiškas buvo išsiųstas, tik be paties rakto.
+  const loggedMessage = html
+    .split(resetUrl)
+    .join(locale === "en" ? "[link hidden]" : "[nuoroda paslėpta]");
 
   await logNotificationSystem({
     memberId,
@@ -121,7 +124,7 @@ export async function requestPasswordReset(input: {
     kind: "password_reset",
     recipient: email,
     subject,
-    message: html,
+    message: loggedMessage,
     status: r.success ? "sent" : "failed",
     error: r.success ? null : r.error,
     externalId: r.messageId ?? null,

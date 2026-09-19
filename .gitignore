@@ -46,3 +46,20 @@ next-env.d.ts
 
 .vercel
 .env*.local
+
+# Duomenų eksportai – narių sąrašai, importo lentelės ir pan. Repo yra viešas,
+# todėl tokie failai laikomi už jo ribų. Tikrina `npm run check:pii`.
+*.csv
+*.xlsx
+*.xls
+google/
+private/exports/
+
+# Aplinkos kintamieji (raktai). `.env.example` – pavyzdinis, be reikšmių.
+*.env*
+!.env.example
+
+# Claude Code agentų darbo katalogai repo viduje
+.claude/worktrees/
+# Local Supabase CLI cache
+/supabase/.temp/

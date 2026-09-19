@@ -11,6 +11,15 @@ Bendruomenės valdymo sistema su viešu puslapiu ir administravimo panele.
 
 ---
 
+## Įstatų taisyklės ir patikra
+
+- Kūrimo ir Codex peržiūros instrukcijos: [`AGENTS.md`](AGENTS.md).
+- Pirminis įstatų šaltinis: `private/documents/istatai-kkb.pdf`; tekstinė kopija ir taisyklių matrica: [`docs/istatai/`](docs/istatai/).
+- [2026-09-18 atitikties auditas](docs/istatai/AUDITAS-2026-09-18.md): 9 pradinės išvados. [Parengtos pataisos](docs/istatai/PATAISOS-2026-09-18.md): 88/88 testai; diegimas dar laukia.
+- `npm run test:bylaws` paleidžia visą izoliuotą rinkinį, be gyvos DB ir pranešimų siuntimo. Nesėkmingas rezultatas neturi būti apeinamas praleidžiant testus.
+- `npm run test:bylaws:core` tikrina tik bazines regresijas ir nėra visos atitikties patikra.
+- GitHub patikra `Bylaws compliance` yra atskira nuo bendrų kompiliavimo patikrų; šakos apsaugoje ji savaime netampa privaloma.
+
 ## Projekto struktūra
 
 ```
@@ -193,6 +202,9 @@ Baziniai komponentai (`src/components/ui/`) naudoja `class-variance-authority` (
 
 ## Paleidimas lokaliai
 
+Reikia **Node.js ≥ 22.18** (`.nvmrc` → `nvm use`): `npm test` TypeScript failus
+importuoja tiesiogiai, o tipus be atskiro kompiliavimo Node nuima tik nuo šios versijos.
+
 ```bash
 # Priklausomybės
 npm install
@@ -205,7 +217,44 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
 npm run dev        # http://localhost:3000
 npm run build      # Production build
 npm run lint       # ESLint tikrinimas
+
+# Patikros (tas pačias vykdo CI; testams reikia Node 22)
+npx tsc --noEmit         # TypeScript tipai
+npm test                 # Unit testai (node --test)
+npm run check:pii        # Ar į repo medį nepateko duomenų failų
+npm run check:migrations # Migracijų numeracija be dublikatų
 ```
+
+---
+
+## Kūrimo procesas
+
+Pakeitimai į `main` eina **tik per Pull Request** – tiesiogiai į `main`
+nepush'inama.
+
+1. **Šaka + PR.** Kiekvienas darbas – atskira šaka ir PR į `main`.
+2. **Codex recenzija.** PR be baigtos Codex recenzijos nemerginamas; ratų tvarka
+   ir stabdis aprašyti `CLAUDE.md` skiltyje „Darbo taisyklės" (Taisyklė Nr. 1).
+3. **CI.** `.github/workflows/ci.yml` kiekvienam PR ir push'ui į `main` paleidžia:
+   `npm ci` → `npm run lint` → `npx tsc --noEmit` → `npm test` →
+   `node scripts/check-no-pii.mjs` → `node scripts/check-migrations.mjs` →
+   `npm run build`. Build'ui naudojami fiktyvūs aplinkos kintamieji – tikrų raktų
+   CI neturi ir jam jų nereikia.
+4. **Merge – savininko sprendimas.** Merginimą ir approve atlieka Mindaugas.
+
+### Vienkartinis nustatymas GitHub'e
+
+Šie jungikliai yra ne kode, o repozitorijos nustatymuose
+(**Settings → Branches → Add branch ruleset / Branch protection rule**, šaka `main`):
+
+- **Require a pull request before merging** – uždraudžia push'ą tiesiai į `main`
+- **Require status checks to pass** → pasirinkti patikrą **`ci`**
+  (matoma po pirmo workflow paleidimo)
+- **Require conversation resolution before merging** – neleidžia merginti su
+  neišspręstomis recenzijos gijomis
+- **Block force pushes** ir **Restrict deletions** – `main` istorija nebeperrašoma
+- Norint, kad savininko peržiūra būtų privaloma – **Require review from Code
+  Owners** (savininkas nurodytas `.github/CODEOWNERS`)
 
 ---
 

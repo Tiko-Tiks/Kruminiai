@@ -1,10 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { generateAndSendDeclarations, resendDeclarationSms } from "@/actions/declarations";
+import {
+  declarationReminderSmsText,
+  declarationSmsText,
+  isCalendarDate,
+  smsSegments,
+} from "@/lib/notification-texts";
 import {
   Send,
   RotateCcw,
@@ -67,16 +74,83 @@ const INTENT_STYLE: Record<string, string> = {
   withdraw: "bg-red-50 text-red-700 border-red-200",
 };
 
-export function DeclarationAdminPanel({ stats }: { stats: Stats }) {
+// Peržiūros pavyzdys – tikslus tekstas, kurį gaus narys (tik vardas ir tokenas
+// pakeisti pavyzdiniais). Naudojamos tos pačios funkcijos kaip siunčiant.
+const PREVIEW_NAME = "Vardas";
+const PREVIEW_URL = `https://kruminiai.lt/deklaracija/${"0".repeat(32)}`;
+
+/**
+ * Praleistųjų paaiškinimas pranešime. `expiryFailed` rodomas atskirai – tai ne
+ * „be telefono", o nepavykęs galiojimo įrašas, todėl SMS sąmoningai nesiųsta.
+ */
+function skippedSuffix(skipped: number, expiryFailed: number): string {
+  const parts: string[] = [];
+  if (skipped > 0) parts.push(`${skipped} praleista`);
+  if (expiryFailed > 0) parts.push(`${expiryFailed} be galiojimo įrašo – nesiųsta`);
+  return parts.length > 0 ? ` (${parts.join(", ")})` : "";
+}
+
+export function DeclarationAdminPanel({
+  stats,
+  expiry,
+  recipients,
+  pendingDebtors,
+}: {
+  stats: Stats;
+  /** Galiojimo ribos iš `declarationExpiryBounds` – ta pati logika kaip serverio validacijoje. */
+  expiry: { min: string; default: string; responseDays: number };
+  recipients: { total: number; withPhone: number };
+  /** Neatsakiusieji, kurie DABAR yra skolingi ir turi telefoną – tik jiems eina priminimas. */
+  pendingDebtors: number;
+}) {
   const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
   const [sending, setSending] = useState(false);
   const [resending, setResending] = useState(false);
   const [filter, setFilter] = useState<"all" | "submitted" | "viewed" | "pending" | "withdraw">("all");
 
+  function readExpiresAt(): string {
+    if (!formRef.current) return "";
+    const value = new FormData(formRef.current).get("expires_at");
+    return typeof value === "string" ? value.trim() : "";
+  }
+
+  /**
+   * Tos pačios patikros kaip server action'e – kad patvirtinimo lange nebūtų
+   * rodoma diena, kurios kalendoriuje nėra (pvz. vasario 30), nei terminas,
+   * trumpesnis už gavėjui žadamą atsakymo langą.
+   */
+  function checkedExpiresAt(): string | null {
+    const value = readExpiresAt();
+    if (!value) {
+      toast.error("Nurodykite, iki kada nuoroda galioja");
+      return null;
+    }
+    if (!isCalendarDate(value)) {
+      toast.error("Tokios datos kalendoriuje nėra");
+      return null;
+    }
+    if (value < expiry.min) {
+      toast.error(
+        `Galiojimo data turi būti bent ${expiry.responseDays} dienos nuo šiandien ` +
+          `(anksčiausia – ${expiry.min})`
+      );
+      return null;
+    }
+    return value;
+  }
+
   async function handleSend() {
-    if (!confirm("Siųsti SMS visiems aktyviems nariams su narystės patvirtinimo nuoroda?")) return;
+    const expiresAt = checkedExpiresAt();
+    if (!expiresAt) return;
+    if (
+      !confirm(
+        `Siųsti SMS tik skolingiems nariams, kurie dar neturi deklaracijos?\nNuoroda galios iki ${expiresAt} (imtinai).`
+      )
+    )
+      return;
     setSending(true);
-    const result = await generateAndSendDeclarations();
+    const result = await generateAndSendDeclarations(expiresAt);
     setSending(false);
 
     if (!result.success) {
@@ -84,24 +158,44 @@ export function DeclarationAdminPanel({ stats }: { stats: Stats }) {
       return;
     }
     toast.success(
-      `Išsiųsta ${result.smsSent} SMS${result.smsSkipped ? ` (${result.smsSkipped} praleisti)` : ""}`
+      `Išsiųsta ${result.smsSent} SMS${skippedSuffix(result.smsSkipped, result.expiryFailed)}`
     );
     router.refresh();
   }
 
   async function handleResend() {
-    if (!confirm(`Siųsti priminimą ${stats.pending} nariams, kurie dar neatsakė?`)) return;
+    const expiresAt = checkedExpiresAt();
+    if (!expiresAt) return;
+    if (
+      !confirm(
+        `Siųsti priminimą ${pendingDebtors} nariams, kurie dar neatsakė ir tebėra skolingi?\nNuoroda galios iki ${expiresAt} (imtinai).`
+      )
+    )
+      return;
     setResending(true);
-    const result = await resendDeclarationSms();
+    const result = await resendDeclarationSms(expiresAt);
     setResending(false);
 
     if (!result.success) {
-      toast.error("Klaida");
+      toast.error(result.errors[0] || "Klaida");
       return;
     }
-    toast.success(`Priminimo SMS išsiųsta: ${result.smsSent}`);
+    toast.success(
+      `Priminimo SMS išsiųsta: ${result.smsSent}${skippedSuffix(result.skipped, result.expiryFailed)}`
+    );
     router.refresh();
   }
+
+  const firstSms = declarationSmsText({
+    locale: "lt",
+    firstName: PREVIEW_NAME,
+    url: PREVIEW_URL,
+  });
+  const reminderSms = declarationReminderSmsText({
+    locale: "lt",
+    firstName: PREVIEW_NAME,
+    url: PREVIEW_URL,
+  });
 
   const filtered = stats.declarations.filter((d) => {
     if (filter === "all") return true;
@@ -174,34 +268,68 @@ export function DeclarationAdminPanel({ stats }: { stats: Stats }) {
           <h2 className="text-base font-semibold text-gray-900">SMS siuntimas</h2>
         </CardHeader>
         <CardContent>
-          {stats.total === 0 ? (
-            <div className="text-center py-3">
-              <p className="text-sm text-gray-600 mb-3">
-                Tokenai dar nesugeneruoti. Paspauskit, kad sukurtų ir išsiųstų SMS visiems aktyviems
-                nariams.
+          <form ref={formRef} onSubmit={(e) => e.preventDefault()} className="space-y-4">
+            <p className="text-sm text-gray-700">
+              Gavėjai: <strong>{recipients.withPhone}</strong> skolingi nariai su telefono
+              numeriu
+              {recipients.total > recipients.withPhone
+                ? ` (iš ${recipients.total}; likusiems SMS neišsiųsime)`
+                : ""}
+              .
+            </p>
+
+            <div className="max-w-xs">
+              <DatePicker
+                name="expires_at"
+                label="Nuoroda galioja iki (imtinai)"
+                defaultValue={expiry.default}
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Galiojimas įrašomas kiekvienam šios kampanijos tokenui – ir naujam, ir
+                pakartotinai siunčiamam. Anksčiausia galima data – <strong>{expiry.min}</strong>,
+                minimalus atsakymo langas yra {expiry.responseDays} d.
               </p>
-              <Button onClick={handleSend} loading={sending}>
-                <Send className="h-4 w-4" />
-                Siųsti SMS visiems nariams
-              </Button>
             </div>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={handleSend} loading={sending} variant="outline">
-                <Send className="h-4 w-4" />
-                Siųsti naujiems nariams
-              </Button>
-              <Button
-                onClick={handleResend}
-                loading={resending}
-                disabled={stats.pending === 0}
-                variant="outline"
-              >
-                <RotateCcw className="h-4 w-4" />
-                Priminimas neatsakiusiems ({stats.pending})
-              </Button>
+
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
+              <p className="text-xs font-medium text-gray-700">
+                Tekstas, kurį gaus narys (vardas ir nuoroda – pavyzdiniai):
+              </p>
+              <SmsPreview label="Pirmas siuntimas" text={firstSms} />
+              <SmsPreview label="Priminimas" text={reminderSms} />
             </div>
-          )}
+
+            {stats.total === 0 ? (
+              <div className="text-center py-1">
+                <p className="text-sm text-gray-600 mb-3">
+                  Tokenai dar nesugeneruoti. Paspauskit, kad sukurtų ir išsiųstų SMS skolingiems
+                  nariams.
+                </p>
+                <Button type="button" onClick={handleSend} loading={sending}>
+                  <Send className="h-4 w-4" />
+                  Siųsti SMS skolingiems nariams
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" onClick={handleSend} loading={sending} variant="outline">
+                  <Send className="h-4 w-4" />
+                  Siųsti neturintiems deklaracijos
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleResend}
+                  loading={resending}
+                  disabled={pendingDebtors === 0}
+                  variant="outline"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Priminimas skolingiems neatsakiusiems ({pendingDebtors})
+                </Button>
+              </div>
+            )}
+          </form>
         </CardContent>
       </Card>
 
@@ -299,6 +427,18 @@ export function DeclarationAdminPanel({ stats }: { stats: Stats }) {
           </div>
         </Card>
       )}
+    </div>
+  );
+}
+
+function SmsPreview({ label, text }: { label: string; text: string }) {
+  const segments = smsSegments(text);
+  return (
+    <div>
+      <p className="text-xs text-gray-500">
+        {label} · {text.length} simb. · {segments} SMS segment{segments === 1 ? "as" : "ai"}
+      </p>
+      <p className="text-xs text-gray-800 font-mono break-words">{text}</p>
     </div>
   );
 }

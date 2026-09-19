@@ -22,11 +22,16 @@ import {
   AlertCircle,
   CheckCircle2,
 } from "lucide-react";
+import { summarizeAnnouncements, type NoticePolicy } from "@/lib/protocol-text";
 import { toast } from "sonner";
+import { safeUrl } from "@/lib/html";
 
 interface Props {
+  locked?: boolean;
   meetingId: string;
   meetingDate: string;
+  meetingType: string;
+  repeatPolicy?: NoticePolicy;
   announcements: MeetingAnnouncement[];
 }
 
@@ -40,6 +45,7 @@ const CHANNEL_OPTIONS: Array<{
   { value: "email", label: "El. paštas nariams", icon: Mail },
   { value: "sms", label: "SMS nariams", icon: MessageSquare },
   { value: "paper", label: "Skelbimų lenta / paštas", icon: FileText },
+  { value: "rc", label: "Registrų centro vieši pranešimai", icon: FileText },
   { value: "other", label: "Kitas kanalas", icon: Megaphone },
 ];
 
@@ -53,23 +59,18 @@ const CHANNEL_BY_VALUE = Object.fromEntries(
  * prieš susirinkimą (LT tipinis reikalavimas).
  */
 export function AnnouncementsPanel({
+  locked = false,
   meetingId,
   meetingDate,
+  meetingType,
+  repeatPolicy,
   announcements,
 }: Props) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(announcements.length === 0);
   const [loading, setLoading] = useState(false);
 
-  // Apskaičiuojam, ar bent vienas skelbimas yra >=14 d. prieš susirinkimą
-  const meetingTime = new Date(meetingDate).getTime();
-  const earliest = announcements
-    .map((a) => new Date(a.published_at).getTime())
-    .sort((a, b) => a - b)[0];
-  const daysAdvance = earliest
-    ? Math.floor((meetingTime - earliest) / (1000 * 60 * 60 * 24))
-    : null;
-  const compliant = daysAdvance !== null && daysAdvance >= 14;
+  const { daysAdvance, compliant, requiredDays } = summarizeAnnouncements(announcements, new Date(meetingDate), meetingType, repeatPolicy);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -114,7 +115,7 @@ export function AnnouncementsPanel({
               Susirinkimo skelbimai
             </h2>
           </div>
-          {!showForm && (
+          {!locked && !showForm && (
             <Button size="sm" variant="outline" onClick={() => setShowForm(true)}>
               <Plus className="h-4 w-4" />
               Pridėti skelbimą
@@ -140,15 +141,13 @@ export function AnnouncementsPanel({
             <div className="text-sm">
               {compliant ? (
                 <p className="text-green-900">
-                  <strong>Atitinka reikalavimus</strong> – pirmasis skelbimas
-                  paskelbtas <strong>{daysAdvance} d.</strong> prieš susirinkimą
-                  (min. 14 d. reikalavimas).
+                  <strong>Atitinka informavimo terminą</strong> – visi Tarybos pasirinkti kanalai turi skelbimus bent <strong>{daysAdvance} d.</strong> prieš susirinkimą
+                  (min. {requiredDays} d. reikalavimas).
                 </p>
               ) : (
                 <p className="text-amber-900">
-                  <strong>Per vėlai paskelbta</strong> – pirmasis skelbimas tik{" "}
-                  <strong>{daysAdvance} d.</strong> prieš susirinkimą.
-                  Įstatuose reikalaujama min. 14 d. iš anksto.
+                  <strong>Termino atitiktis nepatvirtinta.</strong>{" "}
+                  {requiredDays === null ? "Šio posėdžio informavimo tvarka vertinama atskirai." : `Susirinkimo formoje nurodykite Tarybos pasirinktus kanalus ir dienų skaičiavimo pagrindą. Kiekvienam pasirinktam kanalui reikia pranešimo ne vėliau kaip prieš ${requiredDays} d.`}
                 </p>
               )}
             </div>
@@ -196,15 +195,12 @@ export function AnnouncementsPanel({
                       </span>
                     </div>
                     {a.url && (
-                      <a
-                        href={a.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-blue-700 hover:text-blue-900 hover:underline mt-1"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        {a.url.length > 60 ? a.url.slice(0, 60) + "..." : a.url}
-                      </a>
+                      // React tekstą koduoja pats, bet `href` reikšmės netikrina –
+                      // į DB įrašytas `javascript:` adresas taptų veikiančia
+                      // nuoroda. `safeUrl` praleidžia tik http(s)/mailto ir
+                      // santykinius adresus; kitaip nuorodos nerodom, o pats
+                      // tekstas lieka matomas.
+                      <AnnouncementUrl url={a.url} />
                     )}
                     {a.notes && (
                       <p className="text-xs text-gray-500 mt-1 italic">{a.notes}</p>
@@ -212,6 +208,7 @@ export function AnnouncementsPanel({
                   </div>
                   <button
                     type="button"
+                    disabled={locked}
                     onClick={() => handleDelete(a.id)}
                     className="text-gray-400 hover:text-red-600 transition-colors flex-shrink-0"
                     title="Ištrinti"
@@ -225,7 +222,7 @@ export function AnnouncementsPanel({
         )}
 
         {/* Pridėjimo forma */}
-        {showForm && (
+        {!locked && showForm && (
           <form
             onSubmit={handleSubmit}
             className="space-y-3 p-4 bg-blue-50/40 border border-blue-100 rounded-lg"
@@ -300,5 +297,38 @@ export function AnnouncementsPanel({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Skelbimo nuoroda su schemos filtru.
+ *
+ * URL įveda administratorius, todėl tai nėra anoniminis srautas – bet įrašas
+ * lieka DB ir rodomas kitiems administratoriams, o `javascript:` adresas
+ * paspaudus įvykdytų kodą jų sesijoje. Neleistiną adresą rodom kaip paprastą
+ * tekstą: informacija nedingsta, nuorodos nėra.
+ */
+function AnnouncementUrl({ url }: { url: string }) {
+  const href = safeUrl(url);
+  const label = url.length > 60 ? url.slice(0, 60) + "..." : url;
+
+  if (!href) {
+    return (
+      <p className="text-xs text-gray-500 mt-1 break-all" title="Neleistinas adreso formatas">
+        {label}
+      </p>
+    );
+  }
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1 text-xs text-blue-700 hover:text-blue-900 hover:underline mt-1"
+    >
+      <ExternalLink className="h-3 w-3" />
+      {label}
+    </a>
   );
 }

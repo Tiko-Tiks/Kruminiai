@@ -7,10 +7,20 @@ import { sendSms, normalizePhone } from "@/lib/infobip";
 import { sendEmail, renderBrandedEmail } from "@/lib/email";
 import { logNotification } from "@/lib/notification-log";
 import { getMembersWithDebts } from "@/actions/reminders";
-import { vocative } from "@/lib/utils";
+import { isoToVilniusLocal, vilniusLocalToIso, vocative } from "@/lib/utils";
 import type { ChannelChoice } from "@/actions/reminders";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
+import { z } from "zod";
+import {
+  DECLARATION_RESPONSE_DAYS,
+  declarationExpiryBounds,
+  declarationReminderSmsText,
+  declarationSmsText,
+  isCalendarDate,
+  minDeclarationExpiryDate,
+  overdueDeclarationSmsText,
+} from "@/lib/notification-texts";
 
 const BANK_NAME = "AB Artea bankas";
 const BANK_ACCOUNT = "LT167181200000606866";
@@ -28,16 +38,101 @@ function generateToken(): string {
   return crypto.randomBytes(16).toString("hex");
 }
 
-const EXPIRES_AT = "2026-05-23 14:00:00+00"; // iki susirinkimo
+// Deklaracijos nuorodos galiojimas yra KAMPANIJOS parametras – admin'as jį
+// pasirenka siuntimo formoje (numatytoji reikšmė – po 14 d.). Anksčiau čia buvo
+// įrašyta konkreti data, todėl kitai kampanijai nuorodos būdavo nebegaliojančios.
+//
+// Tikrinamas ne tik formatas, bet ir ar tokia diena kalendoriuje yra: reikšmė
+// ateina iš `DatePicker` teksto lauko per mygtuko veiksmą, todėl naršyklės
+// `pattern` čia nieko nesustabdo.
+//
+// Minimumas – šiandien + `DECLARATION_RESPONSE_DAYS`: išlaikome kampanijos
+// mažiausią atsakymo langą; tai nėra narystės nutraukimo terminas.
+const expiresAtSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Netinkamas datos formatas (turi būti YYYY-MM-DD)")
+  .refine(isCalendarDate, "Tokios datos kalendoriuje nėra")
+  .refine(
+    (value) => isCalendarDate(value) && value >= minDeclarationExpiryDate(todayInVilnius()),
+    `Galiojimo data turi būti bent ${DECLARATION_RESPONSE_DAYS} dienos nuo šiandien ` +
+      `(gavėjui žadamas ${DECLARATION_RESPONSE_DAYS} d. langas)`
+  );
+
+/** Šiandienos data Vilniaus laiku („YYYY-MM-DD"). */
+function todayInVilnius(): string {
+  return isoToVilniusLocal(new Date()).slice(0, 10);
+}
+
+/** Numatytoji kampanijos pabaiga („YYYY-MM-DD" Vilniaus laiku) – ta pati, kurią siūlo forma. */
+function defaultExpiresAtDate(): string {
+  return declarationExpiryBounds(todayInVilnius()).default;
+}
+
+/**
+ * Pratęsia ESAMO tokeno galiojimą iki šios kampanijos pabaigos.
+ *
+ * Grąžina `true` tik tada, kai eilutė tikrai atnaujinta. Nepavykus siųsti
+ * NEGALIMA: gavėjas gautų nuorodą su senu, jau pasibaigusiu tokenu, o žurnale
+ * liktų įrašas „išsiųsta". Todėl tikrinam ir klaidą, ir kad grąžinta būtent
+ * viena eilutė (`.select("id")`).
+ */
+async function extendDeclarationExpiry(
+  supabase: ReturnType<typeof createServerSupabaseClient>,
+  token: string,
+  expiresAtIso: string
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("membership_declarations")
+    .update({ expires_at: expiresAtIso })
+    .eq("token", token)
+    .select("id");
+
+  if (error) {
+    console.error("[declarations] Nepavyko pratęsti tokeno galiojimo:", error.message);
+    return false;
+  }
+  if (!data || data.length !== 1) {
+    console.error(
+      "[declarations] Tokeno galiojimas nepratęstas – atnaujinta eilučių:",
+      data?.length ?? 0
+    );
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Paskutinė galiojimo diena („YYYY-MM-DD") → momentas 23:59 Europe/Vilnius
+ * laiku (DB stulpelis yra `timestamptz`, serveris – UTC; žr. CLAUDE.md
+ * „Datos ir laikai formose").
+ */
+function resolveExpiresAt(input: string): { iso: string } | { error: string } {
+  const parsed = expiresAtSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      error: parsed.error.issues[0]?.message ?? "Netinkama galiojimo data",
+    };
+  }
+  // Ateityje data jau užtikrinta schemoje (minimumas – šiandien + 7 d.),
+  // todėl čia lieka tik konversijos patikra.
+  const iso = vilniusLocalToIso(`${parsed.data}T23:59`);
+  if (Number.isNaN(new Date(iso).getTime())) {
+    return { error: "Netinkama galiojimo data" };
+  }
+  return { iso };
+}
 
 // =============================================================================
-// Generuoti tokenus visiems aktyviems nariams + siųsti SMS
+// Generuoti deklaracijas tik jų neturintiems skolininkams + siųsti SMS
 // =============================================================================
-export async function generateAndSendDeclarations() {
+export async function generateAndSendDeclarations(expiresAtInput: string) {
   const supabase = createServerSupabaseClient();
   const auth = await requireAdmin(supabase);
   if (auth.error) return { success: false as const, error: auth.error };
   const user = auth.user;
+
+  const expiry = resolveExpiresAt(expiresAtInput);
+  if ("error" in expiry) return { success: false as const, error: expiry.error };
 
   // Tik skolingi nariai – kurie pilnai atsiskaitė, jiems siūsti nereikia
   // (mokėjimas reiškia, kad jie tęsia narystę).
@@ -51,6 +146,8 @@ export async function generateAndSendDeclarations() {
   const batchId = crypto.randomUUID();
   let smsSent = 0;
   let smsSkipped = 0;
+  // Šis kelias esamų deklaracijų nebepratęsia; paliekama bendra rezultato forma.
+  const expiryFailed = 0;
   const errors: string[] = [];
 
   for (const m of members) {
@@ -60,38 +157,37 @@ export async function generateAndSendDeclarations() {
     }
 
     // Patikrinti egzistuojantį tokeną
-    const { data: existing } = await supabase
+    const { data: existing, error: lookupError } = await supabase
       .from("membership_declarations")
       .select("token, submitted_at")
       .eq("member_id", m.id)
       .maybeSingle();
 
-    let token = existing?.token;
-
-    if (!existing) {
-      token = generateToken();
-      const { error: insertErr } = await supabase
-        .from("membership_declarations")
-        .insert({
-          member_id: m.id,
-          token,
-          expires_at: EXPIRES_AT,
-        });
-      if (insertErr) {
-        errors.push(`${m.first_name} ${m.last_name}: ${insertErr.message}`);
-        continue;
-      }
-    } else if (existing.submitted_at) {
-      // Jau atsakė – nesiunčiame
+    if (lookupError) {
+      errors.push(`${m.first_name} ${m.last_name}: nepavyko patikrinti deklaracijos`);
+      continue;
+    }
+    // Pirmo siuntimo veiksmas skirtas tik neturintiems deklaracijos.
+    // Esamų tokenų nepratęsiame ir SMS nekartojame; tam yra priminimo veiksmas.
+    if (existing) {
       smsSkipped++;
+      continue;
+    }
+    const token = generateToken();
+    const { error: insertErr } = await supabase
+      .from("membership_declarations")
+      .insert({ member_id: m.id, token, expires_at: expiry.iso });
+    if (insertErr) {
+      errors.push(`${m.first_name} ${m.last_name}: ${insertErr.message}`);
       continue;
     }
 
     const url = `${baseUrl}/deklaracija/${token}`;
-    const text =
-      m.language === "en"
-        ? `Hello, ${m.first_name}. You may have forgotten your membership fee. Confirm your details and payment: ${url}`
-        : `Sveiki, ${m.first_name}. Galbut pamirsote nario mokesti. Patvirtinkit duomenis ir mokejima: ${url}`;
+    const text = declarationSmsText({
+      locale: m.language === "en" ? "en" : "lt",
+      firstName: m.first_name,
+      url,
+    });
 
     const result = await sendSms(m.phone, text);
     await logNotification(supabase, {
@@ -126,12 +222,13 @@ export async function generateAndSendDeclarations() {
       batch_kind: "membership_declaration",
       smsSent,
       smsSkipped,
+      expiryFailed,
       errorsCount: errors.length,
     },
   });
 
   revalidatePath("/admin/nariai/deklaracija");
-  return { success: true as const, smsSent, smsSkipped, errors };
+  return { success: true as const, smsSent, smsSkipped, expiryFailed, errors };
 }
 
 // =============================================================================
@@ -145,12 +242,15 @@ export interface ReminderResultDecl {
   emailErrors: number;
   smsErrors: number;
   skipped: number;
+  /** Praleista, nes nepavyko pratęsti nuorodos galiojimo (DB klaida) */
+  expiryFailed: number;
   errors: string[];
 }
 
 export async function sendOverdueDeclarationReminders(
   memberIds: string[],
-  channel: ChannelChoice = "both"
+  channel: ChannelChoice = "both",
+  expiresAtInput?: string
 ) {
   const supabase = createServerSupabaseClient();
   const auth = await requireAdmin(supabase);
@@ -160,6 +260,10 @@ export async function sendOverdueDeclarationReminders(
   if (!memberIds || memberIds.length === 0) {
     return { success: false as const, error: "Nepasirinkti nariai" };
   }
+
+  // Be aiškiai nurodytos datos galioja numatytasis kampanijos langas
+  const expiry = resolveExpiresAt(expiresAtInput ?? defaultExpiresAtDate());
+  if ("error" in expiry) return { success: false as const, error: expiry.error };
 
   // Gauname pilnus skolininkų duomenis + filtruojame pagal pasirinktus ID'us
   const { members: allDebtors } = await getMembersWithDebts();
@@ -179,6 +283,7 @@ export async function sendOverdueDeclarationReminders(
     emailErrors: 0,
     smsErrors: 0,
     skipped: 0,
+    expiryFailed: 0,
     errors: [],
   };
 
@@ -199,7 +304,7 @@ export async function sendOverdueDeclarationReminders(
       token = generateToken();
       const { error: insErr } = await supabase
         .from("membership_declarations")
-        .insert({ member_id: m.id, token, expires_at: EXPIRES_AT });
+        .insert({ member_id: m.id, token, expires_at: expiry.iso });
       if (insErr) {
         result.errors.push(`${m.first_name} ${m.last_name}: ${insErr.message}`);
         continue;
@@ -208,6 +313,16 @@ export async function sendOverdueDeclarationReminders(
       // Jau atsakė – nereikia kartoti
       result.skipped++;
       continue;
+    } else {
+      // Senas tokenas – nuoroda turi galioti iki šios kampanijos pabaigos
+      const extended = await extendDeclarationExpiry(supabase, token, expiry.iso);
+      if (!extended) {
+        result.expiryFailed++;
+        result.errors.push(
+          `${m.first_name} ${m.last_name}: nepavyko pratęsti nuorodos galiojimo`
+        );
+        continue;
+      }
     }
 
     const url = `${baseUrl}/deklaracija/${token}`;
@@ -249,10 +364,12 @@ export async function sendOverdueDeclarationReminders(
       const normalized = normalizePhone(m.phone);
       if (normalized) {
         // ~135 simb. – telpa į 1 SMS (GSM-7, be lt diakritikos)
-        const text =
-          m.language === "en"
-            ? `Hello, ${m.first_name}. Overdue membership fee ${totalEur} EUR. Confirm your membership: ${url}`
-            : `Sveiki, ${m.first_name}. Pradelstas nario mokestis ${totalEur} EUR. Patvirtinkit naryste: ${url}`;
+        const text = overdueDeclarationSmsText({
+          locale: m.language === "en" ? "en" : "lt",
+          firstName: m.first_name,
+          totalEur,
+          url,
+        });
         const r = await sendSms(m.phone, text);
         await logNotification(supabase, {
           memberId: m.id,
@@ -302,6 +419,7 @@ export async function sendOverdueDeclarationReminders(
       email_errors: result.emailErrors,
       sms_errors: result.smsErrors,
       skipped: result.skipped,
+      expiry_failed: result.expiryFailed,
     },
   });
 
@@ -313,11 +431,18 @@ export async function sendOverdueDeclarationReminders(
 // =============================================================================
 // Pakartotinis SMS – tik nesumokėjusiems / neatsakiusiems
 // =============================================================================
-export async function resendDeclarationSms() {
+export async function resendDeclarationSms(expiresAtInput: string) {
   const supabase = createServerSupabaseClient();
   // SAUGUMAS: siunčia masinį SMS (Infobip kaina) – privalo būti admin (žr. authz)
   const auth = await requireAdmin(supabase);
-  if (auth.error) return { success: false as const, smsSent: 0, errors: [auth.error] };
+  if (auth.error) {
+    return { success: false as const, smsSent: 0, skipped: 0, expiryFailed: 0, errors: [auth.error] };
+  }
+
+  const expiry = resolveExpiresAt(expiresAtInput);
+  if ("error" in expiry) {
+    return { success: false as const, smsSent: 0, skipped: 0, expiryFailed: 0, errors: [expiry.error] };
+  }
 
   const { data: tokens } = await supabase
     .from("membership_declarations")
@@ -325,23 +450,48 @@ export async function resendDeclarationSms() {
     .is("submitted_at", null);
 
   if (!tokens || tokens.length === 0) {
-    return { success: true as const, smsSent: 0, errors: [] };
+    return { success: true as const, smsSent: 0, skipped: 0, expiryFailed: 0, errors: [] };
   }
+
+  // Skolininkų aibė perskaičiuojama KIEKVIENAM siuntimui (kaip
+  // `sendOverdueDeclarationReminders`). Narys, kuris jau sumokėjo, bet formos
+  // nepateikė, priminimo apie skolą nebegauna, o jo tokenas nebepratęsiamas –
+  // kitaip veikianti nuoroda leistų keisti jo deklaraciją ir kontaktus.
+  const { members: debtors } = await getMembersWithDebts();
+  const debtorIds = new Set(debtors.map((m) => m.id));
 
   const baseUrl = getBaseUrl();
   let smsSent = 0;
+  let skipped = 0;
+  let expiryFailed = 0;
   const errors: string[] = [];
 
   const batchId = crypto.randomUUID();
   for (const t of tokens) {
     const member = Array.isArray(t.members) ? t.members[0] : t.members;
-    if (!member?.phone) continue;
+    if (!member?.phone) {
+      skipped++;
+      continue;
+    }
+    if (!debtorIds.has(t.member_id as string)) {
+      skipped++;
+      continue;
+    }
+
+    // Priminimo nuoroda turi galioti – pratęsiam iki šios kampanijos pabaigos
+    const extended = await extendDeclarationExpiry(supabase, t.token as string, expiry.iso);
+    if (!extended) {
+      expiryFailed++;
+      errors.push(`${member.first_name} ${member.last_name}: nepavyko pratęsti nuorodos galiojimo`);
+      continue;
+    }
 
     const url = `${baseUrl}/deklaracija/${t.token}`;
-    const text =
-      (member as { language?: string }).language === "en"
-        ? `Hello, ${member.first_name}. A reminder about your membership fee - please confirm your details: ${url}`
-        : `Sveiki, ${member.first_name}. Priminam del nario mokescio - patvirtinkit duomenis: ${url}`;
+    const text = declarationReminderSmsText({
+      locale: (member as { language?: string }).language === "en" ? "en" : "lt",
+      firstName: member.first_name,
+      url,
+    });
 
     const r = await sendSms(member.phone, text);
     await logNotification(supabase, {
@@ -361,7 +511,7 @@ export async function resendDeclarationSms() {
   }
 
   revalidatePath("/admin/nariai/deklaracija");
-  return { success: true as const, smsSent, errors };
+  return { success: true as const, smsSent, skipped, expiryFailed, errors };
 }
 
 // =============================================================================

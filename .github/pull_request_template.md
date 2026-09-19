@@ -10,6 +10,6 @@
 
 ## Codex recenzija (Darbo taisyklė Nr. 1)
 
-- [ ] Codex recenzija **baigta** paskutiniam commit'ui (draft'ui – `@codex review` po kiekvieno push'o; ready – automatinė; 👀 dar ne rezultatas)
+- [ ] Codex recenzija **baigta** paskutiniam commit'ui (draft'ui – atskiras rankinis kvietimas po kiekvieno push'o; ready – automatinė; 👀 dar ne rezultatas)
 - [ ] Codex pastabų nėra (👍) – tik tada galima merginti
 - Ratai: 0/3

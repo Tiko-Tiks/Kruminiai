@@ -8,7 +8,7 @@ import { revalidateMeetingPaths } from "@/lib/revalidate";
 import { z } from "zod";
 import { ACTIVE_MEMBER_STATUSES } from "@/lib/constants";
 import { isCouncilMeeting, suggestedQuorum } from "@/lib/quorum";
-import { vilniusLocalToIso } from "@/lib/utils";
+import { vilniusLocalToIso, isoToVilniusLocal } from "@/lib/utils";
 
 const meetingSchema = z.object({
   title: z.string().min(1, "Pavadinimas privalomas"),
@@ -17,6 +17,21 @@ const meetingSchema = z.object({
   meeting_time: z.string().min(1, "Laikas privalomas"),
   location: z.string().min(1, "Vieta privaloma"),
   meeting_type: z.enum(["visuotinis", "neeilinis", "pakartotinis", "valdybos"]),
+  previous_meeting_id: z.string().optional(),
+  notice_channels: z.array(z.enum(['web','facebook','email','paper','rc'])).optional(),
+  notice_reference: z.string().trim().max(1000).optional(),
+  notice_day_rule: z.enum(['','vilnius_calendar','elapsed_hours']).optional(),
+  notice_day_reference: z.string().trim().max(1000).optional(),
+  repeat_notice_days: z.preprocess(v => v === '' || v === undefined ? undefined : Number(v), z.number().int().nonnegative().optional()),
+  repeat_notice_reference: z.string().trim().max(1000).optional(),
+  convening_date: z.string().optional(),
+  convening_total_members: z.preprocess(v => v === '' || v === undefined ? undefined : Number(v), z.number().int().positive().optional()),
+  convening_same_day_reference: z.string().optional(),
+  convening_kind: z.enum(['', 'council', 'members']).optional(),
+  convening_reference: z.string().trim().max(1000).optional(),
+  convening_requesters: z.array(z.string().uuid()).optional(),
+  majority_rule: z.enum(["", "for_against", "participants"]).optional(),
+  majority_reference: z.string().trim().max(1000).optional(),
   protocol_number: z.string().optional().or(z.literal("")),
   early_voting_start: z.string().optional().or(z.literal("")),
   early_voting_end: z.string().optional().or(z.literal("")),
@@ -45,13 +60,17 @@ export async function getMeeting(id: string) {
 
 export async function createMeeting(formData: FormData) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: { _form: [auth.error] } };
+  const user = auth.user;
 
   const raw = Object.fromEntries(formData.entries());
-  const parsed = meetingSchema.safeParse(raw);
+  const parsed = meetingSchema.safeParse({ ...raw, notice_channels: formData.getAll("notice_channels"), convening_requesters: formData.getAll("convening_requesters") });
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors };
   }
+
+  if (parsed.data.convening_date && (parsed.data.convening_date > parsed.data.meeting_date || parsed.data.convening_date > new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vilnius" }))) return {error:{_form:["Sušaukimo sprendimas arba reikalavimas turi būti iki susirinkimo; jo data negali būti ateityje."]}};
 
   // Formose laikas įvedamas VILNIAUS laiku – konvertuojam į UTC instantą.
   // Be to naivus „…T18:00:00" Postgres'e (UTC zona) virsdavo 18:00 UTC ir
@@ -60,6 +79,21 @@ export async function createMeeting(formData: FormData) {
     `${parsed.data.meeting_date}T${parsed.data.meeting_time}`
   );
   const isRepeat = parsed.data.meeting_type === "pakartotinis";
+  let inheritedAgenda: Array<{ id: string; title: string; description: string | null; resolution_number: number; is_procedural: boolean; procedural_type: string | null; requires_qualified_majority: boolean; decision_type: string | null }> = [];
+  if (isRepeat) {
+    if (!parsed.data.previous_meeting_id) return { error: { _form: ["Pasirinkite dėl kvorumo neįvykusį susirinkimą."] } };
+    const { data: previous, error: previousError } = await supabase.from("meetings").select("*").eq("id", parsed.data.previous_meeting_id).single();
+    const { data: priorAttendance, error: attendanceError } = await supabase.from("meeting_attendance").select("member_id").eq("meeting_id", parsed.data.previous_meeting_id);
+    if (previousError || attendanceError || !previous || !priorAttendance || previous.status !== "baigtas" ||
+        !["visuotinis", "neeilinis"].includes(previous.meeting_type) || previous.total_members_at_time <= 0 ||
+        new Set(priorAttendance.map(a => a.member_id)).size > previous.total_members_at_time / 2 ||
+        new Date(previous.meeting_date) >= new Date(meetingDateTime)) {
+      return { error: { _form: ["Pakartotinio pagrindas turi būti anksčiau pasibaigęs, kvorumo nesurinkęs Visuotinis susirinkimas."] } };
+    }
+    const { data: agenda, error: agendaError } = await supabase.from("resolutions").select("id, title, description, resolution_number, is_procedural, procedural_type, requires_qualified_majority, decision_type").eq("meeting_id", previous.id);
+    if (agendaError || !agenda?.length) return { error: { _form: ["Nepavyko perskaityti ankstesnės darbotvarkės."] } };
+    inheritedAgenda = agenda;
+  }
 
   // Kvorumo bazė priklauso nuo organo (žr. `src/lib/quorum.ts`):
   //   • Tarybos posėdis  – dabartiniai Tarybos nariai (5.5 p.)
@@ -74,6 +108,21 @@ export async function createMeeting(formData: FormData) {
     location: parsed.data.location,
     meeting_type: parsed.data.meeting_type,
     protocol_number: parsed.data.protocol_number || null,
+    previous_meeting_id: parsed.data.meeting_type === "pakartotinis" ? parsed.data.previous_meeting_id || null : null,
+    notice_channels: parsed.data.notice_channels || [],
+    notice_reference: parsed.data.notice_reference || null,
+    notice_day_rule: parsed.data.notice_day_rule || null,
+    notice_day_reference: parsed.data.notice_day_reference || null,
+    repeat_notice_days: parsed.data.repeat_notice_days ?? null,
+    repeat_notice_reference: parsed.data.repeat_notice_reference || null,
+    convening_date: parsed.data.convening_date || null,
+    convening_total_members: parsed.data.convening_total_members ?? null,
+    convening_same_day_reference: parsed.data.convening_same_day_reference?.trim() || null,
+    convening_kind: parsed.data.convening_kind || null,
+    convening_reference: parsed.data.convening_reference || null,
+    convening_requesters: parsed.data.convening_requesters || [],
+    majority_rule: parsed.data.majority_rule || null,
+    majority_reference: parsed.data.majority_reference || null,
     total_members_at_time: totalMembers,
     quorum_required: quorumRequired,
     is_repeat: isRepeat,
@@ -106,6 +155,7 @@ export async function createMeeting(formData: FormData) {
       title: "Dėl susirinkimo pirmininko ir sekretoriaus rinkimų",
       resolution_number: 1,
       is_procedural: true,
+      decision_type: "ordinary",
       procedural_type: "pirmininkas_sekretorius",
       created_by: user?.id ?? null,
     },
@@ -114,6 +164,7 @@ export async function createMeeting(formData: FormData) {
       title: "Susirinkimo pranešimo tinkamumo patvirtinimas",
       resolution_number: 2,
       is_procedural: true,
+      decision_type: "ordinary",
       procedural_type: "pranesimas",
       created_by: user?.id ?? null,
     },
@@ -122,12 +173,38 @@ export async function createMeeting(formData: FormData) {
       title: "Susirinkimo darbotvarkės tvirtinimas",
       resolution_number: 3,
       is_procedural: true,
+      decision_type: "ordinary",
       procedural_type: "darbotvarke",
       created_by: user?.id ?? null,
     },
   ];
 
-  await supabase.from("resolutions").insert(proceduralItems);
+  const agendaItems = isRepeat ? inheritedAgenda.map(({ id, ...item }) => ({
+    ...item, meeting_id: data.id, source_resolution_id: id, created_by: user?.id ?? null,
+  })) : proceduralItems;
+  const { data: createdAgenda, error: agendaError } = await supabase.from("resolutions").insert(agendaItems).select("id, source_resolution_id");
+  if (agendaError) {
+    // Compensate the new draft; an incomplete repeat agenda must never look complete.
+    await supabase.from("meetings").delete().eq("id", data.id);
+    return { error: { _form: [agendaError.message] } };
+  }
+
+  if (isRepeat) {
+    const {data: links,error: linksError}=await supabase.from("resolution_documents").select("resolution_id, document_id, sort_order").in("resolution_id",inheritedAgenda.map(r=>r.id));
+    const sourceToNew=new Map((createdAgenda || []).map(r=>[r.source_resolution_id,r.id]));
+    let attachmentError=linksError?.message;
+    if (!attachmentError && links?.length) {
+      if(links.some(link=>!sourceToNew.has(link.resolution_id))) attachmentError="Nepavyko susieti paveldėtų priedų";
+      else {
+        const {error}=await supabase.from("resolution_documents").insert(links.map(link=>({...link,resolution_id:sourceToNew.get(link.resolution_id)})));
+        attachmentError=error?.message;
+      }
+    }
+    if(attachmentError) {
+      await supabase.from("meetings").delete().eq("id",data.id);
+      return {error:{_form:[attachmentError]}};
+    }
+  }
 
   await logAudit(supabase, {
     userId: user?.id ?? null,
@@ -143,26 +220,51 @@ export async function createMeeting(formData: FormData) {
 
 export async function updateMeeting(id: string, formData: FormData) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: { _form: [auth.error] } };
+  const user = auth.user;
 
   const raw = Object.fromEntries(formData.entries());
-  const parsed = meetingSchema.safeParse(raw);
+  const parsed = meetingSchema.safeParse({ ...raw, notice_channels: formData.getAll("notice_channels"), convening_requesters: formData.getAll("convening_requesters") });
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors };
   }
+
+  if (parsed.data.convening_date && (parsed.data.convening_date > parsed.data.meeting_date || parsed.data.convening_date > new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vilnius" }))) return {error:{_form:["Sušaukimo sprendimas arba reikalavimas turi būti iki susirinkimo; jo data negali būti ateityje."]}};
 
   const { data: oldData } = await supabase.from("meetings").select("*").eq("id", id).single();
   const meetingDateTime = vilniusLocalToIso(
     `${parsed.data.meeting_date}T${parsed.data.meeting_time}`
   );
 
+  if (!oldData) return { error: { _form: ["Susirinkimas nerastas"] } };
+  if (oldData.meeting_type !== parsed.data.meeting_type) {
+    return { error: { _form: ["Susirinkimo tipo keisti negalima. Sukurkite naują reikiamo tipo susirinkimą, kad būtų nustatyti jo nariai ir darbotvarkė."] } };
+  }
   const values = {
+    is_repeat: parsed.data.meeting_type === "pakartotinis",
+    quorum_required: suggestedQuorum(parsed.data.meeting_type, oldData.total_members_at_time),
     title: parsed.data.title,
     description: parsed.data.description || null,
     meeting_date: meetingDateTime,
     location: parsed.data.location,
     meeting_type: parsed.data.meeting_type,
     protocol_number: parsed.data.protocol_number || null,
+    previous_meeting_id: parsed.data.meeting_type === "pakartotinis" ? parsed.data.previous_meeting_id || null : null,
+    notice_channels: parsed.data.notice_channels || [],
+    notice_reference: parsed.data.notice_reference || null,
+    notice_day_rule: parsed.data.notice_day_rule || null,
+    notice_day_reference: parsed.data.notice_day_reference || null,
+    repeat_notice_days: parsed.data.repeat_notice_days ?? null,
+    repeat_notice_reference: parsed.data.repeat_notice_reference || null,
+    convening_date: parsed.data.convening_date || null,
+    convening_total_members: parsed.data.convening_total_members ?? null,
+    convening_same_day_reference: parsed.data.convening_same_day_reference?.trim() || null,
+    convening_kind: parsed.data.convening_kind || null,
+    convening_reference: parsed.data.convening_reference || null,
+    convening_requesters: parsed.data.convening_requesters || [],
+    majority_rule: parsed.data.majority_rule || null,
+    majority_reference: parsed.data.majority_reference || null,
     early_voting_start: parsed.data.early_voting_start
       ? vilniusLocalToIso(parsed.data.early_voting_start)
       : null,
@@ -189,8 +291,13 @@ export async function updateMeeting(id: string, formData: FormData) {
 
 export async function updateMeetingStatus(id: string, status: string) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
 
+  const {data:old,error:readError}=await supabase.from("meetings").select("status").eq("id",id).single();
+  if(readError || !old) return {error:"Susirinkimas nerastas"};
+  if(['baigtas','atšauktas'].includes(old.status) && status!==old.status) return {error:"Uždaryto susirinkimo atidaryti negalima. Taisymui reikia atskiro dokumentuoto proceso."};
   const updateData: Record<string, unknown> = { status };
 
   // Kai baigiamas – fiksuoti pabaigos laiką
@@ -215,12 +322,24 @@ export async function updateMeetingStatus(id: string, status: string) {
 
 export async function updateMeetingProtocolInfo(
   id: string,
-  data: { chairperson_name?: string; secretary_name?: string; agenda_approved?: boolean }
+  data: { chairperson_member_id?: string; chairperson_name?: string; secretary_name?: string; agenda_approved?: boolean }
 ) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
 
-  const { error } = await supabase.from("meetings").update(data).eq("id", id);
+  const parsed = z.object({chairperson_member_id:z.string().uuid().optional(),chairperson_name:z.string().optional(),secretary_name:z.string().optional(),agenda_approved:z.boolean().optional()}).strict().safeParse(data);
+  if (!parsed.success) return { error: "Neteisingi susirinkimo pareigūnų duomenys" };
+  const values = parsed.data;
+  if (values.chairperson_name !== undefined || values.chairperson_member_id !== undefined) {
+    if (!values.chairperson_member_id) return { error: "Pasirinkite pirmininką iš dalyvių sąrašo" };
+    const { data: attendance, error: attendanceError } = await supabase.from("meeting_attendance").select("member_id").eq("meeting_id", id).eq("member_id", values.chairperson_member_id).maybeSingle();
+    const { data: member, error: memberError } = await supabase.from("members").select("first_name,last_name").eq("id", values.chairperson_member_id).single();
+    if (attendanceError || memberError || !attendance || !member) return { error: "Pirmininkas turi būti registruotas dalyvis" };
+    values.chairperson_name = `${member.first_name} ${member.last_name}`;
+  }
+  const { error } = await supabase.from("meetings").update(values).eq("id", id);
   if (error) return { error: error.message };
 
   await logAudit(supabase, {
@@ -237,7 +356,9 @@ export async function updateMeetingProtocolInfo(
 
 export async function deleteMeeting(id: string) {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAdmin(supabase);
+  if (auth.error) return { error: auth.error };
+  const user = auth.user;
 
   const { data: oldData } = await supabase.from("meetings").select("*").eq("id", id).single();
 
@@ -293,13 +414,15 @@ async function fetchEligibleAttendees(meetingType: string): Promise<EligibleAtte
   if (isCouncilMeeting(meetingType)) {
     const { data, error } = await supabase
       .from("community_management")
-      .select("role, sort_order, member:members(id, first_name, last_name, status)")
+      .select("role, term_start, sort_order, member:members(id, first_name, last_name, status)")
       .eq("is_current", true)
+      .in("role", ["pirmininkas", "tarybos_narys"])
       .order("sort_order", { ascending: true });
     if (error) throw error;
 
     const rows = (data || []) as Array<{
       role: string;
+      term_start: string | null;
       member:
         | { id: string; first_name: string; last_name: string; status: string }
         | { id: string; first_name: string; last_name: string; status: string }[]
@@ -308,7 +431,9 @@ async function fetchEligibleAttendees(meetingType: string): Promise<EligibleAtte
 
     const seen = new Set<string>();
     const result: EligibleAttendee[] = [];
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vilnius" });
     for (const row of rows) {
+      if (!row.term_start || row.term_start > today) continue;
       const m = Array.isArray(row.member) ? row.member[0] : row.member;
       if (!m) continue;
       if (!ACTIVE_MEMBER_STATUSES.includes(m.status)) continue;
@@ -348,7 +473,19 @@ async function countEligibleAttendees(meetingType: string): Promise<number> {
 }
 
 /** Registracijos sąrašas posėdžio admin ekranui. */
-export async function getEligibleAttendees(meetingType: string): Promise<EligibleAttendee[]> {
+export async function getEligibleAttendees(meetingType: string, meetingId?: string): Promise<EligibleAttendee[]> {
+  if(meetingId) {
+    const db=createServerSupabaseClient();
+    const {data:m,error:me}=await db.from("meetings").select("electorate_snapshot").eq("id",meetingId).single();
+    if(me) throw me;
+    if(m?.electorate_snapshot) {
+      const ids=m.electorate_snapshot.member_ids || [];
+      if(!ids.length) return [];
+      const {data,error}=await db.from("members").select("id,first_name,last_name,status").in("id",ids).order("last_name");
+      if(error) throw error;
+      return (data || []).map(member=>({...member,role:null}));
+    }
+  }
   return fetchEligibleAttendees(meetingType);
 }
 
@@ -473,7 +610,7 @@ export async function removeAttendance(meetingId: string, memberId: string) {
  */
 export async function updateMeetingQuorum(
   meetingId: string,
-  values: { total_members_at_time: number; quorum_required: number }
+  values: { total_members_at_time: number; quorum_required: number; electorate_reference?: string; electorate_member_ids?: string[]; council_reference?: string }
 ) {
   const supabase = createServerSupabaseClient();
   const auth = await requireAdmin(supabase);
@@ -483,6 +620,9 @@ export async function updateMeetingQuorum(
     .object({
       total_members_at_time: z.number().int().min(0).max(100000),
       quorum_required: z.number().int().min(0).max(100000),
+      council_reference: z.string().trim().max(1000).optional(),
+      electorate_reference: z.string().trim().max(1000).optional(),
+      electorate_member_ids: z.array(z.string().uuid()).optional(),
     })
     .safeParse(values);
   if (!parsed.success) return { error: "Neteisingi kvorumo skaičiai" };
@@ -492,11 +632,21 @@ export async function updateMeetingQuorum(
 
   const { data: oldData } = await supabase
     .from("meetings")
-    .select("total_members_at_time, quorum_required")
+    .select("meeting_type, meeting_date, total_members_at_time, quorum_required")
     .eq("id", meetingId)
     .single();
 
-  const { error } = await supabase.from("meetings").update(parsed.data).eq("id", meetingId);
+  if (!oldData) return { error: "Susirinkimas nerastas" };
+  if (parsed.data.total_members_at_time <= 0 || parsed.data.quorum_required !== suggestedQuorum(oldData.meeting_type, parsed.data.total_members_at_time)) {
+    return { error: "Kvorumas turi atitikti įstatų formulę: daugiau kaip pusė narių; pakartotinio susirinkimo išimtis tikrinama atskirai." };
+  }
+  const {electorate_reference, electorate_member_ids, council_reference, ...counts} = parsed.data;
+  if (electorate_reference && isoToVilniusLocal(oldData.meeting_date).slice(0,10) >= isoToVilniusLocal(new Date()).slice(0,10)) {
+    return {error:"Dokumentinis narių skaičius leidžiamas tik istoriniam susirinkimui. Susirinkimo dieną užfiksuokite registrą."};
+  }
+  const { error } = await supabase.from("meetings").update({...counts,
+    ...(electorate_reference ? {electorate_snapshot:{total:counts.total_members_at_time,reference:electorate_reference,council_reference:council_reference || null,member_ids:electorate_member_ids || []}} : {})
+  }).eq("id", meetingId);
   if (error) return { error: error.message };
 
   await logAudit(supabase, {
@@ -561,4 +711,15 @@ export async function updateMeetingEndedAt(meetingId: string, value: string) {
 
   revalidateMeetingPaths(meetingId);
   return { success: true };
+}
+
+/** Capture the register at the actual start, before testing whether quorum exists. */
+export async function captureMeetingElectorate(meetingId: string) {
+  const supabase=createServerSupabaseClient();
+  const auth=await requireAdmin(supabase);
+  if(auth.error) return {error:auth.error};
+  const {error}=await supabase.from("meetings").update({electorate_snapshot:{capture:true}}).eq("id",meetingId);
+  if(error) return {error:error.message};
+  await logAudit(supabase,{userId:auth.user?.id??null,action:"UPDATE",tableName:"meetings",recordId:meetingId,newData:{electorate_capture:true}});
+  revalidateMeetingPaths(meetingId);return {success:true};
 }

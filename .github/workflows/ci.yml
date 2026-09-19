@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  checks:
+    name: Build and checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      # Build-only placeholders; this job must not use production credentials.
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-not-a-real-key
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+    steps:
+      - name: Check out code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm test
+
+      - name: Personal data guard
+        run: npm run check:pii
+
+      - name: Fetch main for migration history check
+        run: git fetch --no-tags --depth=1 origin +refs/heads/main:refs/remotes/origin/main
+
+      - name: Migration history
+        run: npm run check:migrations
+
+      - name: Build application
+        run: npm run build
+
+      # Build generates .next/types; check them after the build has finished.
+      - name: Check TypeScript
+        run: ./node_modules/.bin/tsc --noEmit --incremental false

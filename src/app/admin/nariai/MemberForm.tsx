@@ -113,7 +113,7 @@ export function MemberForm({ member }: Props) {
               options={[
                 { value: "aktyvus", label: "Aktyvus" },
                 { value: "pasyvus", label: "Pasyvus" },
-                { value: "išstojęs", label: "Išstojęs" },
+                { value: "išstojęs", label: "Narystė pasibaigusi" },
                 { value: "garbes_narys", label: "Garbės narys" },
               ]}
             />
@@ -130,6 +130,22 @@ export function MemberForm({ member }: Props) {
               ]}
             />
           </div>
+          <fieldset className="space-y-3 border-t pt-4">
+            <legend className="font-medium">Priėmimo į bendruomenę pagrindas</legend>
+            <p className="text-sm text-gray-600">Nurodykite raštišką prašymą ir jau priimtą Tarybos sprendimą (įstatų 3.2 p.). Importuojant seną narį tinka istorinio sprendimo nuoroda.</p>
+            <Input name="application_reference" label="Raštiško prašymo data ir registracijos numeris / nuoroda" defaultValue={member?.application_reference || ""} />
+            <Input name="admission_reference" label="Tarybos protokolo numeris ir sprendimo punktas / nuoroda" defaultValue={member?.admission_reference || ""} />
+            <Input name="admission_date" label="Tarybos sprendimo data" type="date" defaultValue={member?.admission_date || ""} />
+          </fieldset>
+          <fieldset className="space-y-3 border-t pt-4">
+            <legend className="font-medium">Narystės pabaigos pagrindas</legend>
+            <p className="text-sm text-gray-600">Pildoma nutraukiant narystę. Išstojimui pakanka nario raštiško prašymo; Tarybos leidimo nereikia. Pašalinimui registruojamas Tarybos sprendimas ir nario informavimas apie teisę skųsti. Taikymo data įrašoma pagal dokumentus.</p>
+            <Select name="termination_kind" label="Narystės pabaigos būdas" defaultValue={member?.termination_kind || ""} options={[{value:"",label:"Netaikoma"},{value:"withdrawal",label:"Nario išstojimas"},{value:"expulsion",label:"Tarybos sprendimas pašalinti"}]} />
+            <Input name="termination_reference" label="Raštiško išstojimo prašymo arba Tarybos sprendimo nuoroda" defaultValue={member?.termination_reference || ""} />
+            <Input name="termination_date" label="Dokumentuose nustatyta narystės pabaigos data" type="date" defaultValue={member?.termination_date || ""} />
+            <Select name="expulsion_ground" label="Pašalinimo pagrindas (tik Tarybos sprendimui)" defaultValue={member?.expulsion_ground || ""} options={[{value:"",label:"Netaikoma"},{value:"3.4.1",label:"Įstatų 3.4.1 p."},{value:"3.4.2",label:"Įstatų 3.4.2 p."},{value:"3.4.3",label:"Įstatų 3.4.3 p."}]} />
+            <Input name="appeal_reference" label="Pranešimo apie pašalinimą ir teisę skųsti artimiausiam Visuotiniam susirinkimui įrodymas" defaultValue={member?.appeal_reference || ""} />
+          </fieldset>
           <Textarea
             id="notes"
             name="notes"
